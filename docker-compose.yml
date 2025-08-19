@@ -1,0 +1,11 @@
+services:
+  backend:
+    extends:
+      file: backend_dir/docker-compose.yml
+      service: backend
+
+  webgps:
+    extends:
+      file: front_dir/docker-compose.yml
+      service: webgps
+    
