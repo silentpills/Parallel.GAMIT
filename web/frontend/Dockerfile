@@ -1,5 +1,11 @@
 FROM node:22 AS build
 
+# Add build argument for the API URL
+ARG VITE_API_URL
+
+# Set it as an environment variable
+ENV VITE_API_URL=$VITE_API_URL
+
 WORKDIR /app
 COPY . /app
 COPY .env /app/.env
