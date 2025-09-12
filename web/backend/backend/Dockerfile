@@ -33,8 +33,7 @@ COPY . /code/
 RUN mkdir -p /var/log/gunicorn && chmod 755 /var/log/gunicorn
 
 # Now install requirements using uv
-RUN uv pip install --system --no-cache-dir -r requirements.txt && \
-    cd backend_django_project && python manage.py migrate
+RUN uv pip install --system --no-cache-dir -r requirements.txt
 
 COPY ./supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 

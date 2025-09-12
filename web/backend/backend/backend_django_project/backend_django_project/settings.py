@@ -169,7 +169,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'backend_django_project.urls'
 
-PROJECT_PATH = os.path.abspath(os.path.dirname(__name__))
+PROJECT_PATH = str(BASE_DIR)
 
 TEMPLATES = [
     {
