@@ -18,6 +18,7 @@ Skip this part if you are using an existing db
 8. set pg_hba.conf file properly
 
 ### Procedure
+
 1. Define a conf file named ".env" inside the root folder following '.env.sample'
 2. Define a conf file named "gnss_data.cfg" following the example under 'backend/' following 'backend/conf_example.txt'
 3. From the root directory:

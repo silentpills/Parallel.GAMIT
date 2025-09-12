@@ -13,22 +13,27 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     build-essential \
     libffi-dev \
-    libssl-dev
+    libssl-dev \
+    gdal-bin \
+    libgdal-dev
 
 # Create user
 RUN groupadd -g ${GROUP_ID_TO_SAVE_FILES} dummy-user && \
     useradd -u ${USER_ID_TO_SAVE_FILES} -g dummy-user -m dummy-user
 
-# Install wheel BEFORE copying the code
-RUN pip install --upgrade pip && \
-    pip install wheel setuptools --upgrade
+# Install uv using the recommended installer and add it to the PATH
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+# Install/upgrade pip
+# RUN pip install --upgrade pip
 
 WORKDIR /code
 COPY . /code/
 RUN mkdir -p /var/log/gunicorn && chmod 755 /var/log/gunicorn
 
-# Now install requirements
-RUN pip install --no-cache-dir -r requirements.txt && \
+# Now install requirements using uv
+RUN uv pip install --system --no-cache-dir -r requirements.txt && \
     cd backend_django_project && python manage.py migrate
 
 COPY ./supervisord.conf /etc/supervisor/conf.d/supervisord.conf
