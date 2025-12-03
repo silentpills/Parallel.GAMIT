@@ -212,10 +212,10 @@ def overcluster(labels, coordinates, metric='euclidean', overlap=4,
     ridx = np.array(list(range(len(labels))))
     output = np.zeros((n_clusters, len(labels)), dtype=np.bool_)
 
-    for cluster in clusters:
+    for row_idx, cluster in enumerate(clusters):
         # Define current cluster membership (and non-membership)
         members = labels == cluster
-        output[cluster, members] = True
+        output[row_idx, members] = True
         nonmembers = ~members
 
         # Implements 'edge' method of overlap expansion
@@ -223,7 +223,7 @@ def overcluster(labels, coordinates, metric='euclidean', overlap=4,
         nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree',
                                 metric=metric).fit(coordinates[members])
         if method == 'dynamic':
-            coverage = len(np.unique(labels[output[cluster, :]]))
+            coverage = len(np.unique(labels[output[row_idx, :]]))
         else:  # method == 'static' or 'paired'
             coverage = 1
 
@@ -247,8 +247,8 @@ def overcluster(labels, coordinates, metric='euclidean', overlap=4,
                 rdists[rdists >= rejection_threshold] = 0
                 far_member = ridx[remove][np.argmax(rdists)]
                 # Add near / far points to cluster for overlap
-                output[cluster, new_member] = 1
-                output[cluster, far_member] = 1
+                output[row_idx, new_member] = 1
+                output[row_idx, far_member] = 1
                 # Remove captured cluster from further consideration
                 nonmembers[remove] = False
                 # Continue
@@ -261,15 +261,15 @@ def overcluster(labels, coordinates, metric='euclidean', overlap=4,
                 # Remove point from future coordinate distance queries
                 nonmembers[new_member] = 0
                 # Add to member label array
-                output[cluster, new_member] = 1
+                output[row_idx, new_member] = 1
                 if method == 'dynamic':
                     # Update current count of overclustered neighbors
-                    coverage = len(np.unique(labels[output[cluster, :]]))
+                    coverage = len(np.unique(labels[output[row_idx, :]]))
                 elif method == 'static':
                     # Update current point expansion count
                     coverage += 1
                 # Check if we've exceeded our overlap allotment...
-                if sum(labels[output[cluster, :]] == nm_label) >= nmax:
+                if sum(labels[output[row_idx, :]] == nm_label) >= nmax:
                     # ...if so, remove entire neighboring cluster
                     remove = nm_label == labels
                     nonmembers[remove] = False
