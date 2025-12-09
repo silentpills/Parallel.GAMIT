@@ -9,6 +9,7 @@ version = "1.2.36"
 description = "Parallel.GAMIT"
 repository = "https://github.com/demiangomez/Parallel.GAMIT"
 authors = ["Demian Gomez"]
+license = "BSD-3-Clause"
 
 [package.build]
 backend = { name = "pixi-build-python", version = "*" }
@@ -57,4 +58,4 @@ no-build-isolation = ["pgamit"]
 # check-external = "which gfzrnx && which crx2rnx && which gpspace && which sh_gamit"
 # pgamit = "pgamit --help"
 # plot = "PlotETM.py <sitecode>"
-
+test = { cmd = "pytest" }
