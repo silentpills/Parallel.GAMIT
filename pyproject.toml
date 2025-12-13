@@ -66,3 +66,10 @@ dependencies = [
 packages = ["pgamit"]
 
 [tool.setuptools_scm]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --ignore=web --ignore=docs_legacy --ignore=archive"
+testpaths = [
+    "pgamit/tests",
+]

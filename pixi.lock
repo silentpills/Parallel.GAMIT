@@ -6742,7 +6742,7 @@ packages:
   - python *
   license: BSD-3-Clause
   input:
-    hash: f21b8291d21032e6e61f2021c9e15e8dbe72b966406c23159d1dfeab25750a87
+    hash: 41c06514bc1c37709b34330ccb8b06f39379650bef116123ed2ba4f5b77016d3
     globs:
     - pyproject.toml
 - conda: https://conda.anaconda.org/conda-forge/linux-64/pillow-11.3.0-py310h7e6dc6c_0.conda
