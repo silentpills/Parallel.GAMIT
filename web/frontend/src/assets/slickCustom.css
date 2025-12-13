@@ -1,0 +1,18 @@
+.slick-track {
+    display: flex !important;
+    align-items: center !important;
+}
+
+.slick-slide {
+    height: auto;
+}
+  
+.slick-prev, .slick-next {
+    background-color: #555;
+    border-radius: 120px;
+}
+
+.slick-prev:active, .slick-next:active {
+    background-color: #555; /* Fondo más claro al hacer hover */
+    border-radius: 120px;
+}

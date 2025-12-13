@@ -6,6 +6,14 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Editor directories and files
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
 # C extensions
 *.so
 
@@ -26,6 +34,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+.mypy_cache/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -78,7 +87,7 @@ target/
 # celery beat schedule file
 celerybeat-schedule
 
-# dotenv
+# dotenv (web config for Docker)
 .env
 
 # virtualenv
@@ -105,3 +114,30 @@ reinstall_pgamit.sh
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+
+# Frontend specific
+web/frontend/node_modules
+web/frontend/dist
+web/frontend/dist-ssr
+web/frontend/*.local
+web/frontend/.vscode/*
+!web/frontend/.vscode/extensions.json
+web/frontend/src/assets/kml
+web/frontend/.prettierrc
+web/frontend/srv/nginxdev.conf
+web/frontend/logs
+web/frontend/npm-debug.log*
+web/frontend/yarn-debug.log*
+web/frontend/yarn-error.log*
+web/frontend/pnpm-debug.log*
+web/frontend/lerna-debug.log*
+web/frontend/yarn.lock
+
+# Backend specific
+web/backend/db/data
+web/backend/db/.env
+web/backend/backend/update_gaps_status_client/__pycache__
+
+# General Logs
+logs
+*.log

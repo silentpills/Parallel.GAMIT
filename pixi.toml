@@ -15,13 +15,13 @@ license = "BSD-3-Clause"
 backend = { name = "pixi-build-python", version = "*" }
 
 [package.host-dependencies]
-python     = "==3.10"     # keep host Python in line with run-time Python
+python     = ">=3.10"     # keep host Python in line with run-time Python
 setuptools = "*"          # required by pgamit’s build backend
 wheel      = "*"          # best practice with setuptools
 pip        = "*"          # already implicitly present, declare explicitly
 
 [dependencies]
-python = "==3.10"
+python = ">=3.10"
 pgamit = { path = "." }
 basemap = "*"
 geopy = "*"
@@ -54,8 +54,23 @@ usgs-libcomcat = "*"
 # avoid pip-bin isolation for local editable install
 no-build-isolation = ["pgamit"]
 
+[environments.docs]
+features = ["docs"]
+
+[feature.docs.pypi-dependencies]
+sphinx = "*"
+myst-parser = "*"
+furo = "*"
+sphinx-copybutton = "*"
+sphinx-autobuild = "*"
+sphinx-autodoc-typehints = "*"
+sphinx-argparse-cli = "*"
+
 [tasks]
 # check-external = "which gfzrnx && which crx2rnx && which gpspace && which sh_gamit"
 # pgamit = "pgamit --help"
 # plot = "PlotETM.py <sitecode>"
 test = { cmd = "pytest" }
+"docs:serve"     = { cmd = "sphinx-autobuild -b html docs docs/_build/html" }
+"docs:build"     = { cmd = "sphinx-build -b html docs docs/_build/html" }
+"docs:linkcheck" = { cmd = "sphinx-build -b linkcheck docs docs/_build/linkcheck" }
