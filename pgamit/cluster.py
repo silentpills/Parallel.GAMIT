@@ -18,6 +18,7 @@ from sklearn.utils.validation import (_check_sample_weight, check_random_state)
 from sklearn.cluster._k_means_common import _inertia_dense, _inertia_sparse
 from sklearn.cluster._kmeans import (_BaseKMeans, _kmeans_single_elkan,
                                      _kmeans_single_lloyd)
+from sklearn.utils.validation import check_array
 
 
 def prune(OC, central_points, method='minsize'):
@@ -524,7 +525,10 @@ class BisectingQMeans(_BaseKMeans):
         self
             Fitted estimator.
         """
-        X = self._validate_data(
+        # Validate hyperparameters
+        self._validate_params()
+
+        X = check_array(
             X,
             accept_sparse="csr",
             dtype=[np.float64, np.float32],
