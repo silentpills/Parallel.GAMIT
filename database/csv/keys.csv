@@ -1,0 +1,8 @@
+"KeyCode","TotalChars","rinex_col_out","rinex_col_in","isnumeric","api_id"
+"day",2,"""ObservationDay""","ObservationDay","1",1
+"doy",3,"LPAD(""ObservationDOY""::text,3,'0')","ObservationDOY","1",2
+"gpsweek",4,NULL,NULL,"1",3
+"month",2,"""ObservationMonth""","ObservationMonth","1",4
+"network",3,"""NetworkCode""","NetworkCode","0",5
+"station",4,"""StationCode""","StationCode","0",6
+"year",4,"""ObservationYear""","ObservationYear","1",7
