@@ -6,6 +6,23 @@ services:
       args:
         USER_ID_TO_SAVE_FILES: ${USER_ID_TO_SAVE_FILES}
         GROUP_ID_TO_SAVE_FILES: ${GROUP_ID_TO_SAVE_FILES}
+    environment:
+      # PostgreSQL connection (overrides gnss_data.cfg)
+      - POSTGRES_HOST=${POSTGRES_HOST:-}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-}
+      - POSTGRES_USER=${POSTGRES_USER:-}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
+      # Django settings (overrides gnss_data.cfg)
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-}
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
+      - DJANGO_HTTPS=${DJANGO_HTTPS:-False}
+      # File upload limits
+      - MAX_SIZE_IMAGE_MB=${MAX_SIZE_IMAGE_MB:-75}
+      - MAX_SIZE_FILE_MB=${MAX_SIZE_FILE_MB:-75}
+      - RINEX_STATUS_DATE_SPAN_SECONDS=${RINEX_STATUS_DATE_SPAN_SECONDS:-1000}
+      - USER_ID_TO_SAVE_FILES=${USER_ID_TO_SAVE_FILES:-1000}
+      - GROUP_ID_TO_SAVE_FILES=${GROUP_ID_TO_SAVE_FILES:-1000}
     volumes:
       - ./web/backend/backend/backend_django_project/logs:/code/backend_django_project/logs
       - ${MEDIA_FOLDER_HOST_PATH}:/code/backend_django_project/media
