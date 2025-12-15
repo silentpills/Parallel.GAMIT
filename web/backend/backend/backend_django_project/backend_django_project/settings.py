@@ -18,9 +18,38 @@ import os
 from datetime import timedelta
 import configparser
 
-# load config file
 
+# =============================================================================
+# Configuration Helper
+# =============================================================================
+# Prefer environment variables, fall back to gnss_data.cfg config file
+
+def get_config(section, key, default=None):
+    """Get configuration value from env var or config file.
+    
+    Environment variable format: {SECTION}_{KEY} (uppercase)
+    Example: POSTGRES_DATABASE, DJANGO_SECRET_KEY
+    """
+    env_key = f"{section.upper()}_{key.upper()}"
+    env_value = os.getenv(env_key)
+    if env_value is not None:
+        return env_value
+    try:
+        return config[section][key]
+    except (KeyError, configparser.NoSectionError):
+        return default
+
+
+# Load config file as fallback
 config = configparser.ConfigParser()
+CONFIG_FILE_ABSOLUTE_PATH = os.getenv('GNSS_CONFIG_PATH', '/code/gnss_data.cfg')
+if os.path.exists(CONFIG_FILE_ABSOLUTE_PATH):
+    config.read(CONFIG_FILE_ABSOLUTE_PATH)
+
+
+# =============================================================================
+# Celery Configuration
+# =============================================================================
 
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
@@ -35,22 +64,30 @@ CACHES = {
     }
 }
 
-CONFIG_FILE_ABSOLUTE_PATH = "/code/gnss_data.cfg"
 
-config.read(CONFIG_FILE_ABSOLUTE_PATH)
+# =============================================================================
+# Upload Limits
+# =============================================================================
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 1000000000  # 1 GB
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000000
 DATA_UPLOAD_MAX_NUMBER_FILES = 1000000
 
-MAX_SIZE_IMAGE_MB = config['django']['max_size_image_mb']
+MAX_SIZE_IMAGE_MB = os.getenv('MAX_SIZE_IMAGE_MB', get_config('django', 'max_size_image_mb', '75'))
+MAX_SIZE_FILE_MB = os.getenv('MAX_SIZE_FILE_MB', get_config('django', 'max_size_file_mb', '75'))
+RINEX_STATUS_DATE_SPAN_SECONDS = os.getenv(
+    'RINEX_STATUS_DATE_SPAN_SECONDS',
+    get_config('django', 'rinex_status_date_span_seconds', '1000')
+)
 
-MAX_SIZE_FILE_MB = config['django']['max_size_file_mb']
-
-RINEX_STATUS_DATE_SPAN_SECONDS = config['django']['rinex_status_date_span_seconds']
-
-USER_ID_TO_SAVE_FILES = config['django']['user_id_to_save_files']
-GROUP_ID_TO_SAVE_FILES = config['django']['group_id_to_save_files']
+USER_ID_TO_SAVE_FILES = os.getenv(
+    'USER_ID_TO_SAVE_FILES',
+    get_config('django', 'user_id_to_save_files', '1000')
+)
+GROUP_ID_TO_SAVE_FILES = os.getenv(
+    'GROUP_ID_TO_SAVE_FILES',
+    get_config('django', 'group_id_to_save_files', '1000')
+)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -59,12 +96,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config['django']['secret_key']
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', get_config('django', 'secret_key'))
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config['django']['debug'] == "True"
+DEBUG = os.getenv('DJANGO_DEBUG', get_config('django', 'debug', 'False')) == 'True'
 
-if config['django']['https'] == "True":
+if os.getenv('DJANGO_HTTPS', get_config('django', 'https', 'False')) == 'True':
     SECURE_SSL_REDIRECT = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_HSTS_SECONDS = 31536000  # 1 year
@@ -250,20 +287,27 @@ WSGI_APPLICATION = 'backend_django_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+# Database configuration - prefer env vars, fall back to gnss_data.cfg
+_db_name = os.getenv('POSTGRES_DB', get_config('postgres', 'database', 'pgamit'))
+_db_user = os.getenv('POSTGRES_USER', get_config('postgres', 'username', 'pgamit'))
+_db_password = os.getenv('POSTGRES_PASSWORD', get_config('postgres', 'password', ''))
+_db_host = os.getenv('POSTGRES_HOST', get_config('postgres', 'hostname', 'localhost'))
+_db_port = os.getenv('POSTGRES_PORT', get_config('postgres', 'port', '5432'))
+
 DATABASES = {
     'default': {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": config['postgres']['database'],
-        "USER": config['postgres']['username'],
-        "PASSWORD": config['postgres']['password'],
-        "HOST": config['postgres']['hostname'],
-        "PORT": config['postgres']['port'],
+        "NAME": _db_name,
+        "USER": _db_user,
+        "PASSWORD": _db_password,
+        "HOST": _db_host,
+        "PORT": _db_port,
         "ATOMIC_REQUESTS": True,
         "OPTIONS": {
             "isolation_level": psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
         },
         'TEST': {
-            'NAME': 'test_' + config['postgres']['database']
+            'NAME': 'test_' + _db_name
         }
     }
 }
