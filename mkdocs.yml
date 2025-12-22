@@ -1,0 +1,35 @@
+site_name: Parallel.GAMIT
+site_description: Python wrapper for parallel GNSS processing with GAMIT
+repo_url: https://github.com/demiangomez/Parallel.GAMIT
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Installation:
+    - Overview: installation/index.md
+    - Database Setup: installation/database-setup.md
+    - Web Interface: installation/web-interface.md
+    - CLI Tools: installation/cli-tools.md
+  - Usage:
+    - CLI Reference: usage/cli-reference.md
+    - Web Interface: usage/web-interface.md
+  - Reference:
+    - Configuration: reference/configuration.md
+  - Development:
+    - Contributing: development/contributing.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
