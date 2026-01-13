@@ -18,6 +18,7 @@ jobs:
         with:
           pixi-version: latest
           cache: true
+          locked: false
 
       - name: Check formatting
         run: pixi run format:check
@@ -37,6 +38,7 @@ jobs:
         with:
           pixi-version: latest
           cache: true
+          locked: false
 
       - name: Run tests
         run: pixi run test
