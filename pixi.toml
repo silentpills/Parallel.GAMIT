@@ -37,6 +37,8 @@ scikit-learn = ">=1.1"
 scipy = "*"
 tqdm = "*"
 pytest = "*"
+pytest-cov = "*"
+ruff = "*"
 xmltodict = "*"
 scikit-image = "*"
 shapely = "*"
@@ -63,9 +65,25 @@ mkdocs-material = "*"
 pymdown-extensions = "*"
 
 [tasks]
+# Testing
+test = { cmd = "pytest" }
+"test:verbose" = { cmd = "pytest -v" }
+"test:cov" = { cmd = "pytest --cov=pgamit --cov-report=term-missing" }
+
+# Linting and formatting
+lint = { cmd = "ruff check pgamit com" }
+"lint:fix" = { cmd = "ruff check --fix pgamit com" }
+format = { cmd = "ruff format pgamit com" }
+"format:check" = { cmd = "ruff format --check pgamit com" }
+
+# Documentation
+"docs:serve" = { cmd = "mkdocs serve" }
+"docs:build" = { cmd = "mkdocs build" }
+
+# All checks (useful for CI)
+check = { cmd = "ruff check pgamit com && ruff format --check pgamit com && pytest" }
+
+# Utilities
 # check-external = "which gfzrnx && which crx2rnx && which gpspace && which sh_gamit"
 # pgamit = "pgamit --help"
 # plot = "PlotETM.py <sitecode>"
-test = { cmd = "pytest" }
-"docs:serve"     = { cmd = "mkdocs serve" }
-"docs:build"     = { cmd = "mkdocs build" }
