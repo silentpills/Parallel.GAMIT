@@ -26,6 +26,24 @@ shapely = "*"
 obspy = "*"
 pip = "*"
 
+[feature.dev.dependencies]
+# Type stubs for better IDE support and type checking
+types-tqdm = "*"
+types-requests = "*"
+types-paramiko = "*"
+types-psycopg2 = "*"
+types-setuptools = "*"
+
+[feature.dev.pypi-dependencies]
+# Type checker (using ty by Astral - makers of ruff and uv)
+ty = "*"
+
+# Git hooks framework for running checks before commits
+pre-commit = "*"
+
+# Better commit messages (conventional commits)
+commitizen = "*"
+
 [pypi-dependencies]
 country-converter = "*"
 dispy = "*"
@@ -33,8 +51,12 @@ hdf5storage = "*"
 simplekml = "*"
 usgs-libcomcat = "*"
 
-[environments.docs]
-features = ["docs"]
+[environments]
+# Default environment includes dev features for local development
+default = { features = ["dev"], solve-group = "default" }
+
+# Docs environment for building documentation
+docs = { features = ["docs"], solve-group = "default" }
 
 [feature.docs.pypi-dependencies]
 mkdocs = "*"
@@ -53,13 +75,19 @@ lint = { cmd = "ruff check pgamit com" }
 format = { cmd = "ruff format pgamit com" }
 "format:check" = { cmd = "ruff format --check pgamit com" }
 
+# Type checking
+typecheck = { cmd = "ty check --output-format github pgamit com" }
+
 # Documentation
-"docs:serve" = { cmd = "mkdocs serve" }
-"docs:build" = { cmd = "mkdocs build" }
+"docs:serve" = { cmd = "mkdocs serve", depends-on = ["docs"] }
+"docs:build" = { cmd = "mkdocs build", depends-on = ["docs"] }
+
+# Pre-commit hooks
+"precommit:install" = { cmd = "pre-commit install --install-hooks", depends-on = ["dev"] }
+"precommit:run" = { cmd = "pre-commit run --all-files", depends-on = ["dev"] }
 
 # All checks (useful for CI)
-check = { cmd = "ruff check pgamit com && ruff format --check pgamit com && pytest" }
-
+check = { cmd = "ruff check pgamit com && ruff format --check pgamit com && ty check pgamit com && pytest" }
 # Utilities
 # check-external = "which gfzrnx && which crx2rnx && which gpspace && which sh_gamit"
 # pgamit = "pgamit --help"

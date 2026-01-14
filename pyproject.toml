@@ -73,3 +73,42 @@ addopts = "-ra -q --ignore=web --ignore=docs_legacy --ignore=archive"
 testpaths = [
     "pgamit/tests",
 ]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.0.0"  # Managed by setuptools-scm
+tag_format = "v$version"
+version_scheme = "semver"
+version_provider = "scm"
+update_changelog_on_bump = true
+major_version_zero = true
+
+
+# [tool.pyright]
+# include = ["pgamit", "com"]
+# exclude = [
+#     "**/__pycache__",
+#     "**/node_modules",
+#     ".venv",
+#     "archive",
+#     "web",
+# ]
+# pythonVersion = "3.10"
+# typeCheckingMode = "basic"
+# reportMissingTypeStubs = true
+# reportMissingImports = true
+
+[tool.ty.src]
+include = ["pgamit", "com"]
+exclude = [
+  "archive",
+  "web",
+  "docs",
+  "docs_legacy",
+  ".pixi",
+  ".pytest_cache",
+  ".mypy_cache",
+]
+
+[tool.ty.environment]
+python-version = "3.10"

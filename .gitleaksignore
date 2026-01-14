@@ -1,0 +1,19 @@
+# Gitleaks ignore file
+# Use this to ignore false positives
+# Format: SHA:file:line
+# Example: 1234567890abcdef:path/to/file.py:42
+
+# Common false positives patterns
+# Archive files may contain test data
+archive/**
+
+# Lock files may contain hashes that look like secrets
+*.lock
+pixi.lock
+
+# Documentation examples
+docs/**/*.md
+
+# Configuration templates (not actual secrets)
+.env.example
+configuration_files/conf_example.txt
