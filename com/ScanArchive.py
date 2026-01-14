@@ -1026,9 +1026,8 @@ def export_station(cnn, stnlist, pyArchive, archive_path, dataless):
             export_dic['files'] = len(rinex_dict)
             export_dic['rinex'] = rinex_dict
 
-            with zf.open( '%s.%s.json' % (NetworkCode, StationCode), 'w') as json_file:
-                data_bytes = json.dumps(export_dic, indent=4, sort_keys=True, cls=Encoder).encode('utf-8')
-                json_file.write(data_bytes)
+            data_bytes = json.dumps(export_dic, indent=4, sort_keys=True, cls=Encoder).encode('utf-8')
+            zf.writestr('%s.%s.json' % (NetworkCode, StationCode), data_bytes)
 
         pbar2.close()
     pbar1.close()

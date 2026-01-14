@@ -284,7 +284,7 @@ def main():
             if stnlist[i]['StationCode'] == stnlist[j]['StationCode']:
                 print('During station selection, two identical station codes were found. '
                       'Please remove one and try again.')
-                exit()
+                exit(1)
 
     GamitConfig = pyGamitConfig.GamitConfiguration(args.session_config[0])  # type: pyGamitConfig.GamitConfiguration
 

@@ -55,5 +55,5 @@ jobs:
 
       - name: Run pip-audit on dependencies
         run: |
-          pixi exec pip-audit --desc --requirement <(pixi list --json | jq -r '.[] | select(.type == "pypi") | .name' | sed 's/$/==*/')
+          pixi exec pip-audit --desc --requirement <(pixi list --json | jq -r '.[] | select(.type == "pypi") | "\(.name)==\(.version)"')
         continue-on-error: true  # Don't fail the build, just report
