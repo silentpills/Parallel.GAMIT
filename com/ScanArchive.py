@@ -856,7 +856,7 @@ def db_checks(cnn):
                 """)
         cnn.commit_transac()
 
-    if fields['hash'].lower() != 'bigint':
+    if fields.get('hash') and fields['hash'].lower() != 'bigint':
         # check the database to modify the ppp_soln table hash column from integer to bigint
         print(' >> Converting hash column in ppp_soln to BIGINT. This operation might take a while...')
         cnn.begin_transac()
