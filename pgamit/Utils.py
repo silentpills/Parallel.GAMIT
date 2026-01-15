@@ -956,8 +956,11 @@ atx = /example/igs08_1930.atx, /example/igs08_1930.atx
 # The 'fqdn' stored in the db is really fqdn + [:port]
 def fqdn_parse(fqdn, default_port=None):
     if ':' in fqdn:
-        fqdn, port = fqdn.split(':')
-        return fqdn, int(port[1])
+        fqdn, port = fqdn.split(':', 1)
+        port = port.strip()
+        if not port:
+            raise ValueError('Port number is missing in fqdn string')
+        return fqdn, int(port)
     else:
         return fqdn, default_port
 

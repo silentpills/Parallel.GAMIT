@@ -9,6 +9,7 @@ import subprocess
 import threading
 import time
 import platform
+import shlex
 
 # app
 from pgamit import pyEvents
@@ -47,7 +48,12 @@ class command(threading.Thread):
                     cmd_stdin = file_open(os.path.join(self.cwd or '',
                                                        self.cat_file))
 
-                self.p = subprocess.Popen(self.cmd.split(),
+                if isinstance(self.cmd, str):
+                    popen_cmd = shlex.split(self.cmd)
+                else:
+                    popen_cmd = list(self.cmd)
+
+                self.p = subprocess.Popen(popen_cmd,
                                           shell     = False,
                                           stdin     = cmd_stdin,
                                           stdout    = subprocess.PIPE,
