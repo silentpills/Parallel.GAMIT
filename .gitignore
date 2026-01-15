@@ -35,6 +35,7 @@ var/
 .installed.cfg
 *.egg
 .mypy_cache/
+.ruff_cache/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -54,8 +55,9 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
-*,cover
+*.cover
 .hypothesis/
+.pytest_cache/
 
 # Translations
 *.mo
@@ -75,6 +77,9 @@ instance/
 # Sphinx documentation
 docs/_build/
 
+# MkDocs build output
+site/
+
 # PyBuilder
 target/
 
@@ -93,6 +98,10 @@ celerybeat-schedule
 # virtualenv
 venv/
 ENV/
+.venv/
+
+#pycharm
+.idea/
 
 # Spyder project settings
 .spyderproject

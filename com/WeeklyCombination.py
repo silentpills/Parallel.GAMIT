@@ -274,6 +274,9 @@ def main():
     # get the station list
     stnlist = Utils.process_stnlist(cnn, args.stnlist)
 
+    if not len(stnlist):
+        print(' >> ERROR: no stations selected. Please check the station list argument.')
+        exit(1)
     # check that the selected stations have all different station codes
     # otherwise, exit with error
     for i in range(len(stnlist) - 1):
@@ -281,7 +284,7 @@ def main():
             if stnlist[i]['StationCode'] == stnlist[j]['StationCode']:
                 print('During station selection, two identical station codes were found. '
                       'Please remove one and try again.')
-                exit()
+                exit(1)
 
     GamitConfig = pyGamitConfig.GamitConfiguration(args.session_config[0])  # type: pyGamitConfig.GamitConfiguration
 

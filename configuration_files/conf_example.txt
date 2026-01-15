@@ -1,13 +1,13 @@
 [postgres]
-hostname = 192.168.18.14
-username = gnss_data_osu
-password = dynagnss_data_osu
-database = gnss_showcase_copy
+hostname = YOUR_DB_HOSTNAME
+username = YOUR_DB_USERNAME
+password = YOUR_DB_PASSWORD
+database = YOUR_DB_NAME
 port = 5432
 
 [django]
 rinex_status_date_span_seconds = 1000
-secret_key = 0-og@hcu&cz(9#8cr^fyh#y&c2oc6$vbk_+4n_1jzf93xa#da(
+secret_key = YOUR_DJANGO_SECRET_KEY
 debug = True
 max_size_image_mb = 75
 max_size_file_mb = 75
