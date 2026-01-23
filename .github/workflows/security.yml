@@ -48,7 +48,7 @@ jobs:
         with:
           pixi-version: latest
           cache: true
-          locked: false
+          locked: true
 
       - name: Install pip-audit
         run: pixi exec pip install pip-audit

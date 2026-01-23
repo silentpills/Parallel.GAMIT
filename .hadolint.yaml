@@ -1,0 +1,10 @@
+---
+# Hadolint configuration
+# Docs: https://github.com/hadolint/hadolint#configure
+
+ignored:
+  # Pin versions in apt-get install (can be noisy for dev images)
+  - DL3008
+
+trustedRegistries:
+  - docker.io

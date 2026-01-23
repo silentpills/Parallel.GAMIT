@@ -84,19 +84,27 @@ update_changelog_on_bump = true
 major_version_zero = true
 
 
-# [tool.pyright]
-# include = ["pgamit", "com"]
-# exclude = [
-#     "**/__pycache__",
-#     "**/node_modules",
-#     ".venv",
-#     "archive",
-#     "web",
-# ]
-# pythonVersion = "3.10"
-# typeCheckingMode = "basic"
-# reportMissingTypeStubs = true
-# reportMissingImports = true
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "S",    # flake8-bandit (security)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"pgamit/tests/*" = ["S101"]  # allow assert in tests
+
+[tool.ruff.format]
+quote-style = "double"
 
 [tool.ty.src]
 include = ["pgamit", "com"]
