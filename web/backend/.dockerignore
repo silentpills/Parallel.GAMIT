@@ -1,0 +1,14 @@
+# Exclude database scripts from Docker build
+db/
+
+# Exclude documentation
+docs/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment files
+.env
+*.cfg.example
