@@ -5,6 +5,8 @@
 ignored:
   # Pin versions in apt-get install (can be noisy for dev images)
   - DL3008
+  # Multiple consecutive RUN instructions (intentional for Docker layer caching)
+  - DL3059
 
 trustedRegistries:
   - docker.io

@@ -1,23 +1,22 @@
-from datetime import datetime
 import json
+from datetime import datetime
 
 # deps
 import numpy as np
-from tqdm import tqdm
 from scipy.stats import iqr
+from tqdm import tqdm
 
 # app
-from pgamit import dbConnection
+from pgamit import dbConnection, pyETM
 from pgamit.pyDate import Date
 from pgamit.pyETM import pi
-from pgamit import pyETM
 from pgamit.Utils import (
-    lg2ct,
     ct2lg,
     file_write,
-    stationID,
     json_converter,
+    lg2ct,
     process_stnlist,
+    stationID,
 )
 
 

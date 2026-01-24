@@ -9,26 +9,26 @@ Script to produce subnetworks and calculate GAMIT execution times based on Shane
 """
 
 import argparse
-import simplekml
-import numpy as np
-from tqdm import tqdm
-import matplotlib.pyplot as plt
 import json
 
-from pgamit.pyDate import Date
+import matplotlib.pyplot as plt
+import numpy as np
+import simplekml
+from tqdm import tqdm
+
 from pgamit import dbConnection
-from pgamit.pyDate import Date
-from pgamit.cluster import BisectingQMeans, select_central_point, overcluster, prune
 from pgamit.agglomerative import DeterministicClustering
+from pgamit.cluster import BisectingQMeans, overcluster, prune, select_central_point
+from pgamit.plots import plot_geographic_cluster_graph
+from pgamit.pyDate import Date
 from pgamit.Utils import (
-    station_list_help,
-    process_date,
-    process_stnlist,
-    stationID,
     add_version_argument,
     file_write,
+    process_date,
+    process_stnlist,
+    station_list_help,
+    stationID,
 )
-from pgamit.plots import plot_global_network, plot_geographic_cluster_graph
 
 
 def generate_kmz(OC, lla, stations, central_points, filename):

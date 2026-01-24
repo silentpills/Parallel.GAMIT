@@ -7,10 +7,10 @@ Class to manage (insert, create and query) events produced by the Parallel.PPP w
 """
 
 import datetime
-import platform
-import traceback
 import inspect
+import platform
 import re
+import traceback
 
 
 class Event(dict):

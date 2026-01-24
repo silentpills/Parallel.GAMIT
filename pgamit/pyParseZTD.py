@@ -6,8 +6,8 @@ Author: Demian D. Gomez
 
 import os
 import re
-from datetime import datetime
 import traceback
+from datetime import datetime
 
 # deps
 import numpy
@@ -17,7 +17,7 @@ from pgamit import dbConnection
 from pgamit.Utils import file_readlines
 
 
-class ParseZtdTask(object):
+class ParseZtdTask:
     def __init__(self, GamitConfig, project, sessions, date):
         self.date = date
         self.project = project

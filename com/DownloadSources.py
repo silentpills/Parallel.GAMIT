@@ -16,12 +16,12 @@ import argparse
 import errno
 import ftplib
 import glob
-import re
 import hashlib
 
 # py
 import os
 import queue
+import re
 import shutil
 import socket
 import subprocess
@@ -34,7 +34,7 @@ import traceback
 # from typing import Literal
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 # deps
 import numpy as np
@@ -56,13 +56,13 @@ from pgamit import (
 from pgamit.pyDate import Date
 from pgamit.pyRinexName import path_replace_tags
 from pgamit.Utils import (
+    add_version_argument,
     dir_try_remove,
     file_try_remove,
     fqdn_parse,
     process_date,
     required_length,
     stationID,
-    add_version_argument,
 )
 
 SERVER_REFRESH_INTERVAL = 2  # in seconds
@@ -90,7 +90,7 @@ class Source(NamedTuple):
     password: str
     # Source or Server fields:
     path: str
-    format: Optional[str]
+    format: str | None
 
 
 class Station(NamedTuple):
@@ -99,7 +99,7 @@ class Station(NamedTuple):
     StationCode: str
     Marker: int
     CountryCode: str
-    sources: List[Source]
+    sources: list[Source]
     abspath_station_dir: str  # station download dir
 
 
@@ -192,15 +192,15 @@ class Msg:
         server_id: int
         elapsed_time: int
         size: int
-        error: Optional[str]
+        error: str | None
 
     class CLIENT_STOPPED(NamedTuple):
         server_id: int
 
     # Messages from dispy job manager:
     class PROCESS_RESULT(NamedTuple):
-        file: Optional[FileDescriptor]
-        error: Optional[str]
+        file: FileDescriptor | None
+        error: str | None
 
 
 ###############################################################################
@@ -308,7 +308,7 @@ def source_host_desc(src: Source):
     )
 
 
-def db_get_sources_for_station(cnn, NetworkCode, StationCode) -> List[Source]:
+def db_get_sources_for_station(cnn, NetworkCode, StationCode) -> list[Source]:
     return [
         Source(**r)
         for r in cnn.query(
@@ -578,12 +578,12 @@ def download_all_stations_data(
     cnn: dbConnection.Cnn,
     jobs_manager: JobsManager,
     abspath_repository_dir: str,
-    stnlist: List[Any],
+    stnlist: list[Any],
     drange,
 ):
     class Server:
         files_pending: FilesBag
-        file_current: Optional[File]
+        file_current: File | None
         client: Client
         stopped: bool
 
@@ -595,13 +595,13 @@ def download_all_stations_data(
 
     msg_inbox: queue.Queue[Msg] = queue.Queue(8192)
     # Limit memory usage / overall backpressure
-    stations: Dict[int, Station] = {}  # station_idx -> Station
-    servers: Dict[int, Server] = {}  # server_id -> Server
+    stations: dict[int, Station] = {}  # station_idx -> Station
+    servers: dict[int, Server] = {}  # server_id -> Server
 
     files_pending_qty = 0
 
     def on_download_result(
-        server_id: int, error: Optional[str], elapsed_time=0, size=0, timeout=None
+        server_id: int, error: str | None, elapsed_time=0, size=0, timeout=None
     ):
         try:
             msg_inbox.put(
@@ -617,7 +617,7 @@ def download_all_stations_data(
         except queue.Full:
             return False
 
-    def on_process_result(file: FileDescriptor, error: Optional[str]):
+    def on_process_result(file: FileDescriptor, error: str | None):
         msg_inbox.put(Msg.PROCESS_RESULT(file=file, error=error))
 
     def on_client_stopped(server_id: int):
@@ -994,8 +994,8 @@ class IProtocol(ABC):
         protocol: str,
         fqdn: str,
         port: int,
-        username: Optional[str],
-        password: Optional[str],
+        username: str | None,
+        password: str | None,
     ):
         self.protocol = protocol
         self.fqdn = fqdn
@@ -1153,7 +1153,7 @@ class ProtocolSFTP(IProtocol):
         try:
             self.sftp.get(server_path, dest_path)
             return None
-        except IOError as e:
+        except OSError as e:
             # paramiko maps SFTP errors to errno codes:
             if e.errno in (errno.ENOENT, errno.EACCES):
                 return errno.errorcode[e.errno] + " " + e.strerror
@@ -1360,7 +1360,7 @@ class Client:
     cond: threading.Condition
     state: str  # Literal['STARTED', 'STOP_PENDING', 'STOPPED',
     #                     "FINISH_PENDING", "FINISHED"]
-    next_download: Optional[NextDownload]
+    next_download: NextDownload | None
 
     def __init__(
         self,

@@ -4,14 +4,14 @@ Date: Dic-03-2016
 Author: Demian D. Gomez
 """
 
-import os
 import glob
-import subprocess
+import os
 import shutil
+import subprocess
 
 # app
 from pgamit import snxParse
-from pgamit.Utils import file_open, chmod_exec, stationID
+from pgamit.Utils import chmod_exec, file_open, stationID
 
 
 class GlobkException(Exception):
@@ -22,7 +22,7 @@ class GlobkException(Exception):
         return repr(self.value)
 
 
-class Globk(object):
+class Globk:
     def __init__(self, pwd_comb, date, Sessions, net_type="regional"):
         self.polyhedron = None
         self.VarianceFactor = None

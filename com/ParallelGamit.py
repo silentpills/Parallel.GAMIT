@@ -5,70 +5,72 @@ Date: 3/31/17 6:33 PM
 Author: Demian D. Gomez
 """
 
-import sys
-import os
-import math
-import shutil
 import argparse
 import glob
-import logging
-import time
-import threading
-from datetime import datetime
+import math
+import os
 import random
+import shutil
 import string
+import sys
+import threading
+import time
+from datetime import datetime
+
+import simplekml
 
 # deps
 from tqdm import tqdm
-import simplekml
 
 # app
-from pgamit import pyGamitConfig
-from pgamit import pyDate
-from pgamit import Utils
-from pgamit import pyGamitTask
-from pgamit import pyGlobkTask
-from pgamit import pyGamitSession
-from pgamit import dbConnection
-from pgamit import pyJobServer
-from pgamit import pyParseZTD
-from pgamit import pyArchiveStruct
-from pgamit.pyETM import pyETMException
+from pgamit import (
+    Utils,
+    dbConnection,
+    pyArchiveStruct,
+    pyDate,
+    pyGamitConfig,
+    pyGamitSession,
+    pyGamitTask,
+    pyGlobkTask,
+    pyJobServer,
+    pyParseZTD,
+)
 from pgamit.network import Network
+from pgamit.pyETM import pyETMException
 from pgamit.pyStation import Station, StationCollection
 from pgamit.Utils import (
+    add_version_argument,
+    file_append,
+    indent,
+    parseIntSet,
     process_date,
     process_stnlist,
-    parseIntSet,
-    indent,
-    file_append,
     stationID,
-    add_version_argument,
 )
 
 
 def prYellow(skk):
     if os.fstat(0) == os.fstat(1):
-        return "\033[93m{}\033[00m".format(skk)
+        return f"\033[93m{skk}\033[00m"
     else:
         return skk
 
 
 def prRed(skk):
     if os.fstat(0) == os.fstat(1):
-        return "\033[91m{}\033[00m".format(skk)
+        return f"\033[91m{skk}\033[00m"
     else:
         return skk
 
 
 def prGreen(skk):
     if os.fstat(0) == os.fstat(1):
-        return "\033[92m{}\033[00m".format(skk)
+        return f"\033[92m{skk}\033[00m"
     else:
         return skk
 
 
-class DbAlive(object):
+class DbAlive:
     def __init__(self, cnn, increment):
         self.next_t = time.time()
         self.done = False
@@ -904,7 +906,7 @@ def run_globk(globk_task, project, date):
                     sigmayz=value.sigYZ * sqrt_variance,
                     VarianceFactor=variance,
                 )
-            except dbConnection.dbErrInsert as e:
+            except dbConnection.dbErrInsert:
                 # tqdm.write('    --> Error inserting ' + key + ' -> ' + str(e))
                 pass
         else:

@@ -54,23 +54,23 @@ version 1.0  (PYTHON) translated by Demian Gomez        15 May 24
 
 """
 
-import numpy as np
-import math
-
-from scipy.spatial import KDTree
-from datetime import timedelta
-import simplekml
-import io
-import zipfile
 import base64
-from skimage.measure import find_contours
-from shapely.geometry import Polygon
-from obspy.imaging.beachball import beachball
+import io
+import math
+import zipfile
+from datetime import timedelta
 
-from pgamit.pyDate import Date
-from pgamit import pyETM as etm
-from pgamit.pyETM import CO_SEISMIC_JUMP, CO_SEISMIC_JUMP_DECAY
+import numpy as np
+import simplekml
+from obspy.imaging.beachball import beachball
+from scipy.spatial import KDTree
+from shapely.geometry import Polygon
+from skimage.measure import find_contours
+
 from pgamit import dbConnection
+from pgamit import pyETM as etm
+from pgamit.pyDate import Date
+from pgamit.pyETM import CO_SEISMIC_JUMP, CO_SEISMIC_JUMP_DECAY
 
 cosd = lambda x: np.cos(np.deg2rad(x))
 sind = lambda x: np.sin(np.deg2rad(x))
@@ -142,7 +142,7 @@ def inv_azimuthal(x, y, lon, lat):
     return i_lon, i_lat
 
 
-class EarthquakeTable(object):
+class EarthquakeTable:
     """
     Given a connection to the database and an earthquake id, find all stations affected by the given event
     """
@@ -265,7 +265,7 @@ class EarthquakeTable(object):
         return sorted(displacements, key=lambda x: x["StationCode"])
 
 
-class ScoreTable(object):
+class ScoreTable:
     """
     Given a connection to the database, lat and lon of point of interest, and date range, find all the seismic events
     with level-2 s-score = 1. If no strike, dip, and rake parameters available, return events with level-1 s-score > 0
@@ -369,7 +369,7 @@ class ScoreTable(object):
                     )
 
 
-class Score(object):
+class Score:
     def __init__(
         self,
         event_lat,

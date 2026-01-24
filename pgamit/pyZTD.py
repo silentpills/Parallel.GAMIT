@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Project: Parallel.GAMIT
 Date: 6/18/20 14:28
@@ -9,16 +8,15 @@ Author: Demian D. Gomez
 import numpy as np
 from scipy.stats import chi2
 
-# app
-from pgamit.pyETM import Polynomial
-from pgamit.pyETM import Periodic
 from pgamit.pyDate import Date
 
+# app
+from pgamit.pyETM import Periodic, Polynomial
 
 LIMIT = 2.5
 
 
-class ZtdSoln(object):
+class ZtdSoln:
     def __init__(self, cnn, NetworkCode, StationCode, project):
         self.rs = cnn.query_float(
             'SELECT "Year", "DOY", "Date", "ZTD" FROM gamit_ztd '
@@ -39,7 +37,7 @@ class ZtdSoln(object):
         self.stack_name = None
 
 
-class Ztd(object):
+class Ztd:
     def __init__(self, cnn, NetworkCode, StationCode, project, plotit=False):
         self.NetworkCode = NetworkCode
         self.StationCode = StationCode
@@ -186,7 +184,7 @@ class Ztd(object):
         v = np.array([])
         C = np.array([])
 
-        P = np.ones((A.shape[0]))
+        P = np.ones(A.shape[0])
 
         while not cst_pass and iteration <= 10:
             W = np.sqrt(P)
@@ -231,7 +229,7 @@ class Ztd(object):
             iteration += 1
 
         # make sure there are no values below eps. Otherwise matrix becomes singular
-        P[P < np.finfo(float).eps] = 1e-6
+        P[np.finfo(float).eps > P] = 1e-6
 
         # some statistics
         SS = np.linalg.inv(np.dot(A.transpose(), np.multiply(P[:, None], A)))

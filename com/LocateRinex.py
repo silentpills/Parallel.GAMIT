@@ -7,15 +7,15 @@ import re
 import shutil
 
 # app
-from pgamit import pyRinex
-from pgamit import pyPPP
-from pgamit import pyOptions
-from pgamit import pyOTL
-from pgamit import pyProducts
-from pgamit import pyStationInfo
-from pgamit import dbConnection
-from pgamit.pyPPP import PPPSpatialCheck
-from pgamit.Utils import file_readlines, add_version_argument
+from pgamit import (
+    dbConnection,
+    pyOptions,
+    pyOTL,
+    pyPPP,
+    pyProducts,
+    pyRinex,
+)
+from pgamit.Utils import add_version_argument, file_readlines
 
 
 def main():
@@ -402,8 +402,8 @@ def execute_ppp(
                 )
             )
         else:
-            from geopy.geocoders import Nominatim
             import country_converter as coco
+            from geopy.geocoders import Nominatim
 
             # find the country code for the station
             geolocator = Nominatim(user_agent="Parallel.GAMIT")

@@ -10,16 +10,16 @@ events (M >= 6)
 
 """
 
-import re
-import calendar
-import xmltodict
 import argparse
+import calendar
 from datetime import datetime, timezone
-from tqdm import tqdm
+
+import libcomcat.exceptions as libcome
 
 # deps
 import libcomcat.search
-import libcomcat.exceptions as libcome
+import xmltodict
+from tqdm import tqdm
 
 # app
 from pgamit import dbConnection

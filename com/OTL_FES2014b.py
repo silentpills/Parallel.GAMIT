@@ -20,24 +20,20 @@ MyEmail = demiang@gmail.com
 """
 
 # Import smtplib for the actual sending function
-import smtplib
 
 # Import the email modules we'll need
-from email.mime.text import MIMEText
 import argparse
 import re
 
-from pgamit import Utils
-
 # app
-from pgamit import dbConnection
+from pgamit import Utils, dbConnection
 from pgamit.Utils import (
-    file_write,
+    add_version_argument,
     file_readlines,
+    file_write,
+    import_blq,
     process_stnlist,
     stationID,
-    import_blq,
-    add_version_argument,
 )
 
 
@@ -146,7 +142,7 @@ def import_harpos(filename):
     # find the linenumber of the phase and frequency components
     header = []
     pattern = re.compile(
-        "H\s+Ssa\s+\d+.\d+[eEdD][-+]\d+\s+\d+.\d+[eEdD][-+]\d+\s+\d+.\d+[eEdD][-+]\d+"
+        r"H\s+Ssa\s+\d+.\d+[eEdD][-+]\d+\s+\d+.\d+[eEdD][-+]\d+\s+\d+.\d+[eEdD][-+]\d+"
     )
     for line in otl:
         if pattern.match(line):
@@ -155,7 +151,7 @@ def import_harpos(filename):
 
     if header:
         pattern = re.compile(
-            "S\s+\w+.\w+\s+[-]?\d+.\d+\s+[-]?\d+.\d+\s+[-]?\d+.\d+\s+[-]?\d+.\d+\s+[-]?\d+.\d+\s+[-]?\d+.\d+"
+            r"S\s+\w+.\w+\s+[-]?\d+.\d+\s+[-]?\d+.\d+\s+[-]?\d+.\d+\s+[-]?\d+.\d+\s+[-]?\d+.\d+\s+[-]?\d+.\d+"
         )
 
         for line in otl:
@@ -195,7 +191,7 @@ def load_harpos(header, otl):
     cnn = dbConnection.Cnn("gnss_data.cfg")
 
     # begin removing the network code from the OTL
-    NetStn = re.findall("S\s+(\w+.\w+)\s+", "".join(otl))
+    NetStn = re.findall(r"S\s+(\w+.\w+)\s+", "".join(otl))
 
     NetworkCode, StationCode = NetStn[0].split(".")
 

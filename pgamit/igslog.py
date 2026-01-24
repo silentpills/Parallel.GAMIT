@@ -50,8 +50,8 @@ DDG: corrected some logic issues
 
 import logging
 import re as _re
-from typing import Union, List, Tuple
 from datetime import datetime
+
 import numpy as _np
 
 logger = logging.getLogger(__name__)
@@ -182,8 +182,8 @@ def determine_log_version(data: bytes) -> str:
 
 
 def extract_id_block(
-    data: bytes, file_path: str, version: Union[str, None] = None
-) -> Union[List[str], _np.ndarray]:
+    data: bytes, file_path: str, version: str | None = None
+) -> list[str] | _np.ndarray:
     """Extract the site ID block given the bytes object read from an IGS site log file
 
     :param bytes data: The bytes object returned from an open() call on a IGS site log in "rb" mode
@@ -222,7 +222,7 @@ def extract_id_block(
 
 
 def extract_location_block(
-    data: bytes, file_path: str, version: Union[str, None] = None
+    data: bytes, file_path: str, version: str | None = None
 ) -> _np.ndarray:
     """Extract the location block given the bytes object read from an IGS site log file
 
@@ -254,7 +254,7 @@ def extract_location_block(
 
 def extract_receiver_block(
     data: bytes, file_path: str
-) -> Union[List[Tuple[bytes]], _np.ndarray]:
+) -> list[tuple[bytes]] | _np.ndarray:
     """Extract the location block given the bytes object read from an IGS site log file
 
     :param bytes data: The bytes object returned from an open() call on a IGS site log in "rb" mode
@@ -284,7 +284,7 @@ def extract_receiver_block(
 
 def extract_antenna_block(
     data: bytes, file_path: str
-) -> Union[List[Tuple[bytes]], _np.ndarray]:
+) -> list[tuple[bytes]] | _np.ndarray:
     """Extract the antenna block given the bytes object read from an IGS site log file
 
     :param bytes data: The bytes object returned from an open() call on a IGS site log in "rb" mode
@@ -312,7 +312,7 @@ def extract_antenna_block(
     return antenna_block
 
 
-def parse_igs_log_data(data: bytes, file_path: str) -> Union[_np.ndarray, None]:
+def parse_igs_log_data(data: bytes, file_path: str) -> _np.ndarray | None:
     """Given the bytes object returned opening a IGS log file, parse to produce an ndarray with relevant data
 
     :param bytes data: The bytes object returned from an open() call on a IGS site log in "rb" mode
@@ -461,7 +461,7 @@ def parse_igs_log_data(data: bytes, file_path: str) -> Union[_np.ndarray, None]:
     # return _np.concatenate([blk_uni, file_path_arr], axis=1)
 
 
-def parse_igs_log_file(file_path: _np.ndarray) -> Union[_np.ndarray, None]:
+def parse_igs_log_file(file_path: _np.ndarray) -> _np.ndarray | None:
     """Reads igs log file and outputs ndarray with parsed data
 
     :param _np.ndarray file_path: Metadata on input log file. Expects ndarray of the form [PATH]

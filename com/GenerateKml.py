@@ -28,10 +28,10 @@ from tqdm import tqdm
 from pgamit import dbConnection, pyDate, pyJobServer, pyOptions, pyStationInfo
 from pgamit.pyGamitConfig import GamitConfiguration
 from pgamit.Utils import (
+    add_version_argument,
+    plot_rinex_completion,
     process_stnlist,
     stationID,
-    plot_rinex_completion,
-    add_version_argument,
 )
 
 global kml, folder_project, folder_allstns, stnlist

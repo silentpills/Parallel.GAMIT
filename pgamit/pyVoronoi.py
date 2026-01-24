@@ -6,12 +6,13 @@ The purpose of this Python module is to provide utility code for handling spheri
 
 import math
 
-# deps
-import scipy
-import scipy.spatial
 import numpy
 import numpy.linalg
 import numpy.random
+
+# deps
+import scipy
+import scipy.spatial
 
 
 class IntersectionError(Exception):
@@ -318,9 +319,7 @@ def calculate_and_sum_up_inner_sphere_surface_angles_Voronoi_polygon(
     min_vertex_radius = spherical_polar_polygon_vertices[..., 0].min()
     # print 'before array projection check'
     assert sphere_radius - min_vertex_radius < 0.1, (
-        "The minimum projected Voronoi vertex r value should match the sphere_radius of {sphere_radius}, but got {r_min}.".format(
-            sphere_radius=sphere_radius, r_min=min_vertex_radius
-        )
+        f"The minimum projected Voronoi vertex r value should match the sphere_radius of {sphere_radius}, but got {min_vertex_radius}."
     )
     # print 'after array projection check'
 

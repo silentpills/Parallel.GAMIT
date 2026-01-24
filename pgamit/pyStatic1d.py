@@ -8,11 +8,10 @@ import os
 import shutil
 import uuid
 
-from pgamit import dbConnection
-from pgamit import pyRunWithRetry
+from pgamit import dbConnection, pyRunWithRetry
 
 
-class Static1d(object):
+class Static1d:
     def __init__(
         self,
         cnn,
@@ -34,7 +33,7 @@ class Static1d(object):
             with open(f"production/{self.id_run}/stat0A.in", "w") as f:
                 f.write(f"1 {max_expansion}\n")
                 f.write(f"{min_depth:5.2f} {max_depth:5.2f}\n")
-                f.write(f"0\n")
+                f.write("0\n")
 
             pyRunWithRetry.RunCommand(
                 "./stat0A", 5, cat_file=f"production/{self.id_run}/stat0A.in"

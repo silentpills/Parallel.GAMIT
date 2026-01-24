@@ -7,21 +7,16 @@ Author: Demian D. Gomez
 
 import argparse
 import curses
-import time
-from curses import panel
 import curses.ascii
-from curses.textpad import Textbox, rectangle
-from collections import OrderedDict
-import traceback
 import re
+import traceback
+from collections import OrderedDict
+from curses import panel
+from curses.textpad import Textbox, rectangle
 
 # app
-from pgamit import pyOptions
-from pgamit import dbConnection
-from pgamit import pyStationInfo
-from pgamit import pyDate
-from pgamit.Utils import process_date, add_version_argument
-
+from pgamit import dbConnection, pyDate, pyOptions, pyStationInfo
+from pgamit.Utils import add_version_argument, process_date
 
 cnn = dbConnection.Cnn("gnss_data.cfg")
 Config = pyOptions.ReadOptions("gnss_data.cfg")  # type: pyOptions.ReadOptions
@@ -78,7 +73,7 @@ class _Textbox(Textbox):
         return Textbox.do_command(self, ch)
 
 
-class Menu(object):
+class Menu:
     def __init__(self, cnn, items, stdscreen, title="", type="main", record_index=None):
         self.window = stdscreen.subwin(0, 0)
         self.window.keypad(1)
@@ -212,7 +207,7 @@ class Menu(object):
 
         while True:
             edit_field = box.edit()
-            if not edit_field is None:
+            if edit_field is not None:
                 result = self.validate(edit_field.strip())
                 if result:
                     self.navigate(1)
@@ -308,7 +303,7 @@ class Menu(object):
                 "DHARP",
                 "SLBCE",
             )
-            if not edit_field.upper() in FIELDS:
+            if edit_field.upper() not in FIELDS:
                 self.ShowError(
                     "Value must be one of the following: " + " ".join(FIELDS)
                 )
@@ -366,7 +361,7 @@ def save_changes(menu):
             else:
                 # update a station info record
                 StnInfo.UpdateStationInfo(StnInfo.records[menu.record_index], record)
-        except Exception as e:
+        except Exception:
             menu.ShowError(traceback.format_exc())
             return False
 
@@ -513,7 +508,7 @@ def get_fields(position):
     return out  # sorted(out, key=lambda k: k['field'])
 
 
-class MyApp(object):
+class MyApp:
     def __init__(self, stdscreen):
         curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
         curses.init_pair(2, curses.COLOR_RED, curses.COLOR_WHITE)

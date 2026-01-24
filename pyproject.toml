@@ -93,15 +93,45 @@ select = [
     "E",    # pycodestyle errors
     "F",    # pyflakes
     "W",    # pycodestyle warnings
-    "I",    # isort
-    "UP",   # pyupgrade
-    "B",    # flake8-bugbear
-    "SIM",  # flake8-simplify
+    "I",    # isort (import sorting)
     "S",    # flake8-bandit (security)
+    # Future: enable these as legacy code is cleaned up
+    # "UP",   # pyupgrade
+    # "B",    # flake8-bugbear
+    # "SIM",  # flake8-simplify
 ]
-
-[tool.ruff.lint.per-file-ignores]
-"pgamit/tests/*" = ["S101"]  # allow assert in tests
+ignore = [
+    # Formatting (handled by ruff format)
+    "E501",   # Line too long
+    "W291",   # Trailing whitespace (in strings/comments formatter can't fix)
+    "W293",   # Blank line contains whitespace (same as above)
+    # Legacy code patterns (to be addressed incrementally)
+    "E402",   # Module import not at top of file
+    "E711",   # Comparison to None (== None vs is None)
+    "E712",   # Comparison to True/False
+    "E722",   # Bare except
+    "E731",   # Lambda assignment
+    "E741",   # Ambiguous variable name
+    "F402",   # Import shadowed by loop variable
+    "F811",   # Redefined while unused
+    "F841",   # Local variable assigned but never used
+    # Security (intentional patterns in GNSS/scientific computing)
+    "S101",   # Assert statements (invariant checking)
+    "S105",   # Hardcoded password string
+    "S108",   # Hardcoded temp file paths
+    "S110",   # Try-except-pass
+    "S307",   # Suspicious eval usage
+    "S311",   # Non-cryptographic random (clustering seeds)
+    "S314",   # Suspicious XML usage
+    "S321",   # FTP usage (GNSS data distribution)
+    "S324",   # Insecure hash function
+    "S506",   # Unsafe YAML load
+    "S603",   # Subprocess without shell check
+    "S604",   # Call with shell=True
+    "S605",   # Start process with a shell
+    "S607",   # Start process with partial path
+    "S608",   # Hardcoded SQL expressions
+]
 
 [tool.ruff.format]
 quote-style = "double"

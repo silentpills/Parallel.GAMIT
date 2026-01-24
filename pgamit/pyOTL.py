@@ -10,8 +10,7 @@ import os
 import uuid
 
 # app
-from pgamit import pyRunWithRetry
-from pgamit import pyEvents
+from pgamit import pyEvents, pyRunWithRetry
 from pgamit.Utils import file_read_all
 
 

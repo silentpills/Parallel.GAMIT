@@ -16,6 +16,9 @@ on:
       - "docker-compose*.yml"
       - ".hadolint.yaml"
 
+permissions:
+  contents: read
+
 jobs:
   hadolint:
     name: Lint Dockerfiles

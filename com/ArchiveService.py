@@ -25,41 +25,43 @@ Options:
 --no_parallel: runs without parallelizing the execution
 """
 
-import os
-import datetime
-import time
-import uuid
-import traceback
-import platform
 import argparse
-
+import datetime
+import os
+import platform
+import time
+import traceback
+import uuid
 
 # deps
 from tqdm import tqdm
 
+from pgamit import (
+    ConvertRaw,
+    Utils,
+    dbConnection,
+    pyArchiveStruct,
+    pyEvents,
+    pyJobServer,
+    pyOptions,
+    pyOTL,
+    pyPPP,
+    pyProducts,
+    pyRinex,
+    pyRinexName,
+    pyStationInfo,
+)
+
 # app
 from pgamit.Utils import (
-    file_append,
-    file_try_remove,
-    file_open,
-    dir_try_remove,
-    stationID,
-    get_field_or_attr,
     add_version_argument,
+    dir_try_remove,
+    file_append,
+    file_open,
+    file_try_remove,
+    get_field_or_attr,
+    stationID,
 )
-from pgamit import ConvertRaw
-from pgamit import pyJobServer
-from pgamit import pyEvents
-from pgamit import pyOptions
-from pgamit import Utils
-from pgamit import pyOTL
-from pgamit import pyRinex
-from pgamit import pyRinexName
-from pgamit import dbConnection
-from pgamit import pyStationInfo
-from pgamit import pyArchiveStruct
-from pgamit import pyPPP
-from pgamit import pyProducts
 
 repository_data_in = ""
 cnn = dbConnection.Cnn("gnss_data.cfg")
@@ -132,8 +134,8 @@ def insert_station_w_lock(cnn, StationCode, filename, lat, lon, h, x, y, z, otl)
         # insert record in stations with temporary NetworkCode
         try:
             # DDG: added code to insert new station including the country_code
-            from geopy.geocoders import Nominatim
             import country_converter as coco
+            from geopy.geocoders import Nominatim
 
             # find the country code for the station
             geolocator = Nominatim(user_agent="Parallel.GAMIT")
@@ -270,11 +272,11 @@ def write_error(folder, filename, msg):
         try:
             file_append(os.path.join(folder, filename), msg)
             return
-        except IOError as e:
+        except OSError as e:
             if count < 3:
                 count += 1
             else:
-                raise IOError(str(e) + " after 3 retries")
+                raise OSError(str(e) + " after 3 retries")
 
 
 def error_handle(cnn, event, crinez, folder, filename, no_db_log=False):

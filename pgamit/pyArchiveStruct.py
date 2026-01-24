@@ -10,24 +10,17 @@ declared directory structure and {stmn}{doy}{session}.{year}d.Z, respectively)
 """
 
 import os
-import sys
-import re
 
 # deps
 import scandir
 
 # app
-from pgamit import pyDate
-from pgamit import pyOptions
-from pgamit import pyEvents
-from pgamit import Utils
-from pgamit import pyRinex
-from pgamit import pyRinexName
+from pgamit import Utils, pyEvents, pyOptions, pyRinexName
 from pgamit.pyRinexName import RinexNameFormat
 from pgamit.Utils import file_try_remove
 
 
-class RinexStruct(object):
+class RinexStruct:
     def __init__(self, cnn, path_cfg=""):
         self.cnn = cnn
         self.archiveroot = None
@@ -303,9 +296,7 @@ class RinexStruct(object):
         :return: a dictionary will the records matching the provided parameters
         """
 
-        if any(
-            param in ("Interval", "Completion", "Filename") for param in kwargs.keys()
-        ):
+        if any(param in ("Interval", "Completion", "Filename") for param in kwargs):
             table = "rinex"
         else:
             table = "rinex_proc"
@@ -544,7 +535,7 @@ class RinexStruct(object):
                 keys_out["month"] = fileparts.date.month
 
                 return True, {
-                    key: keys_out[key] for key in keys_out.keys() if key in key_filter
+                    key: keys_out[key] for key in keys_out if key in key_filter
                 }
 
         except:

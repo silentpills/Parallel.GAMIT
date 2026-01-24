@@ -4,9 +4,10 @@
 # Date: August 2024
 
 import time
+
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
 from sklearn.neighbors import NearestNeighbors
 

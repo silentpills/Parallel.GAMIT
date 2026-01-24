@@ -1,12 +1,12 @@
 import heapq
+
 import networkx as nx
 import numpy as np
-
 from scipy.spatial.distance import pdist, squareform
 from sklearn.neighbors import NearestNeighbors
 
 
-class DeterministicClustering(object):
+class DeterministicClustering:
     def __init__(
         self,
         target_size=15,

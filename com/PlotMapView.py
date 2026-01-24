@@ -6,20 +6,20 @@ Author: Demian D. Gomez
 """
 
 import argparse
-import os
-import numpy as np
-from tqdm import tqdm
-import simplekml
-from io import BytesIO
 import base64
+import os
+from io import BytesIO
+
+import numpy as np
+import simplekml
+from scipy.interpolate import griddata
+from tqdm import tqdm
+
+from pgamit import Utils, dbConnection, pyETM
 
 # app
-from pgamit.pyETM import CO_SEISMIC_JUMP_DECAY, CO_SEISMIC_DECAY, LABEL
-from pgamit import Utils
-from pgamit.Utils import stationID, add_version_argument
-from scipy.interpolate import griddata
-from pgamit import pyETM
-from pgamit import dbConnection
+from pgamit.pyETM import CO_SEISMIC_DECAY, CO_SEISMIC_JUMP_DECAY, LABEL
+from pgamit.Utils import add_version_argument, stationID
 
 
 def generate_kmz(kmz, stations):

@@ -13,39 +13,41 @@ Integrity check utility of the database. Checks the following:
  - renames or merges two stations into one
 """
 
+import argparse
+import os
+import platform
+import shutil
 import sys
 import traceback
-import os
-import numpy
-import shutil
-import argparse
-import platform
 from math import ceil
+
+import numpy
 
 # deps
 from tqdm import tqdm
 
 # app
-from pgamit import pyOptions
-from pgamit import dbConnection
-from pgamit import pyDate
-from pgamit import pyStationInfo
-from pgamit import pyArchiveStruct
-from pgamit import pyPPP
-from pgamit import Utils
-from pgamit import pyRinexName
+from pgamit import (
+    Utils,
+    dbConnection,
+    pyArchiveStruct,
+    pyDate,
+    pyEvents,
+    pyJobServer,
+    pyOptions,
+    pyPPP,
+    pyRinexName,
+    pyStationInfo,
+)
 from pgamit.pyRinexName import RinexNameFormat
 from pgamit.Utils import (
-    process_date,
+    add_version_argument,
+    determine_frame,
     ecef2lla,
     parse_atx_antennas,
-    determine_frame,
+    process_date,
     station_list_help,
-    add_version_argument,
 )
-from pgamit import pyJobServer
-from pgamit import pyEvents
-
 
 differences = []
 rinex_css = []

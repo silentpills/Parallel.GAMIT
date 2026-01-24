@@ -7,22 +7,20 @@ Author: Demian D. Gomez
 Script to synchronize sp3 and brdc orbits using the CDDIS FTP server.
 """
 
-import os
 import argparse
+import ftplib
+import os
+import re
 import shutil
 from datetime import datetime
-import ftplib
-import re
 
 # deps
 import numpy as np
 from tqdm import tqdm
 
 # app
-from pgamit import pyDate
-from pgamit import pyOptions
-from pgamit.Utils import required_length, process_date, add_version_argument
-from pgamit import pyRunWithRetry
+from pgamit import pyDate, pyOptions, pyRunWithRetry
+from pgamit.Utils import add_version_argument, process_date, required_length
 
 # Old FTP server:
 # FTP_HOST = '198.118.242.40'

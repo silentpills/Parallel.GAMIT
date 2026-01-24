@@ -7,7 +7,7 @@ Author: Demian D. Gomez
 from pgamit.Utils import file_readlines
 
 
-class ParseAntexFile(object):
+class ParseAntexFile:
     def __init__(self, filename):
         antex = file_readlines(filename)
 

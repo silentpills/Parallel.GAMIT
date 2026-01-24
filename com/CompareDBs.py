@@ -6,9 +6,10 @@ Temporary script, deprecated
 import os
 import shutil
 
+from pgamit.ScanArchive import export_station
+
 # app
 from pgamit import dbConnection, pyArchiveStruct, pyOptions, pyPPP
-from pgamit.ScanArchive import export_station
 from pgamit.Utils import stationID
 
 

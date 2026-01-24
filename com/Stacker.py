@@ -6,33 +6,27 @@ Author: Demian D. Gomez
 """
 
 import argparse
+import json
 import os
 import re
 from datetime import datetime
-import json
-import traceback
 
 # deps
 import numpy as np
 from tqdm import tqdm
 
 # app
-from pgamit import dbConnection
-from pgamit import pyOptions
-from pgamit import pyETM
-from pgamit import pyJobServer
+from pgamit import dbConnection, pyETM, pyJobServer, pyOptions, pyStack
 from pgamit.pyDate import Date
-from pgamit import pyStack
 from pgamit.Utils import (
-    process_date,
-    file_write,
-    file_readlines,
-    file_open,
-    stationID,
     add_version_argument,
+    file_open,
+    file_readlines,
+    file_write,
+    process_date,
     process_stnlist,
+    stationID,
 )
-
 
 pi = 3.141592653589793
 etm_vertices = []
@@ -207,7 +201,7 @@ def load_periodic_space(periodic_file):
             stn = neu[0].lower().strip()
             com = neu[1].lower().strip()
 
-            if stn not in periods.keys():
+            if stn not in periods:
                 periods[stn] = {}
 
             if per not in periods[stn].keys():
@@ -223,7 +217,7 @@ def load_periodic_space(periodic_file):
             )
 
     # average the values (multiple fits for a single station??)
-    for stn in periods.keys():
+    for stn in periods:
         for per in periods[stn].keys():
             for com in periods[stn][per].keys():
                 periods[stn][per][com] = np.mean(

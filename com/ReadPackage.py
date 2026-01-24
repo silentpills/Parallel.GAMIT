@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
-from zipfile import ZipFile
 import argparse
 import json
-import shutil
 import os
+import shutil
+from zipfile import ZipFile
 
 # app
 from pgamit import pyStationInfo
-from pgamit.Utils import file_read_all, add_version_argument
+from pgamit.Utils import add_version_argument, file_read_all
 
 
 def main():

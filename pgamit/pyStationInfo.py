@@ -4,27 +4,25 @@ Date: 02/16/2017
 Author: Demian D. Gomez
 """
 
-import struct
 import datetime
-from json import JSONEncoder
 import os
+import struct
+from json import JSONEncoder
 
 # deps
 import numpy as np
 
 # app
-from pgamit import pyDate
+from pgamit import igslog, pyDate, pyEvents
 from pgamit.pyBunch import Bunch
-from pgamit import pyEvents
 from pgamit.Utils import (
-    struct_unpack,
-    file_readlines,
     crc32,
-    stationID,
     determine_frame,
+    file_readlines,
     parse_atx_antennas,
+    stationID,
+    struct_unpack,
 )
-from pgamit import igslog
 
 
 def _default(self, obj):

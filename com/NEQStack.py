@@ -6,24 +6,16 @@ Author: Demian D. Gomez
 """
 
 import argparse
-import traceback
-from pprint import pprint
 import os
 
 # deps
 import numpy as np
-from tqdm import tqdm
 from scipy.stats import chi2
 
-
 # app
-from pgamit import dbConnection
-from pgamit import pyOptions
-from pgamit import pyETM
-from pgamit import pyJobServer
-from pgamit import pyDate
+from pgamit import dbConnection, pyDate, pyETM, pyOptions
 from pgamit.pyDate import Date
-from pgamit.Utils import process_date, ct2lg, ecef2lla, rotct2lg
+from pgamit.Utils import process_date, rotct2lg
 
 LIMIT = 2.5
 
@@ -42,7 +34,7 @@ def adjust_lsq(A, L, P=None):
     C = np.array([])
 
     if P is None:
-        P = np.ones((A.shape[0]))
+        P = np.ones(A.shape[0])
 
     while not cst_pass and iteration <= 10:
         W = np.sqrt(P)

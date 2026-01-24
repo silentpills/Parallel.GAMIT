@@ -7,15 +7,16 @@ This module handles the cluster nodes and checks all the necessary dependencies
 before sending jobs to each node
 """
 
-import time
 import _thread
 import queue
+import time
 import traceback
+
+import dispy
+import dispy.httpd
 
 # deps
 from tqdm import tqdm
-import dispy
-import dispy.httpd
 
 
 def test_node(
@@ -26,15 +27,15 @@ def test_node(
     software_sync=(),
 ):
     # test node: function that makes sure that all required packages and tools are present in the nodes
-    import traceback
-    import platform
     import os
+    import platform
     import sys
+    import traceback
 
     def check_tab_file(tabfile, date):
         if os.path.isfile(tabfile):
             # file exists, check contents
-            with open(tabfile, "rt", encoding="utf-8", errors="ignore") as f:
+            with open(tabfile, encoding="utf-8", errors="ignore") as f:
                 lines = f.readlines()
 
             tabdate = pyDate.Date(mjd=lines[-1].split()[0])
@@ -63,22 +64,11 @@ def test_node(
     # start importing the modules needed
     try:
         print(" >> Testing python imports")
-        import shutil
-        import datetime
-        import time
-        import uuid
         import traceback
 
         # deps
-        import numpy
-        import dirsync
-
         # app
-        from pgamit import dbConnection
-        from pgamit import pyProducts
-        from pgamit import pyOptions
-        from pgamit import pyRunWithRetry
-        from pgamit import pyDate
+        from pgamit import dbConnection, pyDate, pyOptions, pyProducts, pyRunWithRetry
 
         print(" -- Done")
 
@@ -554,7 +544,7 @@ class JobServer:
         while True:
             (prio, job, args) = self.job_runner_inbox.get()
 
-            if "CLOSE" == job:
+            if job == "CLOSE":
                 return
 
             try:

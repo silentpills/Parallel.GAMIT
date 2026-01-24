@@ -10,28 +10,27 @@ Description goes here
 
 import argparse
 import datetime
-import os
 import json
+import os
+
 import numpy as np
 import simplekml
-
-from pgamit.pyOkada import cosd, sind
 from tqdm import tqdm
 
 from pgamit import dbConnection, pyETM
 from pgamit.pyDate import Date
 from pgamit.pyLeastSquares import adjust_lsq
-from pgamit.pyOkada import ScoreTable
+from pgamit.pyOkada import ScoreTable, cosd, sind
 from pgamit.Utils import (
-    cart2euler,
-    get_stack_stations,
-    process_stnlist,
     add_version_argument,
-    stationID,
+    cart2euler,
     file_write,
-    xyz2sphere_lla,
-    required_length,
+    get_stack_stations,
     print_columns,
+    process_stnlist,
+    required_length,
+    stationID,
+    xyz2sphere_lla,
 )
 
 

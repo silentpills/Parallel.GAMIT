@@ -5,16 +5,13 @@ Author: Demian D. Gomez
 """
 
 import os
-import glob
 import re
-from shutil import copyfile
 from datetime import datetime
+from shutil import copyfile
 
 # app
-from pgamit import pyRunWithRetry
-from pgamit import pyEvents
-from pgamit import pyDate
-from pgamit.Utils import file_open, file_try_remove, crc32
+from pgamit import pyDate, pyEvents, pyRunWithRetry
+from pgamit.Utils import crc32, file_open, file_try_remove
 
 
 class pyProductsException(Exception):

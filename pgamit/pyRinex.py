@@ -4,30 +4,26 @@ Date: 02/16/2017
 Author: Demian D. Gomez
 """
 
-from shutil import copyfile, copy, move, rmtree
-import os
 import datetime
-import uuid
+import json
+import os
 import re
 import struct
-import json
-import glob
+import uuid
+from shutil import copy, copyfile, move, rmtree
+
+from pgamit import Utils, pyDate, pyRinexName, pyRunWithRetry, pyStationInfo
 
 # app
 from pgamit.pyEvents import Event
-from pgamit.Utils import ecef2lla
 from pgamit.pyRinexName import check_year
-from pgamit import pyRinexName
-from pgamit import pyDate
-from pgamit import pyRunWithRetry
-from pgamit import pyStationInfo
-from pgamit import Utils
 from pgamit.Utils import (
-    file_open,
-    file_write,
-    file_readlines,
-    struct_unpack,
     chmod_exec,
+    ecef2lla,
+    file_open,
+    file_readlines,
+    file_write,
+    struct_unpack,
 )
 
 TYPE_CRINEZ = 0
@@ -58,7 +54,7 @@ class pyRinexExceptionNoAutoCoord(pyRinexException):
     pass
 
 
-class RinexRecord(object):
+class RinexRecord:
     def __init__(self, NetworkCode=None, StationCode=None):
         self.StationCode = StationCode
         self.NetworkCode = NetworkCode
@@ -257,14 +253,14 @@ class ReadRinex(RinexRecord):
                     fields[i] = float(fields[i])
                 except ValueError:
                     # invalid number in the field!, replace with something harmless
-                    fields[i] = float(2.11)
+                    fields[i] = 2.11
 
             elif "i" in format_tuple[i]:
                 try:
                     fields[i] = int(fields[i])
                 except ValueError:
                     # invalid number in the field!, replace with something harmless
-                    fields[i] = int(1)
+                    fields[i] = 1
 
             elif "s" in format_tuple[i]:
                 fields[i] = fields[i].strip()
@@ -385,7 +381,7 @@ class ReadRinex(RinexRecord):
         for line in self.header:
             if line.strip().endswith("INTERVAL"):
                 # get the first occurrence only!
-                record = [key for key in interval_record.keys() if key in line][0]
+                record = [key for key in interval_record if key in line][0]
 
                 interval_record[record]["found"] = True
 
@@ -560,7 +556,7 @@ class ReadRinex(RinexRecord):
                 if self.required_records[item]["found"] is False
             }
 
-            for record in missing_records.keys():
+            for record in missing_records:
                 if "# / TYPES OF OBSERV" in record:
                     raise pyRinexExceptionBadFile(
                         "Unfixable RINEX header: could not find # / TYPES OF OBSERV"
@@ -1138,7 +1134,7 @@ class ReadRinex(RinexRecord):
                         if line.strip().endswith("END OF HEADER"):
                             break
                     break
-            except IOError:
+            except OSError:
                 # try again
                 if i == 0:
                     continue
@@ -1149,7 +1145,7 @@ class ReadRinex(RinexRecord):
 
     def auto_coord(self, brdc, chi_limit=3):
         # use NRCAN PPP in code-only mode to obtain a coordinate of the station
-        from pgamit import pyPPP, pyOptions
+        from pgamit import pyOptions, pyPPP
 
         rnx = ReadRinex(
             self.NetworkCode, self.StationCode, self.rinex_path, allow_multiday=True
@@ -1210,7 +1206,7 @@ class ReadRinex(RinexRecord):
                 rnx.remove_systems()
                 self.log_event("Removing systems other systems to run auto_coord")
 
-        except pyRinexException as e:
+        except pyRinexException:
             # print str(e)
             # ooops, something went wrong, try with local file (without removing systems or decimating)
             rnx = self

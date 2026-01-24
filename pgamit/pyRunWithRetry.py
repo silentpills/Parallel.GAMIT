@@ -5,11 +5,11 @@ Author: Demian D. Gomez
 """
 
 import os
+import platform
+import shlex
 import subprocess
 import threading
 import time
-import platform
-import shlex
 
 # app
 from pgamit import pyEvents
@@ -147,7 +147,7 @@ class RunCommand:
                         )
 
                 # remove non-ASCII chars
-                if not cmd.stderr is None:
+                if cmd.stderr is not None:
                     cmd.stderr = "".join(
                         [i if ord(i) < 128 else " " for i in cmd.stderr]
                     )

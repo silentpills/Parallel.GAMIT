@@ -10,9 +10,10 @@ scripts. It loads the config file (gnss_data.cfg).
 import configparser
 import os
 
-# app
-from pgamit.Utils import process_date, file_open, create_empty_cfg
 from pgamit.pyDate import Date
+
+# app
+from pgamit.Utils import create_empty_cfg, file_open, process_date
 
 
 class ReadOptions:

@@ -3,10 +3,9 @@
 # import file_ops
 import os
 import re
-from glob import glob
 
 # app
-from pgamit.Utils import get_norm_year_str, file_open
+from pgamit.Utils import file_open, get_norm_year_str
 
 
 class StationData:
@@ -294,7 +293,7 @@ class snxFileParser:
                         stationName = stationName.upper()
 
                         # initialize station data if not seen this station before
-                        if not stationName in self.stationDict:
+                        if stationName not in self.stationDict:
                             self.stationDict[stationName] = StationData()
 
                         self.stationDict[stationName].domesNumber = domesNumber
@@ -336,7 +335,7 @@ class snxFileParser:
                             dictID[ID] = coordID
                             stn_ID[ID] = stationName
 
-                            if not stationName in self.stationDict:
+                            if stationName not in self.stationDict:
                                 self.stationDict[stationName] = StationData()
 
                             if coordID == "X":
@@ -374,7 +373,7 @@ class snxFileParser:
                             fractionalYear = year + ((doy - 1) / 366.0) + 0.001413
 
                             # init if not already in dict
-                            if not stationName in self.stationDict:
+                            if stationName not in self.stationDict:
                                 self.stationDict[stationName] = StationData()
 
                             # set the reference epoch for the velocity
@@ -522,14 +521,11 @@ class snxStationMerger:
         numberOfOccurrences = str(numberOfOccurrences)
 
         # empty station dictionary case
-        if not self.mergedStationDict:
-            return False
-
-        # check that numberOfOccurances even is in dictionary
-        elif numberOfOccurrences not in self.mergedStationDict:
-            return False
-
-        elif stationName not in self.mergedStationDict[numberOfOccurrences]:
+        if (
+            not self.mergedStationDict
+            or numberOfOccurrences not in self.mergedStationDict
+            or stationName not in self.mergedStationDict[numberOfOccurrences]
+        ):
             return False
 
         else:
@@ -552,7 +548,7 @@ class snxStationMerger:
         for stationName in snxObj.stationDict.keys():
             for level in self.mergedStationDict.keys():
                 # first check if station is in level one station dictionary
-                if not stationName in self.mergedStationDict[level]:
+                if stationName not in self.mergedStationDict[level]:
                     # add the station to this level since it does not exist
                     self.addStation(
                         level,

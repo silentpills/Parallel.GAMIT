@@ -6,29 +6,24 @@ Author: Demian D. Gomez
 """
 
 import argparse
-import os
-from shutil import copyfile, move, rmtree
 import glob
-import subprocess
-import re
+import os
 import random
+import re
 import string
+import subprocess
+from shutil import copyfile, move, rmtree
 
 # deps
-
 # app
-from pgamit import dbConnection
-from pgamit import Utils
-from pgamit import pyDate
-from pgamit import snxParse
-from pgamit import pyGamitConfig
+from pgamit import Utils, dbConnection, pyDate, pyGamitConfig, snxParse
 from pgamit.Utils import (
-    split_string,
+    add_version_argument,
+    chmod_exec,
     file_open,
     file_readlines,
+    split_string,
     stationID,
-    chmod_exec,
-    add_version_argument,
 )
 
 
@@ -40,14 +35,13 @@ def replace_in_sinex(sinex, observations, unknowns, new_val):
 """ % (new_val, observations - new_val)
 
     snx_path = os.path.basename(os.path.splitext(sinex)[0]) + "_MOD.snx"
-    with file_open(snx_path, "w") as nsnx:
-        with file_open(sinex, "r") as osnx:
-            for line in osnx:
-                if " NUMBER OF UNKNOWNS%22i" % unknowns in line:
-                    # empty means local directory! LA RE PU...
-                    nsnx.write(new_unknowns)
-                else:
-                    nsnx.write(line)
+    with file_open(snx_path, "w") as nsnx, file_open(sinex, "r") as osnx:
+        for line in osnx:
+            if " NUMBER OF UNKNOWNS%22i" % unknowns in line:
+                # empty means local directory! LA RE PU...
+                nsnx.write(new_unknowns)
+            else:
+                nsnx.write(line)
 
     # rename file
     os.remove(sinex)
@@ -185,7 +179,7 @@ class Globk:
 
         site_string = "\n".join(site_list_string)
 
-        contents = """#!/bin/bash
+        contents = r"""#!/bin/bash
 
         export INSTITUTE=%s
         export GPSWEEK=%s

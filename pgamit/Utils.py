@@ -1,26 +1,23 @@
+import argparse
+import base64
+import filecmp
+import io
 import os
 import re
-import subprocess
-import sys
-import filecmp
-import argparse
-import stat
 import shutil
-import io
-import base64
+import stat
+import sys
 from datetime import datetime
-from zlib import crc32 as zlib_crc32
+from importlib.metadata import version
 from pathlib import Path
-
+from zlib import crc32 as zlib_crc32
 
 # deps
 import numpy
 import numpy as np
-from importlib.metadata import version
 
 # app
-from pgamit import pyRinexName
-from pgamit import pyDate
+from pgamit import pyDate, pyRinexName
 
 
 class UtilsException(Exception):
@@ -140,9 +137,7 @@ def required_length(nmin, nmax):
     class RequiredLength(argparse.Action):
         def __call__(self, parser, args, values, option_string=None):
             if not nmin <= len(values) <= nmax:
-                msg = 'argument "{f}" requires between {nmin} and {nmax} arguments'.format(
-                    f=self.dest, nmin=nmin, nmax=nmax
-                )
+                msg = f'argument "{self.dest}" requires between {nmin} and {nmax} arguments'
                 raise argparse.ArgumentTypeError(msg)
 
             setattr(args, self.dest, values)
@@ -289,7 +284,7 @@ def copyfile(src, dst, rnx_ver=2):
     Returns the path to the copy.
     """
     if not os.path.exists(src):
-        raise ValueError("Source file does not exist: {}".format(src))
+        raise ValueError(f"Source file does not exist: {src}")
 
     # make the folders if they don't exist
     # careful! racing condition between different workers
@@ -616,16 +611,12 @@ def print_columns(l):
     for a, b, c, d, e, f, g, h in zip(
         l[::8], l[1::8], l[2::8], l[3::8], l[4::8], l[5::8], l[6::8], l[7::8]
     ):
-        print(
-            "    {:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<}".format(
-                a, b, c, d, e, f, g, h
-            )
-        )
+        print(f"    {a:<10}{b:<10}{c:<10}{d:<10}{e:<10}{f:<10}{g:<10}{h:<}")
 
     if len(l) % 8 != 0:
         sys.stdout.write("    ")
         for i in range(len(l) - len(l) % 8, len(l)):
-            sys.stdout.write("{:<10}".format(l[i]))
+            sys.stdout.write(f"{l[i]:<10}")
         sys.stdout.write("\n")
 
 

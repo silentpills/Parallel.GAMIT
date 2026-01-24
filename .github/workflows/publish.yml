@@ -3,6 +3,10 @@ on:
   push:
     tags:
       - "[0-9]*"
+
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build distribution 📦

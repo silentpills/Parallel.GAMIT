@@ -7,11 +7,10 @@ This class is used to connect to the database and handles inserts, updates and s
 It also handles the error, info and warning messages
 """
 
-import platform
 import configparser
 import inspect
+import platform
 import re
-from datetime import datetime
 from decimal import Decimal
 
 # deps
@@ -19,8 +18,7 @@ import pg
 import pgdb
 
 # app
-from pgamit.Utils import file_read_all, file_append, create_empty_cfg
-
+from pgamit.Utils import create_empty_cfg, file_append, file_read_all
 
 DB_HOST = "localhost"
 DB_USER = "postgres"

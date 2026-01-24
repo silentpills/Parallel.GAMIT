@@ -26,20 +26,21 @@ pom011021:
   changes are in the subnets_delaunay routine.
 """
 
-from datetime import datetime
-import time
 import copy
+import time
+from datetime import datetime
+
+import numpy as np
+from scipy.spatial import Delaunay, distance
 
 # deps
 from tqdm import tqdm
-import numpy as np
-from scipy.spatial import Delaunay, distance
+
+from pgamit.cluster import BisectingQMeans, overcluster, prune, select_central_point
 
 # app
 from pgamit.pyGamitSession import GamitSession
 from pgamit.pyStation import StationCollection
-from pgamit.cluster import BisectingQMeans, overcluster, prune, select_central_point
-from pgamit.plots import plot_global_network
 
 BACKBONE_NET = 45
 NET_LIMIT = 40
@@ -67,7 +68,7 @@ class NetworkException(Exception):
         return str(self.value)
 
 
-class Network(object):
+class Network:
     def __init__(
         self,
         cnn,
@@ -310,7 +311,7 @@ class Network(object):
                     d[d == 0] = np.inf
                     # if any pair is closer than max_dist, remove point
                     if np.any(d <= max_dist):
-                        rp = v[np.where((d <= max_dist))[0]][0]
+                        rp = v[np.where(d <= max_dist)[0]][0]
 
                         n_mask[np.where(mask)[0][rp]] = False
                         # if mask was updated, then iterate

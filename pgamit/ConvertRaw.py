@@ -14,9 +14,7 @@ import tempfile
 from tqdm import tqdm
 
 # app
-from pgamit import Utils
-from pgamit import pyRinex
-from pgamit import pyRunWithRetry
+from pgamit import Utils, pyRinex, pyRunWithRetry
 from pgamit.pyEvents import Event
 
 
@@ -29,7 +27,7 @@ class ConvertRawException(Exception):
         return str(self.value)
 
 
-class ConvertRaw(object):
+class ConvertRaw:
     def __init__(
         self,
         station_code="stnm",
@@ -131,7 +129,7 @@ class ConvertRaw(object):
                 "???", self.station_code, abs_filename, min_time_seconds=300
             )
 
-            if rnx.date.yyyyddd() + f"_{rnx.interval:>02.0f}" in date_dict.keys():
+            if rnx.date.yyyyddd() + f"_{rnx.interval:>02.0f}" in date_dict:
                 date_dict[rnx.date.yyyyddd() + f"_{rnx.interval:>02.0f}"].append(
                     abs_filename
                 )

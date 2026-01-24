@@ -7,18 +7,18 @@ This class is used to connect to the database and handles inserts, updates and s
 It also handles the error, info and warning messages
 """
 
-import platform
 import configparser
 import inspect
+import platform
 import re
-import psycopg2
-import psycopg2.extras
-import psycopg2.extensions
 from decimal import Decimal
 
-# app
-from pgamit.Utils import file_read_all, file_append, create_empty_cfg
+import psycopg2
+import psycopg2.extensions
+import psycopg2.extras
 
+# app
+from pgamit.Utils import create_empty_cfg, file_append, file_read_all
 
 DB_HOST = "localhost"
 DB_USER = "postgres"
@@ -67,7 +67,7 @@ def cast_array_to_float(recordset):
 
 
 # class to match the pygreSQl structure using psycopg2
-class query_obj(object):
+class query_obj:
     def __init__(self, cursor):
         self.rows = []
         # to maintain backwards compatibility
@@ -117,7 +117,7 @@ class DatabaseError(psycopg2.DatabaseError):
     pass
 
 
-class Cnn(object):
+class Cnn:
     def __init__(self, configfile, use_float=False, write_cfg_file=False):
         options = {
             "hostname": DB_HOST,
@@ -299,7 +299,7 @@ class Cnn(object):
         cols = list(self.get_columns(table).keys())
 
         # assuming fields are passed through kw which are keyword arguments
-        fields = [k for k in kw.keys() if k in cols]
+        fields = [k for k in kw if k in cols]
         values = [v for v, k in zip(kw.values(), kw.keys()) if k in cols]
 
         # form the insert query dynamically
@@ -331,7 +331,7 @@ class Cnn(object):
         where_clause = " AND ".join(
             [
                 f'"{key}" = %s' if val is not None else f'"{key}" IS %s'
-                for key, val in zip(kwargs.keys(), kwargs.values())
+                for key, val in kwargs.items()
             ]
         )
         # Construct query
@@ -365,7 +365,7 @@ class Cnn(object):
         where_clause = " AND ".join(
             [
                 f'"{key}" = %s' if val is not None else f'"{key}" IS %s'
-                for key, val in zip(kw.keys(), kw.values())
+                for key, val in kw.items()
             ]
         )
         query = f"DELETE FROM {table} WHERE {where_clause}"

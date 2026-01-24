@@ -11,7 +11,7 @@ import os
 
 # app
 from pgamit.ConvertRaw import ConvertRaw
-from pgamit.Utils import required_length, add_version_argument
+from pgamit.Utils import add_version_argument, required_length
 
 
 def main():

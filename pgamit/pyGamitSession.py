@@ -12,11 +12,9 @@ import simplekml
 from tqdm import tqdm
 
 # app
-from pgamit import pyRinexName
-from pgamit.pyStation import StationInstance, StationCollection
-from pgamit.Utils import determine_frame, file_open, stationID, chmod_exec
-from pgamit import pyGamitConfig
-from pgamit import snxParse
+from pgamit import pyRinexName, snxParse
+from pgamit.pyStation import StationInstance
+from pgamit.Utils import chmod_exec, determine_frame, file_open, stationID
 
 
 class GamitSessionException(Exception):
@@ -27,7 +25,7 @@ class GamitSessionException(Exception):
         return repr(self.value)
 
 
-class GamitSession(object):
+class GamitSession:
     def __init__(
         self,
         cnn,
@@ -389,7 +387,7 @@ $$\n"""
         script_path = "link_tables.sh"
         try:
             link_tables = file_open(script_path, "w")
-        except (OSError, IOError):
+        except OSError:
             raise GamitSessionException("Could not create script file link_tables.sh")
 
         # link the apr file as the lfile.

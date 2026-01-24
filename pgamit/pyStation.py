@@ -6,19 +6,16 @@ Author: Demian D. Gomez
 Class that holds the station metadata needed to process in GAMIT
 """
 
+import os
 import random
 import string
-import os
 
 # deps
 import numpy as np
 from tqdm import tqdm
 
 # app
-from pgamit import pyStationInfo
-from pgamit import pyETM
-from pgamit import pyBunch
-from pgamit import pyDate
+from pgamit import pyBunch, pyDate, pyETM, pyStationInfo
 from pgamit.Utils import stationID
 
 COMPLETION = 0.5
@@ -37,7 +34,7 @@ class pyStationCollectionException(pyStationException):
     pass
 
 
-class Station(object):
+class Station:
     def __init__(self, cnn, NetworkCode, StationCode, dates, StationAlias=None):
         """
         Station object to manage metadata and APRs for GAMIT run. Class allows overriding StationAlias but now the
@@ -203,7 +200,7 @@ class Station(object):
         return self
 
 
-class StationInstance(object):
+class StationInstance:
     def __init__(self, cnn, archive, station, date, GamitConfig, is_tie=False):
         self.NetworkCode = station.NetworkCode
         self.StationCode = station.StationCode
@@ -285,13 +282,13 @@ class StationInstance(object):
             " "
             + self.StationAlias.upper()
             + "_GPS "
-            + "{:12.3f}".format(x[0, 0])
+            + f"{x[0, 0]:12.3f}"
             + " "
-            + "{:12.3f}".format(x[1, 0])
+            + f"{x[1, 0]:12.3f}"
             + " "
-            + "{:12.3f}".format(x[2, 0])
+            + f"{x[2, 0]:12.3f}"
             + " 0.000 0.000 0.000 "
-            + "{:8.4f}".format(self.date.fyear)
+            + f"{self.date.fyear:8.4f}"
         )
 
     def GetSittbl(self):

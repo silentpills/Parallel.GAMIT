@@ -4,26 +4,26 @@ Date: 4/3/17 6:57 PM
 Author: Demian D. Gomez
 """
 
+import glob
 import os
-from datetime import datetime
+import platform
+import re
 import shutil
 import subprocess
-import re
-import glob
-import platform
 import traceback
-import numpy
 import zipfile
+from datetime import datetime
+
+import numpy
 
 # app
-from pgamit import pyRinex
-from pgamit import pyProducts
+from pgamit import pyProducts, pyRinex
 from pgamit.Utils import (
-    file_write,
-    file_open,
-    file_append,
-    file_readlines,
     chmod_exec,
+    file_append,
+    file_open,
+    file_readlines,
+    file_write,
     stationID,
 )
 
@@ -41,7 +41,7 @@ def replace_vars(archive, date):
     )
 
 
-class GamitTask(object):
+class GamitTask:
     def __init__(self, remote_pwd, params, solution_pwd):
         self.pwd = remote_pwd
         self.solution_pwd = solution_pwd
@@ -149,7 +149,7 @@ class GamitTask(object):
                     shutil.copyfile(
                         os.path.join(
                             self.pwd,
-                            f"gsoln/"
+                            "gsoln/"
                             + success_results[0]["system"]
                             + "/"
                             + success_results[0]["glbf"],
@@ -246,7 +246,7 @@ class GamitTask(object):
 
         try:
             globk_cmd = file_open(os.path.join(self.pwd_glbf, "globk.cmd"), "w")
-        except (OSError, IOError):
+        except OSError:
             raise Exception("could not open file globk.cmd")
 
         contents = f"""
@@ -263,7 +263,7 @@ class GamitTask(object):
 
         try:
             gdl_file = file_open(os.path.join(self.pwd_glbf, "hfiles.gdl"), "w")
-        except (OSError, IOError):
+        except OSError:
             raise Exception("could not open file hfiles.gdl")
 
         # create the gdl file with the glx files to merge
@@ -429,7 +429,7 @@ class GamitTask(object):
                         Rinex.purge_comments()
                         Rinex.compress_local_copyto(self.pwd_rinex, rinex["destiny"])
 
-            except (OSError, IOError):
+            except OSError:
                 self.log(
                     "An error occurred while trying to copy "
                     + rinex["source"]
@@ -490,7 +490,7 @@ class GamitTask(object):
 
             else:
                 self.log(
-                    f"Deleting only RINEX and .grid files. Other files preserved for diagnostic purposes."
+                    "Deleting only RINEX and .grid files. Other files preserved for diagnostic purposes."
                 )
 
                 # files to remove from tables (unsuccessful)
@@ -565,7 +565,7 @@ class GamitTask(object):
 
         try:
             replace_ln_file = file_open(replace_ln_file_path, "w")
-        except (OSError, IOError):
+        except OSError:
             raise Exception("could not open file " + replace_ln_file_path)
 
         replace_ln_file.write("""#!/bin/bash
@@ -682,7 +682,7 @@ class GamitTask(object):
 
             try:
                 run_file = file_open(run_file_path, "w")
-            except (OSError, IOError):
+            except OSError:
                 raise Exception("could not open file " + run_file_path)
 
             contents = f"""#!/bin/bash
@@ -834,9 +834,7 @@ class GamitTask(object):
                 for si, stn in enumerate(upd_stn):
                     # find station in the previous lfile. (previous = lfile.i, before the run)
                     apr_stn = re.findall(
-                        r"\s{}_\w+\s+(.\d+.\d+)\s+(.\d+.\d+)\s+(.\d+.\d+)".format(
-                            stn[0]
-                        ),
+                        rf"\s{stn[0]}_\w+\s+(.\d+.\d+)\s+(.\d+.\d+)\s+(.\d+.\d+)",
                         lfile_i,
                     )[0]
                     delta[si] = numpy.sqrt(
@@ -851,7 +849,7 @@ class GamitTask(object):
 
                     if numpy.any(delta > 0.3):
                         self.log(
-                            f"One or more stations with updated coordinates > 0.3 m."
+                            "One or more stations with updated coordinates > 0.3 m."
                         )
                         retry = True
 
@@ -897,7 +895,7 @@ class GamitTask(object):
                 # now convert h file to GLX and place in each system folder
                 try:
                     finish_file = file_open(finish_file_path, "w")
-                except (OSError, IOError):
+                except OSError:
                     raise Exception("could not open file " + finish_file_path)
 
                 contents = f"""#!/bin/bash

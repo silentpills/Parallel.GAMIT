@@ -8,24 +8,25 @@ Description goes here
 """
 
 # deps
-from typing import NamedTuple, Optional
-import threading
-import requests
-from abc import ABC, abstractmethod
-import ftplib
-import socket
-import paramiko
-import errno
 import _thread
-import subprocess
-import shutil
+import errno
+import ftplib
 import os
+import shutil
+import socket
+import subprocess
+import threading
 import time
-from tqdm import tqdm
 import traceback
+from abc import ABC, abstractmethod
+from typing import NamedTuple
+
+import paramiko
+import requests
+from tqdm import tqdm
 
 # app
-from pgamit.Utils import file_try_remove, dir_try_remove
+from pgamit.Utils import file_try_remove
 
 SERVER_REFRESH_INTERVAL = 2  # in seconds
 SERVER_CONNECTION_TIMEOUT = 20  # in seconds
@@ -41,8 +42,8 @@ class IProtocol(ABC):
         protocol: str,
         fqdn: str,
         port: int,
-        username: Optional[str],
-        password: Optional[str],
+        username: str | None,
+        password: str | None,
     ):
         self.protocol = protocol
         self.fqdn = fqdn
@@ -200,7 +201,7 @@ class ProtocolSFTP(IProtocol):
         try:
             self.sftp.get(server_path, dest_path)
             return None
-        except IOError as e:
+        except OSError as e:
             # paramiko maps SFTP errors to errno codes:
             if e.errno in (errno.ENOENT, errno.EACCES):
                 return errno.errorcode[e.errno] + " " + e.strerror
@@ -322,7 +323,7 @@ class Client:
     proto: IProtocol
     cond: threading.Condition
     state: str  # Literal['STARTED', 'STOP_PENDING', 'STOPPED', "FINISH_PENDING", "FINISHED"]
-    next_download: Optional[NextDownload]
+    next_download: NextDownload | None
 
     def __init__(
         self,

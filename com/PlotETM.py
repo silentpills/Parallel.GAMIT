@@ -10,28 +10,26 @@ Type python pyPlotETM.py -h for usage help
 """
 
 import argparse
+import json
 import os
 import traceback
-import json
+import xml.etree.ElementTree as ET
+import zipfile
+from io import BytesIO
 
 # deps
 import numpy as np
-import zipfile
-from io import BytesIO
-import xml.etree.ElementTree as ET
 
 # app
-from pgamit import pyETM
-from pgamit import dbConnection
-from pgamit import pyDate
+from pgamit import dbConnection, pyDate, pyETM
 from pgamit.Utils import (
+    add_version_argument,
+    file_write,
+    print_columns,
     process_date,
     process_stnlist,
-    file_write,
     station_list_help,
     stationID,
-    print_columns,
-    add_version_argument,
 )
 
 
@@ -56,7 +54,7 @@ def read_kml_or_kmz(file_path):
 
     else:
         # If the file is a regular KML, process it directly
-        kml_file = open(file_path, "r")
+        kml_file = open(file_path)
 
     # Extract coordinates from the KML file
     placemarks = extract_placemarks(kml_file)

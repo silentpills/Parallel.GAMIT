@@ -114,7 +114,7 @@ class RinexNameException(Exception):
         return str(self.value)
 
 
-class RinexNameFormat(object):
+class RinexNameFormat:
     def __init__(
         self,
         filename,

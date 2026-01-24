@@ -1,11 +1,11 @@
 # Author: Shane Grigsby (espg) <refuge@rocktalus.com>
 # Created: September 2024
 
-import pytest
 import numpy as np
+import pytest
 
-from .common import gen_variable_density_clusters, generate_clustered_data
 from ..cluster import BisectingQMeans, overcluster
+from .common import gen_variable_density_clusters
 
 
 @pytest.mark.parametrize(

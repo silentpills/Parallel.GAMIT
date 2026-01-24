@@ -4,10 +4,6 @@ Date: Dic-03-2016
 Author: Demian D. Gomez
 """
 
-import configparser
-import sys
-import os
-import getopt
 import re
 
 
@@ -28,7 +24,7 @@ class StationList:
         try:
             if src != None:
                 self.stn_list += re.split(",", src)
-        except StationListException as err:
+        except StationListException:
             raise StationListException(
                 "Could not parse: " + src + " to a station Python list"
             )

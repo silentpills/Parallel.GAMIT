@@ -6,18 +6,18 @@ Date: 10/27/17 12:40 PM
 Author: Demian D. Gomez
 """
 
-import os
 import glob
+import os
 import re
 from datetime import datetime
 
 # deps
 import numpy as np
 
+from pgamit import dbConnection
+
 # app
 from pgamit.pyDate import Date
-from pgamit import dbConnection
-from pgamit import pyOptions
 from pgamit.Utils import file_readlines
 
 
@@ -27,7 +27,7 @@ def parse_monitor(cnn, monitor):
 
     try:
         project, subnet, year, doy = re.findall(
-            "GamitTask initialized for (\w+.*?).(\w+\d+): (\d+) (\d+)",
+            r"GamitTask initialized for (\w+.*?).(\w+\d+): (\d+) (\d+)",
             output,
             re.MULTILINE,
         )[0]
@@ -38,7 +38,7 @@ def parse_monitor(cnn, monitor):
         # maybe it is a project with no subnets
         try:
             project, year, doy = re.findall(
-                "GamitTask initialized for (\w+.*?): (\d+) (\d+)", output, re.MULTILINE
+                r"GamitTask initialized for (\w+.*?): (\d+) (\d+)", output, re.MULTILINE
             )[0]
             subnet = 0
             year = int(year)
@@ -48,14 +48,14 @@ def parse_monitor(cnn, monitor):
             return
 
     try:
-        node = re.findall("executing on (\w+)", output, re.MULTILINE)[0]
+        node = re.findall(r"executing on (\w+)", output, re.MULTILINE)[0]
     except:
         node = "PUGAMIT100"
 
     try:
         start_time = datetime.strptime(
             re.findall(
-                "run.sh \((\d+-\d+-\d+ \d+:\d+:\d+)\): Iteration depth: 1",
+                r"run.sh \((\d+-\d+-\d+ \d+:\d+:\d+)\): Iteration depth: 1",
                 output,
                 re.MULTILINE,
             )[0],
@@ -68,7 +68,7 @@ def parse_monitor(cnn, monitor):
     try:
         end_time = datetime.strptime(
             re.findall(
-                "finish.sh \((\d+-\d+-\d+ \d+:\d+:\d+)\): Done processing h-files and generating SINEX.",
+                r"finish.sh \((\d+-\d+-\d+ \d+:\d+:\d+)\): Done processing h-files and generating SINEX.",
                 output,
                 re.MULTILINE,
             )[0],
@@ -81,7 +81,7 @@ def parse_monitor(cnn, monitor):
     try:
         iterations = int(
             re.findall(
-                "run.sh \(\d+-\d+-\d+ \d+:\d+:\d+\): Iteration depth: (\d+)",
+                r"run.sh \(\d+-\d+-\d+ \d+:\d+:\d+\): Iteration depth: (\d+)",
                 output,
                 re.MULTILINE,
             )[-1]
@@ -93,7 +93,7 @@ def parse_monitor(cnn, monitor):
     try:
         nrms = float(
             re.findall(
-                "Prefit nrms:\s+\d+.\d+[eEdD]\+\d+\s+Postfit nrms:\s+(\d+.\d+[eEdD][+-]\d+)",
+                r"Prefit nrms:\s+\d+.\d+[eEdD]\+\d+\s+Postfit nrms:\s+(\d+.\d+[eEdD][+-]\d+)",
                 output,
                 re.MULTILINE,
             )[-1]
@@ -103,12 +103,12 @@ def parse_monitor(cnn, monitor):
         nrms = 1
 
     try:
-        updated_apr = re.findall(" (\w+).*?Updated from", output, re.MULTILINE)[0]
+        updated_apr = re.findall(r" (\w+).*?Updated from", output, re.MULTILINE)[0]
         updated_apr = [upd.replace("_GPS", "").lower() for upd in updated_apr]
         upd_stn = []
         for stn in updated_apr:
             upd_stn += re.findall(
-                "fetching rinex for (\w+.\w+) %s" % stn.lower(), output, re.MULTILINE
+                r"fetching rinex for (\w+.\w+) %s" % stn.lower(), output, re.MULTILINE
             )
 
         upd_stn = ",".join(upd_stn)
@@ -117,27 +117,27 @@ def parse_monitor(cnn, monitor):
         upd_stn = None
 
     try:
-        wl = float(re.findall("WL fixed\s+(\d+.\d+)", output, re.MULTILINE)[0])
+        wl = float(re.findall(r"WL fixed\s+(\d+.\d+)", output, re.MULTILINE)[0])
     except:
         # maybe GAMIT didn't finish
         wl = 0
 
     try:
-        nl = float(re.findall("NL fixed\s+(\d+.\d+)", output, re.MULTILINE)[0])
+        nl = float(re.findall(r"NL fixed\s+(\d+.\d+)", output, re.MULTILINE)[0])
     except:
         # maybe GAMIT didn't finish
         nl = 0
 
     try:
         oc = re.findall(
-            "relaxing over constrained stations (\w+.*)", output, re.MULTILINE
+            r"relaxing over constrained stations (\w+.*)", output, re.MULTILINE
         )[0]
         oc = oc.replace("|", ",").replace("_GPS", "").lower()
 
         oc_stn = []
         for stn in oc.split(","):
             oc_stn += re.findall(
-                "fetching rinex for (\w+.\w+) %s" % stn.lower(), output, re.MULTILINE
+                r"fetching rinex for (\w+.\w+) %s" % stn.lower(), output, re.MULTILINE
             )
 
         oc_stn = ",".join(oc_stn)
@@ -148,7 +148,7 @@ def parse_monitor(cnn, monitor):
 
     try:
         overcons = re.findall(
-            "GCR APTOL (\w+).{10}\s+([-]?\d+.\d+)", output, re.MULTILINE
+            r"GCR APTOL (\w+).{10}\s+([-]?\d+.\d+)", output, re.MULTILINE
         )
 
         if len(overcons) > 0:
@@ -157,7 +157,7 @@ def parse_monitor(cnn, monitor):
 
             # get the real station code
             max_overconstrained = re.findall(
-                "fetching rinex for (\w+.\w+) %s" % stn.lower(), output, re.MULTILINE
+                r"fetching rinex for (\w+.\w+) %s" % stn.lower(), output, re.MULTILINE
             )[0]
         else:
             max_overconstrained = None

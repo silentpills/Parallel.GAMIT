@@ -11,12 +11,13 @@ Limited functionality, need to implement compression, read of model types (codes
 
 import argparse
 import os
+
 from tqdm import tqdm
 
+from pgamit import dbConnection, pyDate
+
 # app
-from pgamit.Utils import required_length, process_date, add_version_argument
-from pgamit import pyDate
-from pgamit import dbConnection
+from pgamit.Utils import add_version_argument, process_date, required_length
 
 CONFIG_FILE = "gnss_data.cfg"
 
@@ -96,11 +97,10 @@ def main():
             "INNER JOIN stations "
             'ON stations."NetworkCode"=gamit_ztd."NetworkCode" and '
             'stations."StationCode"=gamit_ztd."StationCode" '
-            "WHERE \"Project\" = '{project}' "
-            'AND "DOY" = {doy} '
-            'AND "Year" = {year} '
+            f"WHERE \"Project\" = '{args.project}' "
+            f'AND "DOY" = {dd.doy} '
+            f'AND "Year" = {dd.year} '
             'ORDER BY "StationCode" asc, gamit_ztd."Date" asc'
-            "".format(project=args.project, doy=dd.doy, year=dd.year)
         )
 
         rows = cnn.query_float(query)
@@ -157,10 +157,10 @@ def main():
                         flag="A",
                         date=date_.rjust(date_len),
                         spaces=" ".ljust(25),
-                        mod_u="{:.4f}".format(mod_u).ljust(6),
-                        corr_u="{:7.5f}".format(corr_u).rjust(8),
-                        sigma_u="{:7.5f}".format(sigma).rjust(8),
-                        total_u="{:7.5f}".format(data[5]).rjust(8),
+                        mod_u=f"{mod_u:.4f}".ljust(6),
+                        corr_u=f"{corr_u:7.5f}".rjust(8),
+                        sigma_u=f"{sigma:7.5f}".rjust(8),
+                        total_u=f"{data[5]:7.5f}".rjust(8),
                         corr_n=varios.rjust(7),
                         sigma_n=varios.rjust(7),
                         corr_e=varios.rjust(7),

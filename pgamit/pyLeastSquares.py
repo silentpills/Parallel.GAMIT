@@ -70,7 +70,7 @@ def adjust_lsq(A, L, limit=LIMIT):
             break  # cst_pass = True
 
     # make sure there are no values below eps. Otherwise, matrix becomes singular
-    P[P < np.finfo(float).eps] = np.finfo(float).eps
+    P[np.finfo(float).eps > P] = np.finfo(float).eps
 
     # some statistics
     SS = np.linalg.inv(A.transpose() @ np.multiply(P, A))

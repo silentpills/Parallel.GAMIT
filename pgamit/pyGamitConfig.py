@@ -7,9 +7,10 @@ Author: Demian D. Gomez
 import configparser
 import os
 
+from pgamit import pyBunch
+
 # app
 from pgamit.pyOptions import ReadOptions
-from pgamit import pyBunch
 from pgamit.Utils import file_open
 
 

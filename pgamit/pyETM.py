@@ -1,24 +1,21 @@
-# -*- coding: utf-8 -*-
 """
 Project: Parallel.Archive
 Date: 3/3/17 11:27 AM
 Author: Demian D. Gomez
 """
 
+import base64
+import copy
 import datetime
+import logging
+import os
+import platform
+import sys
 import traceback
 import warnings
-import sys
-import os
+from importlib.metadata import PackageNotFoundError, version
+from logging import Formatter, StreamHandler
 from time import time
-from io import BytesIO
-import base64
-import logging
-from logging import INFO, ERROR, WARNING, DEBUG, StreamHandler, Formatter
-import copy
-import platform
-
-from importlib.metadata import version, PackageNotFoundError
 
 import numpy.linalg
 
@@ -36,11 +33,11 @@ except PackageNotFoundError:
 os.environ["XDG_SESSION_TYPE"] = "xcb"
 
 # deps
+import matplotlib
 import numpy as np
-from numpy import sin, cos, pi
+from numpy import cos, pi, sin
 from scipy.stats import chi2
 from sklearn.cluster import DBSCAN
-import matplotlib
 
 if not os.environ.get("DISPLAY", None):
     matplotlib.use("Agg")
@@ -48,13 +45,9 @@ if not os.environ.get("DISPLAY", None):
 from matplotlib.widgets import Button
 
 # app
-from pgamit import pyStationInfo
-from pgamit import pyDate
-from pgamit import pyEvents
-from pgamit.Utils import ct2lg, lg2ct, rotlg2ct, crc32, stationID, lla2ecef
+from pgamit import dbConnection, pyDate, pyEvents, pyOkada, pyStationInfo
 from pgamit.pyBunch import Bunch
-from pgamit import pyOkada
-from pgamit import dbConnection
+from pgamit.Utils import crc32, ct2lg, lg2ct, lla2ecef, rotlg2ct, stationID
 
 language = {
     "eng": {
@@ -135,7 +128,7 @@ def toc(text):
 
 def prYellow(skk):
     if os.fstat(0) == os.fstat(1):
-        return "\033[93m{}\033[00m".format(skk)
+        return f"\033[93m{skk}\033[00m"
     else:
         return skk
 
@@ -192,7 +185,7 @@ ESTIMATION = 0
 DATABASE = 1
 
 
-class Model(object):
+class Model:
     VEL = 1
     LOG = 2
 
@@ -1072,9 +1065,7 @@ class JumpTable:
             # relaxation counter
             rx = 0
             m = "  -" if np.isnan(jump.magnitude) else jump.magnitude
-            epi_dist = (
-                "{:>6.1f}".format(jump.epi_distance) if jump.epi_distance != 0 else ""
-            )
+            epi_dist = f"{jump.epi_distance:>6.1f}" if jump.epi_distance != 0 else ""
 
             if jump.fit:
                 for j, p in enumerate(np.arange(jump.param_count)):
@@ -2293,9 +2284,7 @@ class Polynomial(EtmFunction):
                 + " ("
                 + LABEL("from_model")
                 + ")"
-                + " N: {:.2f} E: {:.2f} U: {:.2f} [mm/yr]".format(
-                    inter[0, 0] * 1000, inter[1, 0] * 1000, inter[2, 0] * 1000
-                )
+                + f" N: {inter[0, 0] * 1000:.2f} E: {inter[1, 0] * 1000:.2f} U: {inter[2, 0] * 1000:.2f} [mm/yr]"
             )
             self.p.metadata = "[[n:pos, n:vel],[e:pos, e:vel],[u:pos, u:vel]]"
         else:
@@ -2784,8 +2773,6 @@ class ETM:
                 self.l -= pmodel
 
     def run_adjustment(self, cnn, l, soln, ignore_db_params=False):
-        import pandas as pd
-
         if self.A is not None:
             # try to load the last ETM solution from the database
 
@@ -3453,8 +3440,6 @@ class ETM:
 
     def plot_hist(self, pngfile=None, fileio=None):
         import matplotlib.pyplot as plt
-        import matplotlib.mlab as mlab
-        from scipy.stats import norm
         from matplotlib.patches import Ellipse
 
         labels = (
@@ -3986,18 +3971,18 @@ class ETM:
             sig = np.array(param["sigmas"])
 
             o = param["object"]
-            if "polynomial" == o:
+            if o == "polynomial":
                 self.Linear.load_parameters(par, sig, param["t_ref"])
 
-            elif "periodic" == o:
+            elif o == "periodic":
                 self.Periodic.load_parameters(params=par, sigmas=sig)
 
-            elif "jump" == o:
+            elif o == "jump":
                 for jump in self.Jumps.table:
                     if jump.p.hash == param["hash"]:
                         jump.load_parameters(params=par, sigmas=sig)
 
-            elif "var_factor" == o:
+            elif o == "var_factor":
                 # already a vector in the db
                 factor = par
 
@@ -4089,7 +4074,7 @@ class ETM:
                 break  # cst_pass = True
 
         # make sure there are no values below eps. Otherwise matrix becomes singular
-        P[P < np.finfo(float).eps] = np.finfo(float).eps
+        P[np.finfo(float).eps > P] = np.finfo(float).eps
 
         # some statistics
         try:
@@ -4185,7 +4170,7 @@ class ETM:
             periodic[1 / f] = status
 
         for f in self.Periodic.requested_frequencies.tolist():
-            if 1 / f not in periodic.keys():
+            if 1 / f not in periodic:
                 # this frequency is in the requested list, but was not included, so it is requested but deactivated
                 periodic[1 / f] = "D"
 

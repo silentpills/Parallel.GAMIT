@@ -6,31 +6,29 @@ Author: Demian D. Gomez
 """
 
 import argparse
+import json
 import os
 from datetime import datetime
-import json
+
+import matplotlib
 
 # deps
 import numpy as np
 from tqdm import tqdm
-import matplotlib
 
 if not os.environ.get("DISPLAY", None):
     matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import io
 import base64
+import io
+
+import matplotlib.pyplot as plt
 import numpy
 
 # app
-from pgamit import dbConnection
-from pgamit import pyETM
-from pgamit import pyDate
-from pgamit import pyJobServer
-from pgamit import pyOptions
-from pgamit.Utils import process_date, file_write, json_converter, add_version_argument
-from pgamit.pyStack import Polyhedron, np_array_vertices
+from pgamit import dbConnection, pyDate, pyETM, pyJobServer, pyOptions
 from pgamit.pyDate import Date
+from pgamit.pyStack import Polyhedron, np_array_vertices
+from pgamit.Utils import add_version_argument, file_write, json_converter, process_date
 
 stn_stats = []
 wrms_n = []

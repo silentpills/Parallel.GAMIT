@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main, master, dev]
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   lint:
     name: Lint

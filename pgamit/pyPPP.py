@@ -9,22 +9,19 @@ PPPSpatialCheck
 
 """
 
-from shutil import copyfile, rmtree
-from math import isnan
 import os
-import uuid
 import re
+import uuid
+from math import isnan
+from shutil import copyfile, rmtree
 
 # deps
 import numpy
 
 # app
-from pgamit import pyRinex
-from pgamit import pyProducts
-from pgamit import pyEvents
-from pgamit import pyRunWithRetry
+from pgamit import pyEvents, pyProducts, pyRinex, pyRunWithRetry
 from pgamit.pyDate import Date
-from pgamit.Utils import lg2ct, ecef2lla, determine_frame, file_write, file_readlines
+from pgamit.Utils import determine_frame, ecef2lla, file_readlines, file_write, lg2ct
 
 OBSERV_CODE_ONLY = "1"
 OBSERV_CODE_PHASE = "2"
@@ -392,7 +389,7 @@ class RunPPP(PPPSpatialCheck):
             else:
                 if f == "gpsppp.svb_gnss_yrly":
                     raise pyRunPPPException(
-                        f"Missing gpsppp.svb_gnss_yrly for PPP processing."
+                        "Missing gpsppp.svb_gnss_yrly for PPP processing."
                     )
 
         copyfile(
@@ -858,7 +855,7 @@ class RunPPP(PPPSpatialCheck):
                 raise pyRunPPPException(e)
             else:
                 return False, msg
-        except IOError as e:
+        except OSError as e:
             raise pyRunPPPException(e)
 
         return True, ""

@@ -12,18 +12,13 @@ Type python pyPlotETM.py -h for usage help
 import argparse
 import os
 import traceback
-import json
 
 # deps
 import numpy as np
 
 # app
-from pgamit import pyDate
-from pgamit import Utils
-from pgamit.Utils import file_readlines, add_version_argument
-from pgamit import dbConnection
-from pgamit import pyETM
-from pgamit import pyOptions
+from pgamit import Utils, dbConnection, pyDate, pyETM
+from pgamit.Utils import add_version_argument, file_readlines
 
 
 def from_file(args, cnn, stn):

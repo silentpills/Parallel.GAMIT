@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """Bunch is a subclass of dict with attribute-style access.
 
 >>> b = Bunch()

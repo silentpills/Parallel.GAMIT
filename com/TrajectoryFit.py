@@ -6,30 +6,26 @@ Author: Demian D. Gomez
 """
 
 import argparse
-from io import BytesIO
 import base64
 import os
-import json
+from io import BytesIO
+
+import matplotlib
 import matplotlib.pyplot as plt
-from mpl_toolkits.basemap import Basemap
+import numpy as np
 import simplekml
 from scipy.interpolate import griddata
 
 # deps
 from tqdm import tqdm
-import numpy as np
-import matplotlib
 
 if not os.environ.get("DISPLAY", None):
     matplotlib.use("Agg")
 
 # app
-from pgamit import dbConnection
-from pgamit import Utils
-from pgamit import pyETM
-from pgamit import pyDate
-from pgamit.Utils import stationID, file_write, add_version_argument
-from pgamit.pyETM import CO_SEISMIC_JUMP_DECAY, CO_SEISMIC_DECAY
+from pgamit import Utils, dbConnection, pyETM
+from pgamit.pyETM import CO_SEISMIC_DECAY, CO_SEISMIC_JUMP_DECAY
+from pgamit.Utils import add_version_argument, stationID
 
 
 def plot_station_param(NetworkCode, StationCode, parameter_name, unit, pn, pe):

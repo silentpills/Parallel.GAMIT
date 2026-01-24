@@ -10,11 +10,8 @@ has not been collecting data for X time
 
 import argparse
 
-from pgamit import pyDate
-from pgamit import dbConnection
-from pgamit import pyStationInfo
-from pgamit import Utils
-from pgamit.Utils import stationID, add_version_argument
+from pgamit import Utils, dbConnection, pyDate, pyStationInfo
+from pgamit.Utils import add_version_argument, stationID
 
 CONFIG_FILE = "gnss_data.cfg"
 

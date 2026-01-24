@@ -9,50 +9,51 @@ information, run PPP on the archive files and obtain the OTL coefficients
 
 """
 
-import traceback
-import datetime
-import os
-import sys
 import argparse
-import platform
-import json
-import shutil
+import datetime
 import glob
+import json
+import os
+import platform
+import shutil
+import sys
+import traceback
 import uuid
-from decimal import Decimal
 import zipfile
+from decimal import Decimal
 
-# deps
-from tqdm import tqdm
 import numpy
 import scandir
 
+# deps
+from tqdm import tqdm
+
 # app
-from pgamit import pyArchiveStruct
-from pgamit import dbConnection
-from pgamit import pyDate
-from pgamit import pyRinex
-from pgamit import pyRinexName
-from pgamit import pyOTL
-from pgamit import pyStationInfo
-from pgamit import pyProducts
-from pgamit import pyPPP
-from pgamit import pyOptions
-from pgamit import Utils
-from pgamit import pyJobServer
-from pgamit import pyEvents
+from pgamit import (
+    Utils,
+    dbConnection,
+    pyArchiveStruct,
+    pyDate,
+    pyEvents,
+    pyJobServer,
+    pyOptions,
+    pyOTL,
+    pyPPP,
+    pyProducts,
+    pyRinex,
+    pyRinexName,
+    pyStationInfo,
+)
 from pgamit.Utils import (
     add_version_argument,
-    process_date,
+    crc32,
     ecef2lla,
     file_append,
-    file_open,
     file_read_all,
-    stationID,
+    process_date,
     station_list_help,
-    crc32,
+    stationID,
 )
-
 
 error_message = False
 
@@ -416,7 +417,7 @@ def obtain_otl(NetworkCode, StationCode):
                         continue
 
                 except (
-                    IOError,
+                    OSError,
                     pyRinex.pyRinexException,
                     pyRinex.pyRinexExceptionBadFile,
                 ) as e:
@@ -1302,7 +1303,7 @@ def export_station(cnn, stnlist, pyArchive, archive_path, dataless):
                         zf.write(name, os.path.basename(name))
 
                     rinex_dict += [rnx]
-                except IOError:
+                except OSError:
                     tqdm.write(
                         " -- Warning! File not found in archive: %s"
                         % (os.path.join(archive_path, rnx_path))
@@ -1803,11 +1804,9 @@ def main():
 
     args = parser.parse_args()
 
-    if args.station_info is not None and (not len(args.station_info) in (0, 2)):
+    if args.station_info is not None and (len(args.station_info) not in (0, 2)):
         parser.error(
-            "-stninfo requires 0 or 2 arguments. {} given.".format(
-                len(args.station_info)
-            )
+            f"-stninfo requires 0 or 2 arguments. {len(args.station_info)} given."
         )
 
     Config = pyOptions.ReadOptions("gnss_data.cfg")  # type: pyOptions.ReadOptions

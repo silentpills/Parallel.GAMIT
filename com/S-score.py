@@ -9,12 +9,10 @@ Description goes here
 """
 
 import argparse
-import math
 
 # app
-from pgamit import pyOkada
-from pgamit import dbConnection
-from pgamit.Utils import add_version_argument, stationID, print_columns
+from pgamit import dbConnection, pyOkada
+from pgamit.Utils import add_version_argument, print_columns, stationID
 
 
 def main():

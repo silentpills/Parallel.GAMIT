@@ -4,24 +4,27 @@
 # Created: August 2024 (clustering functions)
 
 import warnings
+
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
-
-from sklearn.neighbors import NearestNeighbors
-from sklearn.metrics import pairwise_distances
 from sklearn.base import _fit_context
-from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
-from sklearn.utils._param_validation import Integral, Interval, StrOptions
-from sklearn.utils.extmath import row_norms
-from sklearn.utils.validation import _check_sample_weight, check_random_state
 from sklearn.cluster._k_means_common import _inertia_dense, _inertia_sparse
 from sklearn.cluster._kmeans import (
     _BaseKMeans,
     _kmeans_single_elkan,
     _kmeans_single_lloyd,
 )
-from sklearn.utils.validation import check_array
+from sklearn.metrics import pairwise_distances
+from sklearn.neighbors import NearestNeighbors
+from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
+from sklearn.utils._param_validation import Integral, Interval, StrOptions
+from sklearn.utils.extmath import row_norms
+from sklearn.utils.validation import (
+    _check_sample_weight,
+    check_array,
+    check_random_state,
+)
 
 
 def prune(OC, central_points, method="minsize"):

@@ -5,18 +5,14 @@ import argparse
 import copy
 
 # app
-from pgamit import dbConnection
-from pgamit import Utils
-from pgamit.Utils import (
-    required_length,
-    process_date,
-    station_list_help,
-    add_version_argument,
-)
+from pgamit import Utils, dbConnection, pyETM
 from pgamit.pyBunch import Bunch
-from pgamit import pyETM
-
-from pgamit.pyETM import DEFAULT_FREQUENCIES, DEFAULT_POL_TERMS, DEFAULT_RELAXATION
+from pgamit.Utils import (
+    add_version_argument,
+    process_date,
+    required_length,
+    station_list_help,
+)
 
 
 class SmartFormatter(argparse.HelpFormatter):

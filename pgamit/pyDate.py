@@ -8,9 +8,9 @@ Class that handles all the date conversions betweem different systems and format
 
 """
 
-from math import floor
 from datetime import datetime
 from json import JSONEncoder
+from math import floor
 
 
 def _default(self, obj):
@@ -211,7 +211,7 @@ def parse_stninfo(stninfo_datetime):
         return int(sdate[0]), int(sdate[1]), int(sdate[2]), int(sdate[3]), int(sdate[4])
 
 
-class Date(object):
+class Date:
     def __init__(self, **kwargs):
         # init
         self.mjd = None

@@ -12,11 +12,8 @@ import argparse
 import os
 
 # app
-from pgamit import pyOptions
-from pgamit import dbConnection
-from pgamit import pyDate
-from pgamit import snxParse
-from pgamit.Utils import process_date, process_stnlist, file_open, add_version_argument
+from pgamit import dbConnection, pyDate, pyOptions, snxParse
+from pgamit.Utils import add_version_argument, file_open, process_date
 
 
 def replace_in_sinex(sinex, observations, unknowns, new_val):
@@ -27,14 +24,13 @@ def replace_in_sinex(sinex, observations, unknowns, new_val):
 """ % (new_val, observations - new_val)
 
     sinex_path = os.path.basename(os.path.splitext(sinex)[0]) + "_MOD.snx"
-    with file_open(sinex_path, "w") as nsnx:
-        with file_open(sinex, "r") as osnx:
-            for line in osnx:
-                if " NUMBER OF UNKNOWNS%22i" % unknowns in line:
-                    # empty means local directory! LA RE PU...
-                    nsnx.write(new_unknowns)
-                else:
-                    nsnx.write(line)
+    with file_open(sinex_path, "w") as nsnx, file_open(sinex, "r") as osnx:
+        for line in osnx:
+            if " NUMBER OF UNKNOWNS%22i" % unknowns in line:
+                # empty means local directory! LA RE PU...
+                nsnx.write(new_unknowns)
+            else:
+                nsnx.write(line)
 
     # rename file
     os.remove(sinex)
