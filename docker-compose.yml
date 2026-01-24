@@ -2,7 +2,7 @@ services:
   backend:
     container_name: gnss-backend
     build:
-      context: ./web/backend/backend
+      context: ./web/backend
       args:
         USER_ID_TO_SAVE_FILES: ${USER_ID_TO_SAVE_FILES}
         GROUP_ID_TO_SAVE_FILES: ${GROUP_ID_TO_SAVE_FILES}
@@ -24,7 +24,7 @@ services:
       - USER_ID_TO_SAVE_FILES=${USER_ID_TO_SAVE_FILES:-1000}
       - GROUP_ID_TO_SAVE_FILES=${GROUP_ID_TO_SAVE_FILES:-1000}
     volumes:
-      - ./web/backend/backend/backend_django_project/logs:/code/backend_django_project/logs
+      - ./web/backend/backend_django_project/logs:/code/backend_django_project/logs
       - ${MEDIA_FOLDER_HOST_PATH}:/code/backend_django_project/media
     restart: always
     env_file:
