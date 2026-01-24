@@ -1,40 +1,38 @@
-
+import argparse
+import base64
+import filecmp
+import io
 import os
 import re
-import subprocess
-import sys
-import filecmp
-import argparse
-import stat
 import shutil
-import io
-import base64
+import stat
+import sys
 from datetime import datetime
-from zlib import crc32 as zlib_crc32
+from importlib.metadata import version
 from pathlib import Path
-
+from zlib import crc32 as zlib_crc32
 
 # deps
 import numpy
 import numpy as np
-from importlib.metadata import version
 
 # app
-from pgamit import pyRinexName
-from pgamit import pyDate
+from pgamit import pyDate, pyRinexName
 
 
 class UtilsException(Exception):
     def __init__(self, value):
         self.value = value
-        
+
     def __str__(self):
         return str(self.value)
 
 
 def add_version_argument(parser):
-    __version__ = version('pgamit')
-    parser.add_argument('-v', '--version', action='version', version=f'%(prog)s {__version__}')
+    __version__ = version("pgamit")
+    parser.add_argument(
+        "-v", "--version", action="version", version=f"%(prog)s {__version__}"
+    )
     return parser
 
 
@@ -53,32 +51,36 @@ def get_field_or_attr(obj, f):
 
 
 def stationID(s):
-    return "%s.%s" % (get_field_or_attr(s, 'NetworkCode'),
-                      get_field_or_attr(s, 'StationCode'))
+    return "%s.%s" % (
+        get_field_or_attr(s, "NetworkCode"),
+        get_field_or_attr(s, "StationCode"),
+    )
 
 
 def get_stack_stations(cnn, name):
-    rs = cnn.query_float(f'SELECT DISTINCT "NetworkCode", "StationCode", auto_x, auto_y, auto_z '
-                         f'FROM stacks INNER JOIN stations '
-                         f'USING ("NetworkCode", "StationCode")'
-                         f'WHERE "name" = \'{name}\'', as_dict=True)
+    rs = cnn.query_float(
+        f'SELECT DISTINCT "NetworkCode", "StationCode", auto_x, auto_y, auto_z '
+        f"FROM stacks INNER JOIN stations "
+        f'USING ("NetworkCode", "StationCode")'
+        f"WHERE \"name\" = '{name}'",
+        as_dict=True,
+    )
 
     # since we require spherical lat lon for the Euler pole, I compute it from the xyz values
     for i, stn in enumerate(rs):
-        lla = xyz2sphere_lla(numpy.array([stn['auto_x'], stn['auto_y'], stn['auto_z']]))
-        rs[i]['lat'] = lla[0][0]
-        rs[i]['lon'] = lla[0][1]
+        lla = xyz2sphere_lla(numpy.array([stn["auto_x"], stn["auto_y"], stn["auto_z"]]))
+        rs[i]["lat"] = lla[0][0]
+        rs[i]["lon"] = lla[0][1]
 
     return rs
 
 
 def parse_atx_antennas(atx_file):
-
     output = file_readlines(atx_file)
 
     # return re.findall(r'START OF ANTENNA\s+(\w+[.-\/+]?\w*[.-\/+]?\w*)\s+(\w+)', ''.join(output), re.MULTILINE)
     # do not return the RADOME
-    return re.findall(r'START OF ANTENNA\s+([\S]+)', ''.join(output), re.MULTILINE)
+    return re.findall(r"START OF ANTENNA\s+([\S]+)", "".join(output), re.MULTILINE)
 
 
 def smallestN_indices(a, N):
@@ -96,9 +98,17 @@ def ll2sphere_xyz(ell):
     r = 6371000.0
     x = []
     for lla in ell:
-        x.append((r * numpy.cos(lla[0] * numpy.pi / 180) * numpy.cos(lla[1] * numpy.pi / 180),
-                  r * numpy.cos(lla[0] * numpy.pi / 180) * numpy.sin(lla[1] * numpy.pi / 180),
-                  r * numpy.sin(lla[0] * numpy.pi / 180)))
+        x.append(
+            (
+                r
+                * numpy.cos(lla[0] * numpy.pi / 180)
+                * numpy.cos(lla[1] * numpy.pi / 180),
+                r
+                * numpy.cos(lla[0] * numpy.pi / 180)
+                * numpy.sin(lla[1] * numpy.pi / 180),
+                r * numpy.sin(lla[0] * numpy.pi / 180),
+            )
+        )
 
     return numpy.array(x)
 
@@ -116,9 +126,9 @@ def xyz2sphere_lla(xyz):
 
     g = numpy.zeros(xyz.shape)
     for i, x in enumerate(xyz):
-        g[i, 0] = numpy.rad2deg(numpy.arctan2(x[2], numpy.sqrt(x[0]**2 + x[1]**2)))
+        g[i, 0] = numpy.rad2deg(numpy.arctan2(x[2], numpy.sqrt(x[0] ** 2 + x[1] ** 2)))
         g[i, 1] = numpy.rad2deg(numpy.arctan2(x[1], x[0]))
-        g[i, 2] = numpy.sqrt(x[0]**2 + x[1]**2 + x[2]**2)
+        g[i, 2] = numpy.sqrt(x[0] ** 2 + x[1] ** 2 + x[2] ** 2)
 
     return g
 
@@ -127,8 +137,7 @@ def required_length(nmin, nmax):
     class RequiredLength(argparse.Action):
         def __call__(self, parser, args, values, option_string=None):
             if not nmin <= len(values) <= nmax:
-                msg = 'argument "{f}" requires between {nmin} and {nmax} arguments'.format(
-                       f = self.dest, nmin = nmin, nmax = nmax)
+                msg = f'argument "{self.dest}" requires between {nmin} and {nmax} arguments'
                 raise argparse.ArgumentTypeError(msg)
 
             setattr(args, self.dest, values)
@@ -137,22 +146,23 @@ def required_length(nmin, nmax):
 
 
 def station_list_help():
-
-    desc = ("List of networks/stations to process given in [net].[stnm] format or just [stnm] "
-            "(separated by spaces; if [stnm] is not unique in the database, all stations with that "
-            "name will be processed). Use keyword 'all' to process all stations in the database. "
-            "If [net].all is given, all stations from network [net] will be processed. Three letter ISO 3166 "
-            "international standard codes can be provided (always in upper case) to select all stations within a "
-            "country. If a station name is given using a * in front (e.g. *igs.pwro or *pwro) then the station will be "
-            "removed from the list. If *net.all or ISO country code was used (e.g. *igs.all or *ARG), then remove the "
-            "stations within this group. Wildcards are accepted using the regex "
-            "postgres convention. Use [] to provide character ranges (e.g. ars.at1[3-5] or ars.[a-b]x01). Char %% "
-            "matches any string (e.g. ars.at%%). Char | represents "
-            "the OR operator that can be used to select one string or another (e.g. ars.at1[1|2] to choose at11 and "
-            "at12). To specify a wildcard using a single character, use _ (equivalent to ? in POSIX regular "
-            "expressions). Alternatively, a file with the station list can be provided (using all the same "
-            "conventions described above). When using a file, * can be replaced with - for clarity "
-            "in removing stations from .all lists")
+    desc = (
+        "List of networks/stations to process given in [net].[stnm] format or just [stnm] "
+        "(separated by spaces; if [stnm] is not unique in the database, all stations with that "
+        "name will be processed). Use keyword 'all' to process all stations in the database. "
+        "If [net].all is given, all stations from network [net] will be processed. Three letter ISO 3166 "
+        "international standard codes can be provided (always in upper case) to select all stations within a "
+        "country. If a station name is given using a * in front (e.g. *igs.pwro or *pwro) then the station will be "
+        "removed from the list. If *net.all or ISO country code was used (e.g. *igs.all or *ARG), then remove the "
+        "stations within this group. Wildcards are accepted using the regex "
+        "postgres convention. Use [] to provide character ranges (e.g. ars.at1[3-5] or ars.[a-b]x01). Char %% "
+        "matches any string (e.g. ars.at%%). Char | represents "
+        "the OR operator that can be used to select one string or another (e.g. ars.at1[1|2] to choose at11 and "
+        "at12). To specify a wildcard using a single character, use _ (equivalent to ? in POSIX regular "
+        "expressions). Alternatively, a file with the station list can be provided (using all the same "
+        "conventions described above). When using a file, * can be replaced with - for clarity "
+        "in removing stations from .all lists"
+    )
 
     return desc
 
@@ -161,11 +171,11 @@ def parse_crinex_rinex_filename(filename):
     # DDG: DEPRECATED
     # this function only accepts .Z as extension. Replaced with RinexName.split_filename which also includes .gz
     # parse a crinex filename
-    sfile = re.findall(r'(\w{4})(\d{3})(\w{1})\.(\d{2})([d]\.[Z])$', filename)
+    sfile = re.findall(r"(\w{4})(\d{3})(\w{1})\.(\d{2})([d]\.[Z])$", filename)
     if sfile:
         return sfile[0]
 
-    sfile = re.findall(r'(\w{4})(\d{3})(\w{1})\.(\d{2})([o])$', filename)
+    sfile = re.findall(r"(\w{4})(\d{3})(\w{1})\.(\d{2})([o])$", filename)
     if sfile:
         return sfile[0]
 
@@ -202,11 +212,14 @@ def _increment_filename(filename):
     #  2) a "counter" - the integer which is incremented
     #  3) an "extension" - the file extension
 
-    sessions = ([0, 1, 2, 3, 4, 5, 6, 7, 8, 9] + [chr(x) for x in range(ord('a'), ord('x')+1)] +
-                [chr(x) for x in range(ord('A'), ord('X')+1)])
+    sessions = (
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        + [chr(x) for x in range(ord("a"), ord("x") + 1)]
+        + [chr(x) for x in range(ord("A"), ord("X") + 1)]
+    )
 
-    path      = os.path.dirname(filename)
-    filename  = os.path.basename(filename)
+    path = os.path.dirname(filename)
+    filename = os.path.basename(filename)
     # replace with parse_crinex_rinex_filename (deprecated)
     # fileparts = parse_crinex_rinex_filename(filename)
     fileparts = pyRinexName.RinexNameFormat(filename).split_filename(filename)
@@ -215,8 +228,17 @@ def _increment_filename(filename):
     # counter at 0.
     value = 0
 
-    filename = os.path.join(path, '%s%03i%s.%02i%s' % (fileparts[0].lower(), int(fileparts[1]), sessions[value],
-                                                       int(fileparts[3]), fileparts[4]))
+    filename = os.path.join(
+        path,
+        "%s%03i%s.%02i%s"
+        % (
+            fileparts[0].lower(),
+            int(fileparts[1]),
+            sessions[value],
+            int(fileparts[3]),
+            fileparts[4],
+        ),
+    )
 
     # The counter is just an integer, so we can increment it indefinitely.
     while True:
@@ -226,12 +248,28 @@ def _increment_filename(filename):
         value += 1
 
         if value == len(sessions):
-            raise ValueError('Maximum number of sessions reached: %s%03i%s.%02i%s'
-                             % (fileparts[0].lower(), int(fileparts[1]), sessions[value-1],
-                                int(fileparts[3]), fileparts[4]))
+            raise ValueError(
+                "Maximum number of sessions reached: %s%03i%s.%02i%s"
+                % (
+                    fileparts[0].lower(),
+                    int(fileparts[1]),
+                    sessions[value - 1],
+                    int(fileparts[3]),
+                    fileparts[4],
+                )
+            )
 
-        yield os.path.join(path, '%s%03i%s.%02i%s' % (fileparts[0].lower(), int(fileparts[1]), sessions[value],
-                                                      int(fileparts[3]), fileparts[4]))
+        yield os.path.join(
+            path,
+            "%s%03i%s.%02i%s"
+            % (
+                fileparts[0].lower(),
+                int(fileparts[1]),
+                sessions[value],
+                int(fileparts[3]),
+                fileparts[4],
+            ),
+        )
 
 
 def copyfile(src, dst, rnx_ver=2):
@@ -246,7 +284,7 @@ def copyfile(src, dst, rnx_ver=2):
     Returns the path to the copy.
     """
     if not os.path.exists(src):
-        raise ValueError('Source file does not exist: {}'.format(src))
+        raise ValueError(f"Source file does not exist: {src}")
 
     # make the folders if they don't exist
     # careful! racing condition between different workers
@@ -270,7 +308,6 @@ def copyfile(src, dst, rnx_ver=2):
 
         # Check if there is a file at the destination location
         if os.path.exists(dst):
-
             # If the namesake is the same as the source file, then we don't
             # need to do anything else.
             if filecmp.cmp(src, dst):
@@ -286,7 +323,9 @@ def copyfile(src, dst, rnx_ver=2):
                         if do_copy_op(src, dst):
                             return dst
                         else:
-                            raise OSError('File exists during copy of RINEX 3 file: ' + dst)
+                            raise OSError(
+                                "File exists during copy of RINEX 3 file: " + dst
+                            )
                     else:
                         return dst
         else:
@@ -295,7 +334,7 @@ def copyfile(src, dst, rnx_ver=2):
                 return dst
             else:
                 if rnx_ver >= 3:
-                    raise OSError('Problem while copying RINEX 3 file: ' + dst)
+                    raise OSError("Problem while copying RINEX 3 file: " + dst)
 
 
 def do_copy_op(src, dst):
@@ -327,7 +366,7 @@ def do_copy_op(src, dst):
     # at dst, so we print an error and try to copy to a new location.
     # Any other exception is unexpected and should be raised as normal.
     except OSError as e:
-        if e.errno != 17 or e.strerror != 'File exists':
+        if e.errno != 17 or e.strerror != "File exists":
             raise
         return False
     finally:
@@ -353,7 +392,6 @@ def move(src, dst):
 
 
 def ct2lg(dX, dY, dZ, lat, lon):
-
     n = dX.size
 
     R = rotct2lg(lat, lon, n)
@@ -371,24 +409,30 @@ def ct2lg(dX, dY, dZ, lat, lon):
 
 
 def rotct2lg(lat, lon, n=1):
-
     R = numpy.zeros((3, 3, n))
 
-    R[0, 0, :] = -numpy.multiply(numpy.sin(numpy.deg2rad(lat)), numpy.cos(numpy.deg2rad(lon)))
-    R[0, 1, :] = -numpy.multiply(numpy.sin(numpy.deg2rad(lat)), numpy.sin(numpy.deg2rad(lon)))
+    R[0, 0, :] = -numpy.multiply(
+        numpy.sin(numpy.deg2rad(lat)), numpy.cos(numpy.deg2rad(lon))
+    )
+    R[0, 1, :] = -numpy.multiply(
+        numpy.sin(numpy.deg2rad(lat)), numpy.sin(numpy.deg2rad(lon))
+    )
     R[0, 2, :] = numpy.cos(numpy.deg2rad(lat))
     R[1, 0, :] = -numpy.sin(numpy.deg2rad(lon))
     R[1, 1, :] = numpy.cos(numpy.deg2rad(lon))
     R[1, 2, :] = numpy.zeros((1, n))
-    R[2, 0, :] = numpy.multiply(numpy.cos(numpy.deg2rad(lat)), numpy.cos(numpy.deg2rad(lon)))
-    R[2, 1, :] = numpy.multiply(numpy.cos(numpy.deg2rad(lat)), numpy.sin(numpy.deg2rad(lon)))
+    R[2, 0, :] = numpy.multiply(
+        numpy.cos(numpy.deg2rad(lat)), numpy.cos(numpy.deg2rad(lon))
+    )
+    R[2, 1, :] = numpy.multiply(
+        numpy.cos(numpy.deg2rad(lat)), numpy.sin(numpy.deg2rad(lon))
+    )
     R[2, 2, :] = numpy.sin(numpy.deg2rad(lat))
 
     return R
 
 
 def lg2ct(dN, dE, dU, lat, lon):
-
     n = dN.size
 
     R = rotlg2ct(lat, lon, n)
@@ -406,17 +450,24 @@ def lg2ct(dN, dE, dU, lat, lon):
 
 
 def rotlg2ct(lat, lon, n=1):
-
     R = numpy.zeros((3, 3, n))
 
-    R[0, 0, :] = -numpy.multiply(numpy.sin(numpy.deg2rad(lat)), numpy.cos(numpy.deg2rad(lon)))
-    R[1, 0, :] = -numpy.multiply(numpy.sin(numpy.deg2rad(lat)), numpy.sin(numpy.deg2rad(lon)))
+    R[0, 0, :] = -numpy.multiply(
+        numpy.sin(numpy.deg2rad(lat)), numpy.cos(numpy.deg2rad(lon))
+    )
+    R[1, 0, :] = -numpy.multiply(
+        numpy.sin(numpy.deg2rad(lat)), numpy.sin(numpy.deg2rad(lon))
+    )
     R[2, 0, :] = numpy.cos(numpy.deg2rad(lat))
     R[0, 1, :] = -numpy.sin(numpy.deg2rad(lon))
     R[1, 1, :] = numpy.cos(numpy.deg2rad(lon))
     R[2, 1, :] = numpy.zeros((1, n))
-    R[0, 2, :] = numpy.multiply(numpy.cos(numpy.deg2rad(lat)), numpy.cos(numpy.deg2rad(lon)))
-    R[1, 2, :] = numpy.multiply(numpy.cos(numpy.deg2rad(lat)), numpy.sin(numpy.deg2rad(lon)))
+    R[0, 2, :] = numpy.multiply(
+        numpy.cos(numpy.deg2rad(lat)), numpy.cos(numpy.deg2rad(lon))
+    )
+    R[1, 2, :] = numpy.multiply(
+        numpy.cos(numpy.deg2rad(lat)), numpy.sin(numpy.deg2rad(lon))
+    )
     R[2, 2, :] = numpy.sin(numpy.deg2rad(lat))
 
     return R
@@ -441,17 +492,19 @@ def ecef2lla(ecefArr):
     asq = numpy.power(a, 2)
     esq = numpy.power(e, 2)
 
-    b   = numpy.sqrt(asq * (1 - esq))
+    b = numpy.sqrt(asq * (1 - esq))
     bsq = numpy.power(b, 2)
 
     ep = numpy.sqrt((asq - bsq) / bsq)
-    p  = numpy.sqrt(numpy.power(x, 2) + numpy.power(y, 2))
+    p = numpy.sqrt(numpy.power(x, 2) + numpy.power(y, 2))
     th = numpy.arctan2(a * z, b * p)
 
     lon = numpy.arctan2(y, x)
-    lat = numpy.arctan2((z + numpy.power(ep, 2) * b * numpy.power(numpy.sin(th), 3)),
-                        (p - esq * a * numpy.power(numpy.cos(th), 3)))
-    N   = a / (numpy.sqrt(1 - esq * numpy.power(numpy.sin(lat), 2)))
+    lat = numpy.arctan2(
+        (z + numpy.power(ep, 2) * b * numpy.power(numpy.sin(th), 3)),
+        (p - esq * a * numpy.power(numpy.cos(th), 3)),
+    )
+    N = a / (numpy.sqrt(1 - esq * numpy.power(numpy.sin(lat), 2)))
     alt = p / numpy.cos(lat) - N
 
     lon = lon * 180 / numpy.pi
@@ -486,50 +539,56 @@ def lla2ecef(llaArr):
     y = (v + alt) * numpy.cos(rad_lat) * numpy.sin(rad_lon)
     z = (v * (1 - e2) + alt) * numpy.sin(rad_lat)
 
-    return numpy.round(x, 4).ravel(), numpy.round(y, 4).ravel(), numpy.round(z, 4).ravel()
+    return (
+        numpy.round(x, 4).ravel(),
+        numpy.round(y, 4).ravel(),
+        numpy.round(z, 4).ravel(),
+    )
 
 
 def process_date_str(arg, allow_days=False):
-
     rdate = pyDate.Date(datetime=datetime.now())
 
     try:
-        if '.' in arg:
+        if "." in arg:
             rdate = pyDate.Date(fyear=float(arg))
-        elif '_' in arg:
-            rdate = pyDate.Date(year=int(arg.split('_')[0]),
-                                doy=int(arg.split('_')[1]))
-        elif '/' in arg:
-            rdate = pyDate.Date(year=int(arg.split('/')[0]),
-                                month=int(arg.split('/')[1]),
-                                day=int(arg.split('/')[2]))
-        elif '-' in arg:
-            rdate = pyDate.Date(gpsWeek=int(arg.split('-')[0]),
-                                gpsWeekDay=int(arg.split('-')[1]))
+        elif "_" in arg:
+            rdate = pyDate.Date(year=int(arg.split("_")[0]), doy=int(arg.split("_")[1]))
+        elif "/" in arg:
+            rdate = pyDate.Date(
+                year=int(arg.split("/")[0]),
+                month=int(arg.split("/")[1]),
+                day=int(arg.split("/")[2]),
+            )
+        elif "-" in arg:
+            rdate = pyDate.Date(
+                gpsWeek=int(arg.split("-")[0]), gpsWeekDay=int(arg.split("-")[1])
+            )
         elif len(arg) > 0:
             if allow_days:
                 rdate = pyDate.Date(datetime=datetime.now()) - int(arg)
             else:
-                raise ValueError('Invalid input date: allow_days was set to False.')
+                raise ValueError("Invalid input date: allow_days was set to False.")
 
     except Exception as e:
-        raise ValueError('Could not decode input date (valid entries: '
-                         'fyear, yyyy_ddd, yyyy/mm/dd, gpswk-wkday). '
-                         'Error while reading the date start/end parameters: ' + str(e))
+        raise ValueError(
+            "Could not decode input date (valid entries: "
+            "fyear, yyyy_ddd, yyyy/mm/dd, gpswk-wkday). "
+            "Error while reading the date start/end parameters: " + str(e)
+        )
 
     return rdate
 
 
-def process_date(arg, missing_input='fill', allow_days=True):
+def process_date(arg, missing_input="fill", allow_days=True):
     # function to handle date input from PG.
     # Input: arg = arguments from command line
     #        missing_input = a string specifying if vector should be filled when something is missing
     #        allow_day = allow a single argument which represents an integer N expressed in days, to compute now()-N
 
     now = datetime.now()
-    if missing_input == 'fill':
-        dates = [pyDate.Date(year=1980, doy=1),
-                 pyDate.Date(datetime = now)]
+    if missing_input == "fill":
+        dates = [pyDate.Date(year=1980, doy=1), pyDate.Date(datetime=now)]
     else:
         dates = [None, None]
 
@@ -541,28 +600,28 @@ def process_date(arg, missing_input='fill', allow_days=True):
 
 
 def determine_frame(frames, date):
-
     for frame in frames:
-        if frame['dates'][0] <= date <= frame['dates'][1]:
-            return frame['name'], frame['atx']
+        if frame["dates"][0] <= date <= frame["dates"][1]:
+            return frame["name"], frame["atx"]
 
-    raise Exception('No valid frame was found for the specified date.')
+    raise Exception("No valid frame was found for the specified date.")
 
 
 def print_columns(l):
-
-    for a, b, c, d, e, f, g, h in zip(l[::8], l[1::8], l[2::8], l[3::8], l[4::8], l[5::8], l[6::8], l[7::8]):
-        print('    {:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<10}{:<}'.format(a, b, c, d, e, f, g, h))
+    for a, b, c, d, e, f, g, h in zip(
+        l[::8], l[1::8], l[2::8], l[3::8], l[4::8], l[5::8], l[6::8], l[7::8]
+    ):
+        print(f"    {a:<10}{b:<10}{c:<10}{d:<10}{e:<10}{f:<10}{g:<10}{h:<}")
 
     if len(l) % 8 != 0:
-        sys.stdout.write('    ')
+        sys.stdout.write("    ")
         for i in range(len(l) - len(l) % 8, len(l)):
-            sys.stdout.write('{:<10}'.format(l[i]))
-        sys.stdout.write('\n')
+            sys.stdout.write(f"{l[i]:<10}")
+        sys.stdout.write("\n")
 
 
 def get_resource_delimiter():
-    return '.'
+    return "."
 
 
 def process_stnlist(cnn, stnlist_in, print_summary=True, summary_title=None):
@@ -577,13 +636,17 @@ def process_stnlist(cnn, stnlist_in, print_summary=True, summary_title=None):
                       ...
     """
     if len(stnlist_in) == 1 and os.path.isfile(stnlist_in[0]):
-        print(' >> Station list read from file: ' + stnlist_in[0])
+        print(" >> Station list read from file: " + stnlist_in[0])
         # DDG: if len(line.strip()) > 0 avoids any empty lines
-        stnlist_in = [line.strip() for line in file_readlines(stnlist_in[0]) if len(line.strip()) > 0]
+        stnlist_in = [
+            line.strip()
+            for line in file_readlines(stnlist_in[0])
+            if len(line.strip()) > 0
+        ]
 
     stnlist = []
     # accepted wildcards for station names
-    wildc = '[]%_|'
+    wildc = "[]%_|"
 
     for rstn in stnlist_in:
         # to allow for more parameters in station list text files
@@ -595,110 +658,143 @@ def process_stnlist(cnn, stnlist_in, print_summary=True, summary_title=None):
             par = []
 
         rs = None
-        if stn == 'all':
+        if stn == "all":
             # keyword all for all stations in list
-            rs = cnn.query('SELECT * FROM stations WHERE "NetworkCode" NOT LIKE \'?%%\' '
-                           'ORDER BY "NetworkCode", "StationCode"')
+            rs = cnn.query(
+                "SELECT * FROM stations WHERE \"NetworkCode\" NOT LIKE '?%%' "
+                'ORDER BY "NetworkCode", "StationCode"'
+            )
 
-        elif stn.isupper() and stn[0] not in ('-', '*'):
+        elif stn.isupper() and stn[0] not in ("-", "*"):
             # country code
-            rs = cnn.query('SELECT * FROM stations WHERE "NetworkCode" NOT LIKE \'?%%\' AND country_code = \'%s\' '
-                           'ORDER BY "NetworkCode", "StationCode"' % stn)
+            rs = cnn.query(
+                "SELECT * FROM stations WHERE \"NetworkCode\" NOT LIKE '?%%' AND country_code = '%s' "
+                'ORDER BY "NetworkCode", "StationCode"' % stn
+            )
 
-        elif '.' in stn and stn[0] not in ('-', '*'):
-            net, stnm = stn.split('.')
+        elif "." in stn and stn[0] not in ("-", "*"):
+            net, stnm = stn.split(".")
             # a net.stnm given
-            if stnm == 'all':
+            if stnm == "all":
                 # all stations from a network
-                rs = cnn.query('SELECT * FROM stations WHERE "NetworkCode" = \'%s\' AND '
-                               '"NetworkCode" NOT LIKE \'?%%\' ORDER BY "NetworkCode", "StationCode"' % net)
+                rs = cnn.query(
+                    "SELECT * FROM stations WHERE \"NetworkCode\" = '%s' AND "
+                    '"NetworkCode" NOT LIKE \'?%%\' ORDER BY "NetworkCode", "StationCode"'
+                    % net
+                )
             elif any(c in set(wildc) for c in stnm):
                 # DDG: wildcard
-                rs = cnn.query('SELECT * FROM stations WHERE "NetworkCode" = \'%s\' AND "StationCode" '
-                               ' SIMILAR TO \'%s\' AND '
-                               '"NetworkCode" NOT LIKE \'?%%\' ORDER BY "NetworkCode", "StationCode"'
-                               % (net, stnm))
+                rs = cnn.query(
+                    'SELECT * FROM stations WHERE "NetworkCode" = \'%s\' AND "StationCode" '
+                    " SIMILAR TO '%s' AND "
+                    '"NetworkCode" NOT LIKE \'?%%\' ORDER BY "NetworkCode", "StationCode"'
+                    % (net, stnm)
+                )
             else:
                 # just a net.stnm
                 rs = cnn.query(
-                    'SELECT * FROM stations WHERE "NetworkCode" NOT LIKE \'?%%\' AND "NetworkCode" = \'%s\' '
-                    'AND "StationCode" = \'%s\' ORDER BY "NetworkCode", "StationCode"' % (net, stnm))
+                    "SELECT * FROM stations WHERE \"NetworkCode\" NOT LIKE '?%%' AND \"NetworkCode\" = '%s' "
+                    'AND "StationCode" = \'%s\' ORDER BY "NetworkCode", "StationCode"'
+                    % (net, stnm)
+                )
 
-        elif '.' not in stn and stn[0] not in ('-', '*'):
+        elif "." not in stn and stn[0] not in ("-", "*"):
             # just a station name (check for wildcards)
             if any(c in set(wildc) for c in stn):
                 # wildcard
                 rs = cnn.query(
-                    'SELECT * FROM stations WHERE "NetworkCode" NOT LIKE \'?%%\' AND '
-                    '"StationCode" SIMILAR TO \'%s\' ORDER BY "NetworkCode", "StationCode"' % stn)
+                    "SELECT * FROM stations WHERE \"NetworkCode\" NOT LIKE '?%%' AND "
+                    '"StationCode" SIMILAR TO \'%s\' ORDER BY "NetworkCode", "StationCode"'
+                    % stn
+                )
             else:
                 # just a station name
                 rs = cnn.query(
-                    'SELECT * FROM stations WHERE "NetworkCode" NOT LIKE \'?%%\' AND '
-                    '"StationCode" = \'%s\' ORDER BY "NetworkCode", "StationCode"' % stn)
+                    "SELECT * FROM stations WHERE \"NetworkCode\" NOT LIKE '?%%' AND "
+                    '"StationCode" = \'%s\' ORDER BY "NetworkCode", "StationCode"' % stn
+                )
 
         if rs is not None:
             for rstn in rs.dictresult():
-                if {'NetworkCode': rstn['NetworkCode'], 'StationCode': rstn['StationCode']} not in stnlist:
-                    stnlist.append({'NetworkCode' : rstn['NetworkCode'],
-                                    'StationCode' : rstn['StationCode'],
-                                    'marker'      : rstn['marker'] if rstn['marker'] else 0,
-                                    'country_code': rstn['country_code'] if rstn['country_code'] else '',
-                                    'parameters'  : par})
+                if {
+                    "NetworkCode": rstn["NetworkCode"],
+                    "StationCode": rstn["StationCode"],
+                } not in stnlist:
+                    stnlist.append(
+                        {
+                            "NetworkCode": rstn["NetworkCode"],
+                            "StationCode": rstn["StationCode"],
+                            "marker": rstn["marker"] if rstn["marker"] else 0,
+                            "country_code": rstn["country_code"]
+                            if rstn["country_code"]
+                            else "",
+                            "parameters": par,
+                        }
+                    )
 
     # deal with station removals (- or *)
-    for stn in [stn[1:] for stn in stnlist_in if stn[0] in ('-', '*')]:
+    for stn in [stn[1:] for stn in stnlist_in if stn[0] in ("-", "*")]:
         # if netcode not given, remove everybody with that station code
-        if '.' in stn:
-            net, stnm = stn.split('.')
+        if "." in stn:
+            net, stnm = stn.split(".")
             # a net.stnm given
-            if stnm == 'all':
+            if stnm == "all":
                 # remove all stations in the provided network
-                rs = cnn.query('SELECT * FROM stations WHERE "NetworkCode" = \'%s\' AND '
-                               '"NetworkCode" NOT LIKE \'?%%\' ORDER BY "NetworkCode", "StationCode"' % net)
+                rs = cnn.query(
+                    "SELECT * FROM stations WHERE \"NetworkCode\" = '%s' AND "
+                    '"NetworkCode" NOT LIKE \'?%%\' ORDER BY "NetworkCode", "StationCode"'
+                    % net
+                )
                 if rs is not None:
                     for rstn in rs.dictresult():
-                        stnlist = [stnl for stnl in stnlist if stationID(stnl) != stationID(rstn)]
+                        stnlist = [
+                            stnl
+                            for stnl in stnlist
+                            if stationID(stnl) != stationID(rstn)
+                        ]
             else:
                 stnlist = [stnl for stnl in stnlist if stationID(stnl) != stn]
 
         elif stn.isupper():
             # country code
-            rs = cnn.query('SELECT * FROM stations WHERE "NetworkCode" NOT LIKE \'?%%\' AND country_code = \'%s\' '
-                           'ORDER BY "NetworkCode", "StationCode"' % stn)
+            rs = cnn.query(
+                "SELECT * FROM stations WHERE \"NetworkCode\" NOT LIKE '?%%' AND country_code = '%s' "
+                'ORDER BY "NetworkCode", "StationCode"' % stn
+            )
             if rs is not None:
                 for rstn in rs.dictresult():
-                    stnlist = [stnl for stnl in stnlist if stationID(stnl) != stationID(rstn)]
+                    stnlist = [
+                        stnl for stnl in stnlist if stationID(stnl) != stationID(rstn)
+                    ]
         else:
-            stnlist = [stnl for stnl in stnlist if stnl['StationCode'] != stn]
+            stnlist = [stnl for stnl in stnlist if stnl["StationCode"] != stn]
 
     # sort the dictionary
-    stnlist = sorted(stnlist, key=lambda i: i['StationCode'])
+    stnlist = sorted(stnlist, key=lambda i: i["StationCode"])
 
     if print_summary:
         if summary_title is None:
-            print(' >> Selected station list:')
+            print(" >> Selected station list:")
         else:
-            print(' >> ' + summary_title)
+            print(" >> " + summary_title)
         print_columns([stationID(item) for item in stnlist])
 
     return stnlist
 
 
 def get_norm_year_str(year):
-    
     # mk 4 digit year
     try:
         year = int(year)
         # defensively, make sure that the year is positive
-        assert year >= 0 
+        assert year >= 0
     except:
-        raise UtilsException('must provide a positive integer year YY or YYYY');
-    
+        raise UtilsException("must provide a positive integer year YY or YYYY")
+
     if 80 <= year <= 99:
         year += 1900
     elif 0 <= year < 80:
-        year += 2000        
+        year += 2000
 
     return str(year)
 
@@ -709,15 +805,14 @@ def get_norm_doy_str(doy):
         # create string version up fround
         return "%03d" % doy
     except:
-        raise UtilsException('must provide an integer day of year'); 
+        raise UtilsException("must provide an integer day of year")
 
 
 def parseIntSet(nputstr=""):
-
     selection = []
-    invalid   = []
+    invalid = []
     # tokens are comma separated values
-    tokens    = [x.strip() for x in nputstr.split(';')]
+    tokens = [x.strip() for x in nputstr.split(";")]
     for i in tokens:
         if len(i) > 0:
             if i[:1] == "<":
@@ -728,14 +823,14 @@ def parseIntSet(nputstr=""):
         except:
             # if not, then it might be a range
             try:
-                token = [int(k.strip()) for k in i.split('-')]
+                token = [int(k.strip()) for k in i.split("-")]
                 if len(token) > 1:
                     token.sort()
                     # we have items seperated by a dash
                     # try to build a valid range
                     first = token[0]
-                    last  = token[-1]
-                    for x in range(first, last+1):
+                    last = token[-1]
+                    for x in range(first, last + 1):
                         selection.append(x)
             except:
                 # not an int and not a range...
@@ -750,51 +845,48 @@ def parseIntSet(nputstr=""):
 def get_platform_id():
     # ask the os for platform information
     uname = os.uname()
-    
+
     # combine to form the platform identification
-    return '.'.join((uname[0], uname[2], uname[4]))
-    
+    return ".".join((uname[0], uname[2], uname[4]))
+
 
 def human_readable_time(secs):
-    
     # start with work time in seconds
     time = secs
-    unit = 'secs'
-    
+    unit = "secs"
+
     # make human readable work time with units
     if 60 < time < 3600:
         time = time / 60.0
-        unit = 'mins'
+        unit = "mins"
     elif time > 3600:
         time = time / 3600.0
-        unit = 'hours'
-        
+        unit = "hours"
+
     return time, unit
 
 
 def fix_gps_week(file_path):
-    
     # example:  g017321.snx.gz --> g0107321.snx.gz
-    
+
     # extract the full file name
-    path,full_file_name = os.path.split(file_path);    
-    
-    # init 
+    path, full_file_name = os.path.split(file_path)
+    # init
     file_name = full_file_name
-    file_ext  = ''
-    ext       = None
-    
+    file_ext = ""
+    ext = None
+
     # remove all file extensions
-    while ext != '':
+    while ext != "":
         file_name, ext = os.path.splitext(file_name)
-        file_ext       = ext + file_ext
-    
+        file_ext = ext + file_ext
+
     # if the name is short 1 character then add zero
     if len(file_name) == 7:
-        file_name = file_name[0:3]+'0'+file_name[3:]
-    
+        file_name = file_name[0:3] + "0" + file_name[3:]
+
     # reconstruct file path
-    return  os.path.join(path,file_name+file_ext);
+    return os.path.join(path, file_name + file_ext)
 
 
 def split_string(str, limit, sep=" "):
@@ -803,47 +895,50 @@ def split_string(str, limit, sep=" "):
         raise ValueError("limit is too small")
     res, part, others = [], words[0], words[1:]
     for word in others:
-        if len(sep)+len(word) > limit-len(part):
+        if len(sep) + len(word) > limit - len(part):
             res.append(part)
             part = word
         else:
-            part += sep+word
+            part += sep + word
     if part:
         res.append(part)
     return res
 
 
-def indent(text, amount, ch=' '):
+def indent(text, amount, ch=" "):
     padding = amount * ch
-    return ''.join(padding + line for line in text.splitlines(True))
+    return "".join(padding + line for line in text.splitlines(True))
 
 
 # python 3 unpack_from returns bytes instead of strings
 def struct_unpack(fs, data):
-    return [(f.decode('utf-8', 'ignore') if isinstance(f, (bytes, bytearray)) else f)
-            for f in fs.unpack_from(bytes(data, 'utf-8'))]
+    return [
+        (f.decode("utf-8", "ignore") if isinstance(f, (bytes, bytearray)) else f)
+        for f in fs.unpack_from(bytes(data, "utf-8"))
+    ]
 
 
 # python 3 zlib.crc32 requires bytes instead of strings
 # also returns a positive int (ints are bignums on python 3)
 def crc32(s):
-    x = zlib_crc32(bytes(s, 'utf-8'))
+    x = zlib_crc32(bytes(s, "utf-8"))
     return x - ((x & 0x80000000) << 1)
 
 
 # Text files
 
-def file_open(path, mode='r'):
-    return open(path, mode+'t', encoding='utf-8', errors='ignore')
+
+def file_open(path, mode="r"):
+    return open(path, mode + "t", encoding="utf-8", errors="ignore")
 
 
 def file_write(path, data):
-    with file_open(path, 'w') as f:
+    with file_open(path, "w") as f:
         f.write(data)
 
 
 def file_append(path, data):
-    with file_open(path, 'a') as f:
+    with file_open(path, "a") as f:
         f.write(data)
 
 
@@ -875,7 +970,7 @@ def dir_try_remove(path, recursive=False):
     except:
         return False
 
-    
+
 def chmod_exec(path):
     # chmod +x path
     f = Path(path)
@@ -892,7 +987,7 @@ def json_converter(obj):
         return float(obj)
     elif isinstance(obj, numpy.ndarray):
         return obj.tolist()
-        
+
 
 def create_empty_cfg():
     """
@@ -950,31 +1045,34 @@ IGS14 = 2017_29,
 atx = /example/igs08_1930.atx, /example/igs08_1930.atx
 """
 
-    file_write('gnss_data.cfg', cfg)
+    file_write("gnss_data.cfg", cfg)
 
 
 # The 'fqdn' stored in the db is really fqdn + [:port]
 def fqdn_parse(fqdn, default_port=None):
-    if ':' in fqdn:
-        fqdn, port = fqdn.split(':', 1)
+    if ":" in fqdn:
+        fqdn, port = fqdn.split(":", 1)
         port = port.strip()
         if not port:
-            raise ValueError('Port number is missing in fqdn string')
+            raise ValueError("Port number is missing in fqdn string")
         return fqdn, int(port)
     else:
         return fqdn, default_port
 
 
 def plot_rinex_completion(cnn, NetworkCode, StationCode, landscape=False):
-
     import matplotlib.pyplot as plt
 
     # find the available data
-    rinex = numpy.array(cnn.query_float("""
+    rinex = numpy.array(
+        cnn.query_float(
+            """
     SELECT "ObservationYear", "ObservationDOY",
     "Completion" FROM rinex_proc WHERE
-    "NetworkCode" = '%s' AND "StationCode" = '%s'""" % (NetworkCode,
-                                                        StationCode)))
+    "NetworkCode" = '%s' AND "StationCode" = '%s'"""
+            % (NetworkCode, StationCode)
+        )
+    )
 
     if landscape:
         fig, ax = plt.subplots(figsize=(25, 10))
@@ -986,33 +1084,58 @@ def plot_rinex_completion(cnn, NetworkCode, StationCode, landscape=False):
         y = 1
 
     fig.tight_layout(pad=5)
-    ax.set_title('RINEX and missing data for %s.%s'
-                 % (NetworkCode, StationCode))
+    ax.set_title("RINEX and missing data for %s.%s" % (NetworkCode, StationCode))
 
     if rinex.size:
         # create a continuous vector for missing data
         md = numpy.arange(1, 367)
         my = numpy.unique(rinex[:, 0])
         for yr in my:
-
             if landscape:
-                ax.plot(md, numpy.repeat(yr, 366), 'o', fillstyle='none',
-                        color='silver', markersize=4, linewidth=0.1)
+                ax.plot(
+                    md,
+                    numpy.repeat(yr, 366),
+                    "o",
+                    fillstyle="none",
+                    color="silver",
+                    markersize=4,
+                    linewidth=0.1,
+                )
             else:
-                ax.plot(numpy.repeat(yr, 366), md, 'o', fillstyle='none',
-                        color='silver', markersize=4, linewidth=0.1)
+                ax.plot(
+                    numpy.repeat(yr, 366),
+                    md,
+                    "o",
+                    fillstyle="none",
+                    color="silver",
+                    markersize=4,
+                    linewidth=0.1,
+                )
 
-        ax.scatter(rinex[:, x], rinex[:, y],
-                   c=['tab:blue' if c >= 0.5 else 'tab:orange'
-                      for c in rinex[:, 2]], s=10, zorder=10)
+        ax.scatter(
+            rinex[:, x],
+            rinex[:, y],
+            c=["tab:blue" if c >= 0.5 else "tab:orange" for c in rinex[:, 2]],
+            s=10,
+            zorder=10,
+        )
 
-        ax.tick_params(top=True, labeltop=True, labelleft=True,
-                       labelright=True, left=True, right=True)
+        ax.tick_params(
+            top=True,
+            labeltop=True,
+            labelleft=True,
+            labelright=True,
+            left=True,
+            right=True,
+        )
         if landscape:
-            plt.yticks(numpy.arange(my.min(), my.max() + 1, step=1))  # Set label locations.
+            plt.yticks(
+                numpy.arange(my.min(), my.max() + 1, step=1)
+            )  # Set label locations.
         else:
-            plt.xticks(numpy.arange(my.min(), my.max()+1, step=1),
-                       rotation='vertical')  # Set label locations.
+            plt.xticks(
+                numpy.arange(my.min(), my.max() + 1, step=1), rotation="vertical"
+            )  # Set label locations.
 
     ax.grid(True)
     ax.set_axisbelow(True)
@@ -1021,26 +1144,26 @@ def plot_rinex_completion(cnn, NetworkCode, StationCode, landscape=False):
         plt.xlim([0, 367])
         plt.xticks(numpy.arange(0, 368, step=5))  # Set label locations.
 
-        ax.set_xlabel('DOYs')
-        ax.set_ylabel('Years')
+        ax.set_xlabel("DOYs")
+        ax.set_ylabel("Years")
     else:
         plt.ylim([0, 367])
         plt.yticks(numpy.arange(0, 368, step=5))  # Set label locations.
 
-        ax.set_ylabel('DOYs')
-        ax.set_xlabel('Years')
+        ax.set_ylabel("DOYs")
+        ax.set_xlabel("Years")
 
     figfile = io.BytesIO()
 
     try:
-        plt.savefig(figfile, format='png')
+        plt.savefig(figfile, format="png")
         # plt.show()
         figfile.seek(0)  # rewind to beginning of file
 
         figdata_png = base64.b64encode(figfile.getvalue()).decode()
     except Exception:
         # either no rinex or no station info
-        figdata_png = ''
+        figdata_png = ""
 
     plt.close()
 
@@ -1048,9 +1171,8 @@ def plot_rinex_completion(cnn, NetworkCode, StationCode, landscape=False):
 
 
 def import_blq(blq_str, NetworkCode=None, StationCode=None):
-
-    if blq_str[0:2] != '$$':
-        raise UtilsException('Input string does not appear to be in BLQ format!')
+    if blq_str[0:2] != "$$":
+        raise UtilsException("Input string does not appear to be in BLQ format!")
 
     # header as defined in the new version of the holt.oso.chalmers.se service
     header = """$$ Ocean loading displacement
@@ -1092,18 +1214,28 @@ $$
 $$ END HEADER
 $$"""
     # it's BLQ alright
-    pattern = re.compile(r'(?m)(^\s{2}(\w{3}_\w{4})[\s\S]*?^\$\$(?=\s*(?:END TABLE)?$))', re.MULTILINE)
+    pattern = re.compile(
+        r"(?m)(^\s{2}(\w{3}_\w{4})[\s\S]*?^\$\$(?=\s*(?:END TABLE)?$))", re.MULTILINE
+    )
     matches = pattern.findall(blq_str)
 
     # create a list with the matches
     otl_records = []
     for match in matches:
-        net, stn = match[1].split('_')
+        net, stn = match[1].split("_")
         # add the match to the list if none requested or if a specific station was requested
-        if NetworkCode is None or StationCode is None or (net == NetworkCode and stn == StationCode):
-            otl = header + '\n' + match[0].replace('$$ ' + match[1], '$$ %-8s' % stn).replace(match[1], stn)
-            otl_records.append({'StationCode': stn,
-                                'NetworkCode': net,
-                                'otl': otl})
+        if (
+            NetworkCode is None
+            or StationCode is None
+            or (net == NetworkCode and stn == StationCode)
+        ):
+            otl = (
+                header
+                + "\n"
+                + match[0]
+                .replace("$$ " + match[1], "$$ %-8s" % stn)
+                .replace(match[1], stn)
+            )
+            otl_records.append({"StationCode": stn, "NetworkCode": net, "otl": otl})
 
     return otl_records

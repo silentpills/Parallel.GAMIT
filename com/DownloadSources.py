@@ -10,16 +10,18 @@ for a given date range to the directory specified in:
 Runs scripts stored in:
    [Config.format_scripts_path]
 """
+
 import _thread
 import argparse
 import errno
 import ftplib
 import glob
-import re
 import hashlib
+
 # py
 import os
 import queue
+import re
 import shutil
 import socket
 import subprocess
@@ -27,11 +29,12 @@ import tempfile
 import threading
 import time
 import traceback
+
 # @todo py3.8:
 # from typing import Literal
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 # deps
 import numpy as np
@@ -40,21 +43,36 @@ import requests
 from tqdm import tqdm
 
 # app
-from pgamit import (Utils, dbConnection, pyArchiveStruct, pyJobServer,
-                    pyOptions, pyRinex, pyRinexName, pyStationInfo)
+from pgamit import (
+    Utils,
+    dbConnection,
+    pyArchiveStruct,
+    pyJobServer,
+    pyOptions,
+    pyRinex,
+    pyRinexName,
+    pyStationInfo,
+)
 from pgamit.pyDate import Date
 from pgamit.pyRinexName import path_replace_tags
-from pgamit.Utils import (dir_try_remove, file_try_remove, fqdn_parse,
-                          process_date, required_length, stationID, add_version_argument)
+from pgamit.Utils import (
+    add_version_argument,
+    dir_try_remove,
+    file_try_remove,
+    fqdn_parse,
+    process_date,
+    required_length,
+    stationID,
+)
 
-SERVER_REFRESH_INTERVAL = 2   # in seconds
+SERVER_REFRESH_INTERVAL = 2  # in seconds
 SERVER_CONNECTION_TIMEOUT = 20  # in seconds
-SERVER_RECONNECTION_INTERVAL = 3   # in seconds
+SERVER_RECONNECTION_INTERVAL = 3  # in seconds
 SERVER_MAX_RECONNECTIONS = 8
 
 DEBUG = True
 
-CONFIG_FILE = 'gnss_data.cfg'
+CONFIG_FILE = "gnss_data.cfg"
 
 PBAR_FORMAT = "{l_bar}{bar}| {n_fmt}/{total_fmt} {elapsed}<{remaining} {postfix}"
 
@@ -72,7 +90,7 @@ class Source(NamedTuple):
     password: str
     # Source or Server fields:
     path: str
-    format: Optional[str]
+    format: str | None
 
 
 class Station(NamedTuple):
@@ -81,7 +99,7 @@ class Station(NamedTuple):
     StationCode: str
     Marker: int
     CountryCode: str
-    sources: List[Source]
+    sources: list[Source]
     abspath_station_dir: str  # station download dir
 
 
@@ -118,37 +136,46 @@ class File(NamedTuple):
         src = stn.sources[src_idx]
         date = Date(mjd=date_mjd)
 
-        urlpath_file = path_replace_tags(src.path, date, stn.NetworkCode,
-                                         stn.StationCode, stn.Marker,
-                                         stn.CountryCode)
+        urlpath_file = path_replace_tags(
+            src.path,
+            date,
+            stn.NetworkCode,
+            stn.StationCode,
+            stn.Marker,
+            stn.CountryCode,
+        )
         filename = os.path.basename(urlpath_file)
-        abspath_down_file = os.path.join(stn.abspath_station_dir,
-                                         filename)
+        abspath_down_file = os.path.join(stn.abspath_station_dir, filename)
         url = src.protocol.lower() + "://" + src.fqdn + urlpath_file
-        src_desc = ("(source=#%d/%d server-%03d)"
-                    % (src_idx+1, len(stn.sources), src.server_id))
+        src_desc = "(source=#%d/%d server-%03d)" % (
+            src_idx + 1,
+            len(stn.sources),
+            src.server_id,
+        )
 
-        return File(stn_idx=stn_idx,
-                    src_idx=src_idx,
-                    date_mjd=date_mjd,
-                    station=stn,
-                    source=src,
-                    date=date,
-                    urlpath_file=urlpath_file,
-                    filename=filename,
-                    abspath_down_file=abspath_down_file,
-                    desc='[%s %s]' % (stn.stationID, date.iso_date()),
-                    url=url,
-                    src_desc=src_desc)
+        return File(
+            stn_idx=stn_idx,
+            src_idx=src_idx,
+            date_mjd=date_mjd,
+            station=stn,
+            source=src,
+            date=date,
+            urlpath_file=urlpath_file,
+            filename=filename,
+            abspath_down_file=abspath_down_file,
+            desc="[%s %s]" % (stn.stationID, date.iso_date()),
+            url=url,
+            src_desc=src_desc,
+        )
 
     def to_descriptor(self):
-        return FileDescriptor(stn_idx=self.stn_idx,
-                              src_idx=self.src_idx,
-                              date_mjd=self.date_mjd)
+        return FileDescriptor(
+            stn_idx=self.stn_idx, src_idx=self.src_idx, date_mjd=self.date_mjd
+        )
 
 
 class Msg:
-    """ Messages to main thread """
+    """Messages to main thread"""
 
     # Messages from DB Query:
     class NEW_FILE(NamedTuple):
@@ -165,15 +192,15 @@ class Msg:
         server_id: int
         elapsed_time: int
         size: int
-        error: Optional[str]
+        error: str | None
 
     class CLIENT_STOPPED(NamedTuple):
         server_id: int
 
     # Messages from dispy job manager:
     class PROCESS_RESULT(NamedTuple):
-        file: Optional[FileDescriptor]
-        error: Optional[str]
+        file: FileDescriptor | None
+        error: str | None
 
 
 ###############################################################################
@@ -225,14 +252,14 @@ CREATE TABLE sources_stations (
    FOREIGN KEY("NetworkCode", "StationCode")
    REFERENCES stations("NetworkCode", "StationCode")
 );
-"""
+""",
 )
 
 
 def db_migrate_if_needed(cnn):
-    if cnn.query('''SELECT table_name FROM information_schema.tables
+    if cnn.query("""SELECT table_name FROM information_schema.tables
                  WHERE table_name = 'sources_stations'
-                 LIMIT 1''').dictresult():
+                 LIMIT 1""").dictresult():
         # New tables are present, no need to migrate.
         return False
 
@@ -243,17 +270,17 @@ def db_migrate_if_needed(cnn):
             cnn.query(sql)
 
         # Migrate data
-        cnn.query('''INSERT INTO sources_formats (format)
+        cnn.query("""INSERT INTO sources_formats (format)
                   SELECT UPPER(format) FROM data_source
-                  WHERE format IS NOT NULL GROUP BY format''')
+                  WHERE format IS NOT NULL GROUP BY format""")
 
-        cnn.query('''INSERT INTO sources_servers
+        cnn.query("""INSERT INTO sources_servers
                   (protocol, fqdn, username, password)
                   SELECT protocol, fqdn, username, password
                   FROM data_source
-                  GROUP BY protocol, fqdn, username, password''')
+                  GROUP BY protocol, fqdn, username, password""")
 
-        cnn.query('''INSERT INTO sources_stations ("NetworkCode",
+        cnn.query("""INSERT INTO sources_stations ("NetworkCode",
                   "StationCode", try_order, path, format, server_id)
                   SELECT "NetworkCode", "StationCode", try_order, d.path,
                   UPPER(COALESCE(d.format, 'DEFAULT_FORMAT')) AS format,
@@ -262,7 +289,7 @@ def db_migrate_if_needed(cnn):
                   v.protocol = d.protocol AND
                   v.fqdn = d.fqdn AND
                   v.username IS NOT DISTINCT FROM d.username AND
-                  v.password IS NOT DISTINCT FROM d.password ''')
+                  v.password IS NOT DISTINCT FROM d.password """)
         # Drop old table
         # @todo uncomment
         # cnn.query("DROP TABLE data_source")
@@ -274,39 +301,44 @@ def db_migrate_if_needed(cnn):
 
 
 def source_host_desc(src: Source):
-    return "%s://%s%s" % (src.protocol,
-                          src.username + "@" if src.username else '',
-                          src.fqdn)
+    return "%s://%s%s" % (
+        src.protocol,
+        src.username + "@" if src.username else "",
+        src.fqdn,
+    )
 
 
-def db_get_sources_for_station(cnn, NetworkCode, StationCode) -> List[Source]:
-    return [Source(**r) for r in
-            cnn.query('SELECT server_id, '
-                      'COALESCE(st.path, sv.path)   AS path, '
-                      'COALESCE(st.format, sv.format) AS format, '
-                      'protocol, fqdn, username, password '
-                      'FROM sources_stations st '
-                      'LEFT JOIN sources_servers sv USING(server_id) '
-                      'WHERE "NetworkCode" = \'%s\' AND '
-                      '"StationCode" = \'%s\' '
-                      'ORDER BY try_order ASC'
-                      % (NetworkCode, StationCode)).dictresult()]
+def db_get_sources_for_station(cnn, NetworkCode, StationCode) -> list[Source]:
+    return [
+        Source(**r)
+        for r in cnn.query(
+            "SELECT server_id, "
+            "COALESCE(st.path, sv.path)   AS path, "
+            "COALESCE(st.format, sv.format) AS format, "
+            "protocol, fqdn, username, password "
+            "FROM sources_stations st "
+            "LEFT JOIN sources_servers sv USING(server_id) "
+            "WHERE \"NetworkCode\" = '%s' AND "
+            "\"StationCode\" = '%s' "
+            "ORDER BY try_order ASC" % (NetworkCode, StationCode)
+        ).dictresult()
+    ]
 
 
 ###############################################################################
 # Files Bag
 ###############################################################################
 
-''' A file not present in source-1 must be queued to be fetched from source-2.
+""" A file not present in source-1 must be queued to be fetched from source-2.
 Limiting the queue size between source-1 and source-2 by applying backpressure
 is not possible because we want to maximize fetching parallelism. So
 an arbitrarily sized queue is needed, but it can be too memory expensive
 for multi-year / multi-stations fetches. A way to store the queue compactly
 in memory is needed.
-FIFO order is not required, so use an unordered collection.'''
+FIFO order is not required, so use an unordered collection."""
 
 # FileDescriptor limits
-MAX_DATE_MJD = 2 ** 32
+MAX_DATE_MJD = 2**32
 
 
 class FilesBag:
@@ -321,8 +353,11 @@ class FilesBag:
 
         def push(self, date_mjd: int):
             if not self.chunks or self.last_chunk_len == self.CHUNK_SIZE:
-                chunk = self._first_chunk if not self.chunks else \
-                        np.empty(self.CHUNK_SIZE, dtype=np.uint32)
+                chunk = (
+                    self._first_chunk
+                    if not self.chunks
+                    else np.empty(self.CHUNK_SIZE, dtype=np.uint32)
+                )
                 self.chunks.append(chunk)
                 self.last_chunk_len = 0
             else:
@@ -334,8 +369,7 @@ class FilesBag:
             date_mjd = self.chunks[-1][self.last_chunk_len - 1]
             if self.last_chunk_len == 1:
                 self.chunks.pop()
-                self.last_chunk_len = self.CHUNK_SIZE if len(
-                    self.chunks) else 0
+                self.last_chunk_len = self.CHUNK_SIZE if len(self.chunks) else 0
             else:
                 self.last_chunk_len -= 1
             return date_mjd
@@ -346,9 +380,7 @@ class FilesBag:
         def __len__(self):
             if not len(self.chunks):
                 return 0
-            return ((len(self.chunks) - 1)
-                    * self.CHUNK_SIZE
-                    + self.last_chunk_len)
+            return (len(self.chunks) - 1) * self.CHUNK_SIZE + self.last_chunk_len
 
     def __init__(self):
         self.stations = {}  # stn_idx -> { src_idx : FilesBag.Dates }
@@ -382,9 +414,7 @@ class FilesBag:
             # don't delete, optimize for 1/0 oscillation case
             self.nonempty_keys.remove((stn_idx, src_idx))
         self.qty -= 1
-        return FileDescriptor(stn_idx=stn_idx,
-                              src_idx=src_idx,
-                              date_mjd=date_mjd)
+        return FileDescriptor(stn_idx=stn_idx, src_idx=src_idx, date_mjd=date_mjd)
 
     def __len__(self):
         return self.qty
@@ -397,6 +427,7 @@ class FilesBag:
 # DB Query thread - File producer
 ###############################################################################
 
+
 def thread_queue_all_files(cnn, drange, stations, msg_outbox):
     db_archive = pyArchiveStruct.RinexStruct(cnn)
     SI = pyStationInfo
@@ -406,7 +437,7 @@ def thread_queue_all_files(cnn, drange, stations, msg_outbox):
     # parallelism between different station servers.
     for date_mjd in drange:
         date = Date(mjd=date_mjd)
-        for (stn_idx, stn) in stations_items:
+        for stn_idx, stn in stations_items:
             f = FileDescriptor(stn_idx=stn_idx, date_mjd=date_mjd, src_idx=0)
 
             # if stn_idx in stations_stopped:
@@ -417,8 +448,7 @@ def thread_queue_all_files(cnn, drange, stations, msg_outbox):
 
             try:
                 # Query DB
-                _ = SI.StationInfo(cnn, stn.NetworkCode,
-                                   stn.StationCode, date=date)
+                _ = SI.StationInfo(cnn, stn.NetworkCode, stn.StationCode, date=date)
             except SI.pyStationInfoHeightCodeNotFound:
                 # if the error is that no height code is found,
                 # then there is a record
@@ -427,9 +457,9 @@ def thread_queue_all_files(cnn, drange, stations, msg_outbox):
                 # no possible data here, inform and skip
                 # DDG: unless the is NO record, then assume
                 # new station with no stninfo yet (try to download)
-                stn_reconds = SI.StationInfo(cnn, stn.NetworkCode,
-                                             stn.StationCode,
-                                             allow_empty=True)
+                stn_reconds = SI.StationInfo(
+                    cnn, stn.NetworkCode, stn.StationCode, allow_empty=True
+                )
                 if stn_reconds.records:
                     msg_outbox.put(Msg.FILE_SKIPPED_INACTIVE_STATION(file=f))
                     continue
@@ -437,15 +467,20 @@ def thread_queue_all_files(cnn, drange, stations, msg_outbox):
                     pass
 
             # Query DB
-            rinex = db_archive.get_rinex_record(NetworkCode=stn.NetworkCode,
-                                                StationCode=stn.StationCode,
-                                                ObservationYear=date.year,
-                                                ObservationDOY=date.doy)
+            rinex = db_archive.get_rinex_record(
+                NetworkCode=stn.NetworkCode,
+                StationCode=stn.StationCode,
+                ObservationYear=date.year,
+                ObservationDOY=date.doy,
+            )
 
-            exists_in_db = (rinex and rinex[0]['Completion'] >= 0.5)
-            msg_outbox.put(Msg.FILE_IGNORED_EXISTS_IN_DB(file=f)
-                           if exists_in_db else
-                           Msg.NEW_FILE(file=f))
+            exists_in_db = rinex and rinex[0]["Completion"] >= 0.5
+            msg_outbox.put(
+                Msg.FILE_IGNORED_EXISTS_IN_DB(file=f)
+                if exists_in_db
+                else Msg.NEW_FILE(file=f)
+            )
+
 
 ###############################################################################
 # Process Manager
@@ -453,10 +488,9 @@ def thread_queue_all_files(cnn, drange, stations, msg_outbox):
 
 
 class JobsManager:
-    """ Submits PROCESS jobs to cluster while minimizing dispy queue usage """
+    """Submits PROCESS jobs to cluster while minimizing dispy queue usage"""
 
-    def __init__(self, job_server: pyJobServer.JobServer,
-                 abspath_scripts_dir: str):
+    def __init__(self, job_server: pyJobServer.JobServer, abspath_scripts_dir: str):
         self.job_server = job_server
         self.abspath_scripts_dir = abspath_scripts_dir
 
@@ -469,15 +503,17 @@ class JobsManager:
         self.on_process_result = None
 
     def on_nodes_changed(self, nodes: list):
-        """ called by dispy """
+        """called by dispy"""
         with self.jobs_lock:
             self.cpus_qty = sum(n.avail_cpus for n in nodes)
-            tqdm.write(" >> %d Cluster Nodes with %d CPUs will be used for File Processing"
-                       % (len(nodes), self.cpus_qty))
+            tqdm.write(
+                " >> %d Cluster Nodes with %d CPUs will be used for File Processing"
+                % (len(nodes), self.cpus_qty)
+            )
             self._submit_pending()
 
     def on_job_result(self, job):
-        """ called by dispy """
+        """called by dispy"""
         with self.jobs_lock:
             f = self.jobs_submitted[job.id]
             del self.jobs_submitted[job.id]
@@ -488,7 +524,7 @@ class JobsManager:
 
     def _can_submit_more(self):
         # cpus * 2 only to ensure dispy always has work to do
-        return len(self.jobs_submitted) < (self.cpus_qty*2)
+        return len(self.jobs_submitted) < (self.cpus_qty * 2)
 
     def _submit(self, f: File):
         with self.jobs_lock:
@@ -499,20 +535,22 @@ class JobsManager:
 
             # process_file(...) will be called
             # with this args in the remote node.
-            job = self.job_server.submit_async(self.abspath_scripts_dir,
-                                               f.abspath_down_file,
-                                               f.source.format,
-                                               f.station.StationCode)
+            job = self.job_server.submit_async(
+                self.abspath_scripts_dir,
+                f.abspath_down_file,
+                f.source.format,
+                f.station.StationCode,
+            )
             self.jobs_submitted[job.id] = f
 
             if DEBUG:
-                tqdm.write('%s Submitted for processing format=%r'
-                           % (f.desc, f.source.format))
+                tqdm.write(
+                    "%s Submitted for processing format=%r" % (f.desc, f.source.format)
+                )
 
     def _submit_pending(self):
         with self.jobs_lock:
-            while (self._can_submit_more()
-                    and not self.files_pending.is_empty()):
+            while self._can_submit_more() and not self.files_pending.is_empty():
                 fd = self.files_pending.pop()
                 self._submit(File.from_descriptor(self.stations, fd))
 
@@ -523,8 +561,11 @@ class JobsManager:
             else:
                 self.files_pending.push(f)
                 if DEBUG:
-                    tqdm.write('%s Queued Process format=%r: %s'
-                               % (f.desc, f.source.format, f.url))
+                    tqdm.write(
+                        "%s Queued Process format=%r: %s"
+                        % (f.desc, f.source.format, f.url)
+                    )
+
 
 ###############################################################################
 # Download coordinator
@@ -533,15 +574,16 @@ class JobsManager:
 # to servers persistent, but are processed by the entire cluster.
 
 
-def download_all_stations_data(cnn: dbConnection.Cnn,
-                               jobs_manager: JobsManager,
-                               abspath_repository_dir: str,
-                               stnlist: List[Any],
-                               drange):
-
+def download_all_stations_data(
+    cnn: dbConnection.Cnn,
+    jobs_manager: JobsManager,
+    abspath_repository_dir: str,
+    stnlist: list[Any],
+    drange,
+):
     class Server:
         files_pending: FilesBag
-        file_current: Optional[File]
+        file_current: File | None
         client: Client
         stopped: bool
 
@@ -553,26 +595,30 @@ def download_all_stations_data(cnn: dbConnection.Cnn,
 
     msg_inbox: queue.Queue[Msg] = queue.Queue(8192)
     # Limit memory usage / overall backpressure
-    stations: Dict[int, Station] = {}  # station_idx -> Station
-    servers: Dict[int, Server] = {}  # server_id -> Server
+    stations: dict[int, Station] = {}  # station_idx -> Station
+    servers: dict[int, Server] = {}  # server_id -> Server
 
     files_pending_qty = 0
 
-    def on_download_result(server_id: int, error: Optional[str],
-                           elapsed_time=0, size=0, timeout=None):
+    def on_download_result(
+        server_id: int, error: str | None, elapsed_time=0, size=0, timeout=None
+    ):
         try:
-            msg_inbox.put(Msg.DOWNLOAD_RESULT(server_id=server_id,
-                                              elapsed_time=elapsed_time,
-                                              size=size,
-                                              error=error),
-                          timeout=timeout)
+            msg_inbox.put(
+                Msg.DOWNLOAD_RESULT(
+                    server_id=server_id,
+                    elapsed_time=elapsed_time,
+                    size=size,
+                    error=error,
+                ),
+                timeout=timeout,
+            )
             return True
         except queue.Full:
             return False
 
-    def on_process_result(file: FileDescriptor, error: Optional[str]):
-        msg_inbox.put(Msg.PROCESS_RESULT(file=file,
-                                         error=error))
+    def on_process_result(file: FileDescriptor, error: str | None):
+        msg_inbox.put(Msg.PROCESS_RESULT(file=file, error=error))
 
     def on_client_stopped(server_id: int):
         msg_inbox.put(Msg.CLIENT_STOPPED(server_id=server_id))
@@ -606,10 +652,17 @@ def download_all_stations_data(cnn: dbConnection.Cnn,
 
         pbar.set_postfix(
             files="[db_no_info=%d db_exists=%d not_found=%d process_ok=%d process_error=%d ok=%d]"
-                  % (stats.db_no_info, stats.db_exists, stats.not_found,
-                     stats.process_ok, stats.process_error, stats.ok),
+            % (
+                stats.db_no_info,
+                stats.db_exists,
+                stats.not_found,
+                stats.process_ok,
+                stats.process_error,
+                stats.ok,
+            ),
             servers="[active=%d idle=%d stopped=%d]"
-                    % (s_downloading, s_idle, s_stopped))
+            % (s_downloading, s_idle, s_stopped),
+        )
         pbar.update()
         # print("files_pending_qty=%d" % files_pending_qty)
 
@@ -623,47 +676,50 @@ def download_all_stations_data(cnn: dbConnection.Cnn,
             if not server:
                 host, port = fqdn_parse(src.fqdn)
 
-                client = Client(on_download_result, on_client_stopped,
-                                src.server_id,
-                                src.protocol.upper(), host, port,
-                                src.username, src.password)
+                client = Client(
+                    on_download_result,
+                    on_client_stopped,
+                    src.server_id,
+                    src.protocol.upper(),
+                    host,
+                    port,
+                    src.username,
+                    src.password,
+                )
                 server = Server(client)
                 servers[src.server_id] = server
                 client.start_thread()
 
-            f = File.from_params(stations,
-                                 stn_idx=stn_idx,
-                                 date_mjd=date_mjd,
-                                 src_idx=src_idx)
+            f = File.from_params(
+                stations, stn_idx=stn_idx, date_mjd=date_mjd, src_idx=src_idx
+            )
 
             if server.file_current:
                 server.files_pending.push(f)
             else:
-                server.client.set_next_download(f.urlpath_file,
-                                                f.abspath_down_file)
+                server.client.set_next_download(f.urlpath_file, f.abspath_down_file)
                 server.file_current = f
 
         else:
             # Sources exhausted
-            f = File.from_params(stations,
-                                 stn_idx=stn_idx,
-                                 date_mjd=date_mjd,
-                                 src_idx=0)
+            f = File.from_params(
+                stations, stn_idx=stn_idx, date_mjd=date_mjd, src_idx=0
+            )
             stats.not_found += 1
-            file_finished(f, 'FILE NOT FOUND')
+            file_finished(f, "FILE NOT FOUND")
 
     def queue_download_next_source(f: FileDescriptor):
         queue_download(f.stn_idx, f.date_mjd, f.src_idx + 1)
 
     #  1- Query DB for stations + source sinfo
 
-    with tqdm(desc=' >> Querying Stations',
-              dynamic_ncols=True,
-              total=len(stnlist),
-              bar_format=PBAR_FORMAT,
-              disable=None
-              ) as pbar:
-
+    with tqdm(
+        desc=" >> Querying Stations",
+        dynamic_ncols=True,
+        total=len(stnlist),
+        bar_format=PBAR_FORMAT,
+        disable=None,
+    ) as pbar:
         tqdm.write(" >> Querying Stations info")
 
         stn_ignored_qty = 0
@@ -671,41 +727,46 @@ def download_all_stations_data(cnn: dbConnection.Cnn,
         for stn in stnlist:
             station_id = stationID(stn)
 
-            sources = db_get_sources_for_station(cnn,
-                                                 stn['NetworkCode'],
-                                                 stn['StationCode'])
+            sources = db_get_sources_for_station(
+                cnn, stn["NetworkCode"], stn["StationCode"]
+            )
             if not sources:
-                tqdm.write('[%s] WARNING Station ignored: NO Sources defined'
-                           % station_id)
+                tqdm.write(
+                    "[%s] WARNING Station ignored: NO Sources defined" % station_id
+                )
                 stn_ignored_qty += 1
             else:
-                tqdm.write("[%s] Station loaded (%d sources)"
-                           % (station_id, len(sources)))
-                abspath_station_dir = os.path.join(abspath_repository_dir,
-                                                   station_id)
+                tqdm.write(
+                    "[%s] Station loaded (%d sources)" % (station_id, len(sources))
+                )
+                abspath_station_dir = os.path.join(abspath_repository_dir, station_id)
                 if not os.path.exists(abspath_station_dir):
-                    tqdm.write('[%s] Creating dir %s'
-                               % (station_id, abspath_station_dir))
+                    tqdm.write(
+                        "[%s] Creating dir %s" % (station_id, abspath_station_dir)
+                    )
                     os.makedirs(abspath_station_dir)
 
                 stations[stn_idx_next] = Station(
                     stationID=station_id,
-                    NetworkCode=stn['NetworkCode'],
-                    StationCode=stn['StationCode'],
-                    Marker=stn['marker'],
-                    CountryCode=stn['country_code'],
+                    NetworkCode=stn["NetworkCode"],
+                    StationCode=stn["StationCode"],
+                    Marker=stn["marker"],
+                    CountryCode=stn["country_code"],
                     sources=sources,
-                    abspath_station_dir=abspath_station_dir)
+                    abspath_station_dir=abspath_station_dir,
+                )
                 stn_idx_next += 1
 
-            pbar.set_postfix(stations="[loaded=%d ignored=%d]"
-                             % (len(stations), stn_ignored_qty))
+            pbar.set_postfix(
+                stations="[loaded=%d ignored=%d]" % (len(stations), stn_ignored_qty)
+            )
             pbar.update()
 
-    tqdm.write('-'*70)
-    tqdm.write("%d Stations of %d requested ready for download"
-               % (len(stations), len(stnlist)))
-    tqdm.write('-'*70)
+    tqdm.write("-" * 70)
+    tqdm.write(
+        "%d Stations of %d requested ready for download" % (len(stations), len(stnlist))
+    )
+    tqdm.write("-" * 70)
 
     files_pending_qty = len(stations) * len(drange)
 
@@ -714,15 +775,16 @@ def download_all_stations_data(cnn: dbConnection.Cnn,
 
     # 2- Start thread to Query DB for files
     # stations_stopped = set()
-    _thread.start_new_thread(thread_queue_all_files, (cnn, drange, stations,
-                                                      msg_inbox))
+    _thread.start_new_thread(thread_queue_all_files, (cnn, drange, stations, msg_inbox))
 
     # 3- Coordinate downloads & process
-    pbar = tqdm(desc=' >> Download',
-                dynamic_ncols=True,
-                total=files_pending_qty,
-                bar_format=PBAR_FORMAT,
-                disable=None)
+    pbar = tqdm(
+        desc=" >> Download",
+        dynamic_ncols=True,
+        total=files_pending_qty,
+        bar_format=PBAR_FORMAT,
+        disable=None,
+    )
     with pbar:
         while files_pending_qty:
             msg = msg_inbox.get()
@@ -735,17 +797,22 @@ def download_all_stations_data(cnn: dbConnection.Cnn,
             elif isinstance(msg, Msg.FILE_SKIPPED_INACTIVE_STATION):
                 f = File.from_descriptor(stations, msg.file)
                 stats.db_no_info += 1
-                file_finished(f, "FILE SKIPPED: No Station info in DB - assume Station is inactive for this date")
+                file_finished(
+                    f,
+                    "FILE SKIPPED: No Station info in DB - assume Station is inactive for this date",
+                )
 
             elif isinstance(msg, Msg.FILE_IGNORED_EXISTS_IN_DB):
                 f = File.from_descriptor(stations, msg.file)
                 stats.db_exists += 1
-                file_finished(f, 'FILE IGNORED: File exists in DB')
+                file_finished(f, "FILE IGNORED: File exists in DB")
 
             elif isinstance(msg, Msg.CLIENT_STOPPED):
                 server = servers[msg.server_id]
-                tqdm.write('[SERVER-%03d] WARNING: CONNECTION STOPPED (%s)' %
-                           (msg.server_id, server.client.proto.desc()))
+                tqdm.write(
+                    "[SERVER-%03d] WARNING: CONNECTION STOPPED (%s)"
+                    % (msg.server_id, server.client.proto.desc())
+                )
                 server.stopped = True
 
                 # for (stn_idx, stn) in stations.items():
@@ -762,22 +829,28 @@ def download_all_stations_data(cnn: dbConnection.Cnn,
                 server.file_current = None
 
                 if msg.error:
-                    tqdm.write('%s Download Error! %s %s: %s'
-                               % (f.desc, f.src_desc, f.url, msg.error))
+                    tqdm.write(
+                        "%s Download Error! %s %s: %s"
+                        % (f.desc, f.src_desc, f.url, msg.error)
+                    )
                     queue_download_next_source(f)
                 else:
-                    postfix = ("size=%dkB time=%ds speed=%dkB/s %s %s"
-                               % (msg.size//1024, msg.elapsed_time,
-                                  (msg.size//1024)/msg.elapsed_time,
-                                  f.src_desc, f.url))
+                    postfix = "size=%dkB time=%ds speed=%dkB/s %s %s" % (
+                        msg.size // 1024,
+                        msg.elapsed_time,
+                        (msg.size // 1024) / msg.elapsed_time,
+                        f.src_desc,
+                        f.url,
+                    )
                     fmt = f.source.format
-                    if fmt and fmt != 'DEFAULT_FORMAT':
-                        tqdm.write('%s Downloaded ok! format=%r %s'
-                                   % (f.desc, fmt, postfix))
+                    if fmt and fmt != "DEFAULT_FORMAT":
+                        tqdm.write(
+                            "%s Downloaded ok! format=%r %s" % (f.desc, fmt, postfix)
+                        )
                         jobs_manager.queue_process(f)
                     else:
                         stats.ok += 1
-                        file_finished(f, 'DOWNLOAD OK: %s' % postfix)
+                        file_finished(f, "DOWNLOAD OK: %s" % postfix)
 
                 # Pop next file for same server
                 if not server.files_pending.is_empty():
@@ -787,21 +860,22 @@ def download_all_stations_data(cnn: dbConnection.Cnn,
             elif isinstance(msg, Msg.PROCESS_RESULT):
                 f = File.from_descriptor(stations, msg.file)
                 if msg.error:
-                    tqdm.write('%s Process ERROR! format=%r: %s %s\n%s'
-                               % (f.desc, f.source.format,
-                                  f.src_desc, f.url, msg.error))
+                    tqdm.write(
+                        "%s Process ERROR! format=%r: %s %s\n%s"
+                        % (f.desc, f.source.format, f.src_desc, f.url, msg.error)
+                    )
                     # Try next download source,
                     # maybe file is in better shape in another server
                     stats.process_error += 1
                     queue_download_next_source(f)
                 else:
                     stats.process_ok += 1
-                    file_finished(f, 'PROCESS OK')
+                    file_finished(f, "PROCESS OK")
 
     # 4- Cleanup
 
-    tqdm.write('-'*70)
-    tqdm.write('Finished all Downloads and Processing')
+    tqdm.write("-" * 70)
+    tqdm.write("Finished all Downloads and Processing")
 
     for server in servers.values():
         server.client.finish()
@@ -815,55 +889,65 @@ def download_all_stations_data(cnn: dbConnection.Cnn,
 # After download by-format processing
 ###############################################################################
 
-def process_file(abspath_scripts_dir: str,
-                 abspath_down_file: str,
-                 src_format: str,
-                 StationCode: str):
 
+def process_file(
+    abspath_scripts_dir: str, abspath_down_file: str, src_format: str, StationCode: str
+):
     DEBUG = False
     abspath_down_dir, fname_down = os.path.split(abspath_down_file)
 
     abspath_tmp_dir = None
     try:
         abspath_tmp_dir = tempfile.mkdtemp(
-            suffix='.tmp', prefix=os.path.join(abspath_down_dir, 'process.'))
+            suffix=".tmp", prefix=os.path.join(abspath_down_dir, "process.")
+        )
         if src_format:
             src_format = src_format.lower()
 
-        if not src_format or src_format in ('default_format', 'rnx2crz'):
+        if not src_format or src_format in ("default_format", "rnx2crz"):
             # but src_format must not reach here.
             # scheme rnx2crz does not require any pre-process,
             # just copy the file
-            shutil.move(abspath_down_file,
-                        abspath_tmp_dir)
+            shutil.move(abspath_down_file, abspath_tmp_dir)
         else:
-            for ext in ('', '.sh', '.py'):
-                abspath_script_file = os.path.join(abspath_scripts_dir,
-                                                   src_format) + ext
+            for ext in ("", ".sh", ".py"):
+                abspath_script_file = (
+                    os.path.join(abspath_scripts_dir, src_format) + ext
+                )
                 if os.path.isfile(abspath_script_file):
                     # Process must leave all the rinex files on temp_dir
-                    args = [abspath_script_file,
-                            abspath_down_file, fname_down, abspath_tmp_dir]
-                    cmd = subprocess.run(args,
-                                         stdout=subprocess.PIPE,
-                                         stderr=subprocess.STDOUT)
+                    args = [
+                        abspath_script_file,
+                        abspath_down_file,
+                        fname_down,
+                        abspath_tmp_dir,
+                    ]
+                    cmd = subprocess.run(
+                        args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+                    )
                     if DEBUG:
-                        tqdm.write('"%s" returncode=%d output:'
-                                   % (' '.join(args), cmd.returncode))
-                        tqdm.write(cmd.stdout.decode('UTF-8', errors='ignore'))
+                        tqdm.write(
+                            '"%s" returncode=%d output:'
+                            % (" ".join(args), cmd.returncode)
+                        )
+                        tqdm.write(cmd.stdout.decode("UTF-8", errors="ignore"))
 
                     if cmd.returncode:
-                        raise Exception("Format script %r failed, output: %r"
-                                        % (abspath_script_file, cmd.stdout))
+                        raise Exception(
+                            "Format script %r failed, output: %r"
+                            % (abspath_script_file, cmd.stdout)
+                        )
                     break
             else:
-                raise Exception("No script for format %r: %s not found in current node"
-                                % (src_format, abspath_script_file))
+                raise Exception(
+                    "No script for format %r: %s not found in current node"
+                    % (src_format, abspath_script_file)
+                )
 
         # @TODO: this only works for RINEX 2, needs to work for RINEX 3 as well
         # DDG: ADDED * at the end of /*.??[oOdD](*)
         # to also pick up Z and gz files
-        abspath_out_files = glob.glob(abspath_tmp_dir + '/*.??[oOdD]*')
+        abspath_out_files = glob.glob(abspath_tmp_dir + "/*.??[oOdD]*")
 
         # if DEBUG:
         #     tqdm.write('abspath_out_files'+repr(abspath_out_files))
@@ -880,12 +964,13 @@ def process_file(abspath_scripts_dir: str,
                 # move the file to
                 # a valid rinex convention name (use RINEX 2 as default)
                 _, extension = os.path.splitext(file)
-                new_file = os.path.join(os.path.dirname(file),
-                                        StationCode + '0010' + extension)
+                new_file = os.path.join(
+                    os.path.dirname(file), StationCode + "0010" + extension
+                )
                 shutil.move(file, new_file)
                 file = new_file
 
-            rinex = pyRinex.ReadRinex('???', StationCode, file)
+            rinex = pyRinex.ReadRinex("???", StationCode, file)
             # compress rinex and output it to abspath_down_dir
             # DDG: apply the naming convention before moving the file
             #      this solves uppercase to lowercase, wrong date, etc
@@ -904,9 +989,14 @@ def process_file(abspath_scripts_dir: str,
 
 
 class IProtocol(ABC):
-    def __init__(self, protocol: str,
-                 fqdn: str, port: int,
-                 username: Optional[str], password: Optional[str]):
+    def __init__(
+        self,
+        protocol: str,
+        fqdn: str,
+        port: int,
+        username: str | None,
+        password: str | None,
+    ):
         self.protocol = protocol
         self.fqdn = fqdn
         self.port = port
@@ -914,10 +1004,11 @@ class IProtocol(ABC):
         self.password = password
 
     def desc(self):
-        return ("%s://%s%s"
-                % (self.protocol,
-                   self.username + "@" if self.username else '',
-                   self.fqdn))
+        return "%s://%s%s" % (
+            self.protocol,
+            self.username + "@" if self.username else "",
+            self.fqdn,
+        )
 
     @abstractmethod
     def connect(self):
@@ -939,6 +1030,7 @@ class IProtocol(ABC):
     def disconnect(self):
         pass
 
+
 # -------
 # FTP
 # -------
@@ -948,7 +1040,7 @@ class ProtocolFTP(IProtocol):
     DEFAULT_PORT = 21
 
     def __init__(self, *args, **kargs):
-        super(ProtocolFTP, self).__init__('ftp', *args, **kargs)
+        super(ProtocolFTP, self).__init__("ftp", *args, **kargs)
         # timeout here is for all socket operations, not only connection
         self.ftp = ftplib.FTP(timeout=SERVER_CONNECTION_TIMEOUT)
 
@@ -963,15 +1055,17 @@ class ProtocolFTP(IProtocol):
         # "421 Timeout (no operation for 1800 seconds)" even when
         # we send PWD's. So here we also other commands.
         self.ftp.pwd()
-        self.ftp.sendcmd('NOOP')
+        self.ftp.sendcmd("NOOP")
         # self.ftp.sendcmd('STAT')
 
     @staticmethod
     def _check_critical_error(reply: str):
         code = reply[:3]
-        if code in ('530',   # Not logged in
-                    '332',   # Need account for login.
-                    '425'):  # Can't open data connection.
+        if code in (
+            "530",  # Not logged in
+            "332",  # Need account for login.
+            "425",
+        ):  # Can't open data connection.
             # https://datatracker.ietf.org/doc/html/rfc959
             # Critical errors, must break the connection
             raise Exception(reply)
@@ -979,11 +1073,11 @@ class ProtocolFTP(IProtocol):
     def download(self, server_path: str, dest_path: str):
         try:
             try:
-                with open(dest_path, 'wb') as f:
+                with open(dest_path, "wb") as f:
                     reply = self.ftp.retrbinary("RETR " + server_path, f.write)
                     self._check_critical_error(reply)
                     code = reply[:3]
-                    if code == '226':
+                    if code == "226":
                         return None
                     else:
                         return reply
@@ -1003,6 +1097,7 @@ class ProtocolFTP(IProtocol):
 
     def disconnect(self):
         self.ftp.quit()
+
 
 # ------------------
 # FTP IN ACTIVE MODE
@@ -1024,6 +1119,7 @@ class ProtocolFTPA(ProtocolFTP):
             self.ftp.login(self.username, self.password)
         self.ftp.set_pasv(False)
 
+
 # -------
 # SFTP
 # -------
@@ -1033,7 +1129,7 @@ class ProtocolSFTP(IProtocol):
     DEFAULT_PORT = 22
 
     def __init__(self, *args, **kargs):
-        super(ProtocolSFTP, self).__init__('sftp', *args, **kargs)
+        super(ProtocolSFTP, self).__init__("sftp", *args, **kargs)
         self.transport = None
         self.sftp = None
 
@@ -1051,13 +1147,13 @@ class ProtocolSFTP(IProtocol):
 
     def refresh(self):
         # Must use stat, paramiko has no real cwd()
-        self.sftp.stat('.')
+        self.sftp.stat(".")
 
     def download(self, server_path: str, dest_path: str):
         try:
             self.sftp.get(server_path, dest_path)
             return None
-        except IOError as e:
+        except OSError as e:
             # paramiko maps SFTP errors to errno codes:
             if e.errno in (errno.ENOENT, errno.EACCES):
                 return errno.errorcode[e.errno] + " " + e.strerror
@@ -1073,6 +1169,7 @@ class ProtocolSFTP(IProtocol):
         if self.transport:
             self.transport.close()
 
+
 # -------
 # HTTP
 # -------
@@ -1081,7 +1178,7 @@ class ProtocolSFTP(IProtocol):
 class ProtocolHTTP(IProtocol):
     DEFAULT_PORT = 80
 
-    def __init__(self, *args, protocol='http', **kargs):
+    def __init__(self, *args, protocol="http", **kargs):
         super(ProtocolHTTP, self).__init__(protocol, *args, **kargs)
 
         # NASA server is problematic.
@@ -1097,6 +1194,7 @@ class ProtocolHTTP(IProtocol):
         class CustomSession(requests.Session):
             def rebuild_auth(self, prepared_request, response):
                 return
+
         # activate the following lines to output complete header information
         # from http.client import HTTPConnection
         # import logging
@@ -1109,7 +1207,7 @@ class ProtocolHTTP(IProtocol):
             # HTTP Basic Authorization
             self.session.auth = (self.username, self.password)
 
-        self.base_url = protocol+'://%s:%s' % (self.fqdn, self.port)
+        self.base_url = protocol + "://%s:%s" % (self.fqdn, self.port)
 
     def connect(self):
         pass
@@ -1119,7 +1217,6 @@ class ProtocolHTTP(IProtocol):
         pass
 
     def download(self, server_path: str, dest_path: str):
-
         def csn_hash_token(token_parts):
             # Deobfuscated equivalent of the JavaScript a0_0x2a54 array
 
@@ -1127,15 +1224,18 @@ class ProtocolHTTP(IProtocol):
             def rotate_array(arr, count):
                 return arr[count:] + arr[:count]
 
-            token_parts = rotate_array(token_parts,
-                                       0x178)  # 376 decimal, results in full cycle rotation (no effect in this case)
+            token_parts = rotate_array(
+                token_parts, 0x178
+            )  # 376 decimal, results in full cycle rotation (no effect in this case)
 
             # Map the indices used in the code
             def a0_0x4457(index):
                 return token_parts[index]
 
             # Extracted values
-            challenge_prefix = a0_0x4457(0)  # '5523FAE9D93BF649CCB8FBE324DE72E60B419BE9'
+            challenge_prefix = a0_0x4457(
+                0
+            )  # '5523FAE9D93BF649CCB8FBE324DE72E60B419BE9'
             token_key = a0_0x4457(1)  # 'challenge_token='
 
             # Start with i = 0
@@ -1144,14 +1244,14 @@ class ProtocolHTTP(IProtocol):
 
             # Custom function simulating the SHA1().digest() behavior
             def sha1_array(s):
-                return list(hashlib.sha1(s.encode('utf-8')).digest())
+                return list(hashlib.sha1(s.encode("utf-8")).digest())
 
             # Search for correct i such that s[n1] == 0xb0 and s[n1+1] == 0x0b
             while True:
                 combined = challenge_prefix + str(i)
                 sha1_bytes = sha1_array(combined)
 
-                if sha1_bytes[n1] == 0xb0 and sha1_bytes[n1 + 1] == 0x0b:
+                if sha1_bytes[n1] == 0xB0 and sha1_bytes[n1 + 1] == 0x0B:
                     break
 
                 i += 1
@@ -1159,45 +1259,49 @@ class ProtocolHTTP(IProtocol):
             return combined
 
         token = None
-        if 'gage' in self.base_url:
-            result = subprocess.run(['es', 'sso', 'access', '--token'],
-                                    stdout=subprocess.PIPE)
-            token = {'Authorization': 'Bearer '
-                          + result.stdout.decode('utf-8').strip()}
+        if "gage" in self.base_url:
+            result = subprocess.run(
+                ["es", "sso", "access", "--token"], stdout=subprocess.PIPE
+            )
+            token = {"Authorization": "Bearer " + result.stdout.decode("utf-8").strip()}
             # print(result.stdout.decode('utf-8'))
-        elif 'csn' in self.base_url:
-            token = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,"
-                               "image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-                     "Accept-Encoding": "gzip, deflate, br, zstd",
-                     "Accept-Language": "en-US,en;q=0.9",
-                     "Priority": "u=0, i",
-                     "Sec-Ch-Ua": '"Google Chrome";v="135", "Not-A.Brand";v="8", "Chromium";v="135"',
-                     "Sec-Ch-Ua-Mobile": "20",
-                     "Sec-Ch-Ua-Platform": '"Linux"',
-                     "Sec-Fetch-Dest": "document",
-                     "Sec-Fetch-Mode": "navigate",
-                     "Sec-Fetch-Site": "none",
-                     "Sec-Fetch-User": "?1",
-                     "Upgrade-Insecure-Requests": "1",
-                     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
-                                   "Chrome/135.0.0.0 Safari/537.36",
-                     "referer": self.base_url + server_path}
+        elif "csn" in self.base_url:
+            token = {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,"
+                "image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+                "Accept-Encoding": "gzip, deflate, br, zstd",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Priority": "u=0, i",
+                "Sec-Ch-Ua": '"Google Chrome";v="135", "Not-A.Brand";v="8", "Chromium";v="135"',
+                "Sec-Ch-Ua-Mobile": "20",
+                "Sec-Ch-Ua-Platform": '"Linux"',
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "none",
+                "Sec-Fetch-User": "?1",
+                "Upgrade-Insecure-Requests": "1",
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/135.0.0.0 Safari/537.36",
+                "referer": self.base_url + server_path,
+            }
 
         for attempt in range(3):
-            with self.session.get(self.base_url + server_path,
-                                  stream=True,
-                                  timeout=SERVER_CONNECTION_TIMEOUT,
-                                  headers=token,
-                                  allow_redirects=True) as r:
+            with self.session.get(
+                self.base_url + server_path,
+                stream=True,
+                timeout=SERVER_CONNECTION_TIMEOUT,
+                headers=token,
+                allow_redirects=True,
+            ) as r:
                 if 200 <= r.status_code <= 299:
-                    with open(dest_path, 'wb') as f:
+                    with open(dest_path, "wb") as f:
                         shutil.copyfileobj(r.raw, f)
                     return None
                 else:
                     error = "%d %s" % (r.status_code, r.reason)
                     if 500 <= r.status_code <= 599:
                         if attempt < 2:
-                            if 'csn' in self.base_url:
+                            if "csn" in self.base_url:
                                 html_content = r.text
                                 pattern = r"'\s*([^']+)'\s*,\s*'challenge_token='"
                                 # Search for the challenge_token in the HTML content
@@ -1205,10 +1309,12 @@ class ProtocolHTTP(IProtocol):
                                 challenge_token = match.group(1)
                                 token_parts = [
                                     challenge_token,  # Presumably a SHA1 hash string
-                                    'challenge_token=',
-                                    'array'
+                                    "challenge_token=",
+                                    "array",
                                 ]
-                                self.session.cookies.set("challenge_token", csn_hash_token(token_parts))
+                                self.session.cookies.set(
+                                    "challenge_token", csn_hash_token(token_parts)
+                                )
                             time.sleep(3)
                         else:
                             raise Exception(error)
@@ -1221,10 +1327,11 @@ class ProtocolHTTP(IProtocol):
         if r.status_code == 200:
             return r.text
         else:
-            raise Exception('HTTP returned status code %i' % r.status_code)
+            raise Exception("HTTP returned status code %i" % r.status_code)
 
     def disconnect(self):
         self.session.close()
+
 
 # --------
 # HTTPS
@@ -1235,12 +1342,13 @@ class ProtocolHTTPS(ProtocolHTTP):
     DEFAULT_PORT = 443
 
     def __init__(self, *args, **kargs):
-        super(ProtocolHTTPS, self).__init__(*args, protocol='https', **kargs)
+        super(ProtocolHTTPS, self).__init__(*args, protocol="https", **kargs)
 
 
 ###############################################################################
 # Download Client
 ###############################################################################
+
 
 class Client:
     class NextDownload(NamedTuple):
@@ -1252,32 +1360,38 @@ class Client:
     cond: threading.Condition
     state: str  # Literal['STARTED', 'STOP_PENDING', 'STOPPED',
     #                     "FINISH_PENDING", "FINISHED"]
-    next_download: Optional[NextDownload]
+    next_download: NextDownload | None
 
-    def __init__(self,
-                 on_download_result, on_client_stopped,
-                 server_id: int,
-                 protocol, host, port, username, password):
-
+    def __init__(
+        self,
+        on_download_result,
+        on_client_stopped,
+        server_id: int,
+        protocol,
+        host,
+        port,
+        username,
+        password,
+    ):
         self.on_download_result = on_download_result
         self.on_client_stopped = on_client_stopped
 
         self.server_id = server_id
         self.cond = threading.Condition()
-        self.state = 'STARTED'
+        self.state = "STARTED"
         self.next_download = None
 
-        protoClass = {'FTP':  ProtocolFTP,
-                      'FTPA':  ProtocolFTPA,
-                      'SFTP':  ProtocolSFTP,
-                      'HTTP':  ProtocolHTTP,
-                      'HTTPS':  ProtocolHTTPS,
-                      }[protocol]
+        protoClass = {
+            "FTP": ProtocolFTP,
+            "FTPA": ProtocolFTPA,
+            "SFTP": ProtocolSFTP,
+            "HTTP": ProtocolHTTP,
+            "HTTPS": ProtocolHTTPS,
+        }[protocol]
 
-        self.proto = protoClass(host,
-                                port or protoClass.DEFAULT_PORT,
-                                username,
-                                password)
+        self.proto = protoClass(
+            host, port or protoClass.DEFAULT_PORT, username, password
+        )
 
     def start_thread(self):
         _thread.start_new_thread(self._client_thread, ())
@@ -1285,26 +1399,26 @@ class Client:
     def set_next_download(self, urlpath_file: str, abspath_down_file: str):
         with self.cond:
             assert not self.next_download
-            assert self.state not in ('FINISH_PENDING', 'FINISHED')
+            assert self.state not in ("FINISH_PENDING", "FINISHED")
             self.next_download = Client.NextDownload(
-                urlpath_file=urlpath_file,
-                abspath_down_file=abspath_down_file)
+                urlpath_file=urlpath_file, abspath_down_file=abspath_down_file
+            )
             self.cond.notify()
 
     def stop(self):
         with self.cond:
-            if self.state != 'STOPPED':
-                self.state = 'STOP_PENDING'
+            if self.state != "STOPPED":
+                self.state = "STOP_PENDING"
                 self.cond.notify()
 
     def finish(self):
         with self.cond:
-            if self.state != 'FINISHED':
-                self.state = 'FINISH_PENDING'
+            if self.state != "FINISHED":
+                self.state = "FINISH_PENDING"
                 self.cond.notify()
 
     def _client_thread(self):
-        prefix = '[SERVER-%03d]' % self.server_id
+        prefix = "[SERVER-%03d]" % self.server_id
         conn_retries = 0
         connected = False
 
@@ -1321,25 +1435,25 @@ class Client:
             while True:
                 try:
                     conn_retries += 1
-                    postfix = ('(try #%d/%d) to: %s'
-                               % (conn_retries, SERVER_MAX_RECONNECTIONS,
-                                  self.proto.desc()))
-                    tqdm.write('%s CONNECTING %s' % (prefix, postfix))
+                    postfix = "(try #%d/%d) to: %s" % (
+                        conn_retries,
+                        SERVER_MAX_RECONNECTIONS,
+                        self.proto.desc(),
+                    )
+                    tqdm.write("%s CONNECTING %s" % (prefix, postfix))
                     self.proto.connect()
                     connected = True
-                    tqdm.write('%s CONNECT OK %s' % (prefix, postfix))
+                    tqdm.write("%s CONNECT OK %s" % (prefix, postfix))
 
                     while True:
                         f = None
 
                         with self.cond:
-                            if (not self.next_download
-                                    and self.state != 'STOP_PENDING'):
-                                self.cond.wait(
-                                    timeout=SERVER_REFRESH_INTERVAL)
+                            if not self.next_download and self.state != "STOP_PENDING":
+                                self.cond.wait(timeout=SERVER_REFRESH_INTERVAL)
 
                             f = self.next_download
-                            if not f and self.state == 'STOP_PENDING':
+                            if not f and self.state == "STOP_PENDING":
                                 return
 
                         if not f:
@@ -1350,15 +1464,17 @@ class Client:
                             file_try_remove(f.abspath_down_file)
 
                         if DEBUG:
-                            tqdm.write('%s Download start: %s'
-                                       % (prefix, f.urlpath_file))
+                            tqdm.write(
+                                "%s Download start: %s" % (prefix, f.urlpath_file)
+                            )
 
                         t_elapsed = size = 0
                         t_start = time.time()
                         error = None
                         try:
-                            error = self.proto.download(f.urlpath_file,
-                                                        f.abspath_down_file)
+                            error = self.proto.download(
+                                f.urlpath_file, f.abspath_down_file
+                            )
                             t_elapsed = time.time() - t_start
                             if not error:
                                 size = os.path.getsize(f.abspath_down_file)
@@ -1374,29 +1490,43 @@ class Client:
                                 file_try_remove(f.abspath_down_file)
 
                         if DEBUG:
-                            tqdm.write('%s %s %s' % (
-                                prefix,
-                                "Transfer OK!" if not error else "ERROR: "
-                                + error, f.urlpath_file))
+                            tqdm.write(
+                                "%s %s %s"
+                                % (
+                                    prefix,
+                                    "Transfer OK!" if not error else "ERROR: " + error,
+                                    f.urlpath_file,
+                                )
+                            )
 
                         with self.cond:
                             self.next_download = None
 
                         while not self.on_download_result(
-                                self.server_id,
-                                None if not error else error,
-                                t_elapsed, size,
-                                timeout=SERVER_REFRESH_INTERVAL):
+                            self.server_id,
+                            None if not error else error,
+                            t_elapsed,
+                            size,
+                            timeout=SERVER_REFRESH_INTERVAL,
+                        ):
                             try:
                                 self.proto.refresh()
                             except Exception:
                                 pass
 
                 except Exception:
-                    tqdm.write("%s CONNECTION ERROR (try #%d/%d) to %s:\n%s\n %s%s"
-                               % (prefix, conn_retries,
-                                  SERVER_MAX_RECONNECTIONS, self.proto.desc(),
-                                  '~'*70, traceback.format_exc(), '~'*70))
+                    tqdm.write(
+                        "%s CONNECTION ERROR (try #%d/%d) to %s:\n%s\n %s%s"
+                        % (
+                            prefix,
+                            conn_retries,
+                            SERVER_MAX_RECONNECTIONS,
+                            self.proto.desc(),
+                            "~" * 70,
+                            traceback.format_exc(),
+                            "~" * 70,
+                        )
+                    )
 
                     if conn_retries < SERVER_MAX_RECONNECTIONS:
                         try_proto_disconnect()
@@ -1405,8 +1535,7 @@ class Client:
                     else:
                         return
         finally:
-            tqdm.write("%s STOPPING connection to: %s"
-                       % (prefix, self.proto.desc()))
+            tqdm.write("%s STOPPING connection to: %s" % (prefix, self.proto.desc()))
             self.on_client_stopped(self.server_id)
 
             try_proto_disconnect()
@@ -1417,8 +1546,7 @@ class Client:
                 f = None
                 state = None
                 with self.cond:
-                    if (not self.next_download
-                            and self.state != 'FINISH_PENDING'):
+                    if not self.next_download and self.state != "FINISH_PENDING":
                         self.cond.wait()
 
                     f = self.next_download
@@ -1427,13 +1555,12 @@ class Client:
                 if f:
                     # We want to log the complete tries for all the files,
                     #  so they are discarded here just like before.
-                    self.on_download_result(self.server_id,
-                                            "Connection STOPPED")
+                    self.on_download_result(self.server_id, "Connection STOPPED")
                     with self.cond:
                         self.next_download = None
-                elif state == 'FINISH_PENDING':
+                elif state == "FINISH_PENDING":
                     with self.cond:
-                        self.state = 'FINISHED'
+                        self.state = "FINISHED"
                     return
 
 
@@ -1441,12 +1568,16 @@ class Client:
 # Main
 ###############################################################################
 
-def main():
-    parser = argparse.ArgumentParser(
-        description='Archive operations Main Program')
 
-    parser.add_argument('stnlist', type=str, nargs='+', metavar='all|net.stnm',
-                        help='''List of networks/stations to process given in
+def main():
+    parser = argparse.ArgumentParser(description="Archive operations Main Program")
+
+    parser.add_argument(
+        "stnlist",
+        type=str,
+        nargs="+",
+        metavar="all|net.stnm",
+        help="""List of networks/stations to process given in
                              [net].[stnm] format or just [stnm]
                              (separated by spaces; if [stnm] is not unique in
                              the database, all stations with that
@@ -1455,21 +1586,36 @@ def main():
                              If [net].all is given, all stations
                              from network [net] will be processed.
                              Alternatively, a file with
-                             the station list can be provided.''')
+                             the station list can be provided.""",
+    )
 
-    parser.add_argument('-date', '--date_range', nargs='+',
-                        action=required_length(1, 2),
-                        metavar='date_start|date_end',
-                        help='''Date range to check given as [date_start]
+    parser.add_argument(
+        "-date",
+        "--date_range",
+        nargs="+",
+        action=required_length(1, 2),
+        metavar="date_start|date_end",
+        help="""Date range to check given as [date_start]
                              or [date_start] and [date_end].
-                             Allowed formats are yyyy.doy or yyyy/mm/dd..''')
+                             Allowed formats are yyyy.doy or yyyy/mm/dd..""",
+    )
 
-    parser.add_argument('-win', '--window', nargs=1, metavar='days', type=int,
-                        help='''Download data from a given time window
-                             determined by today - {days}.''')
+    parser.add_argument(
+        "-win",
+        "--window",
+        nargs=1,
+        metavar="days",
+        type=int,
+        help="""Download data from a given time window
+                             determined by today - {days}.""",
+    )
 
-    parser.add_argument('-np', '--noparallel', action='store_true',
-                        help="Execute command without parallelization.")
+    parser.add_argument(
+        "-np",
+        "--noparallel",
+        action="store_true",
+        help="Execute command without parallelization.",
+    )
 
     add_version_argument(parser)
 
@@ -1480,8 +1626,8 @@ def main():
         Config = pyOptions.ReadOptions(CONFIG_FILE)
 
         tqdm.write(" >> Configuration loaded from %r" % CONFIG_FILE)
-        tqdm.write('       Repository Path: ' + Config.repository_data_in)
-        tqdm.write('   Format Scripts Path: ' + Config.format_scripts_path)
+        tqdm.write("       Repository Path: " + Config.repository_data_in)
+        tqdm.write("   Format Scripts Path: " + Config.format_scripts_path)
         # tqdm.write('-----------------------')
 
         stnlist = Utils.process_stnlist(cnn, args.stnlist)
@@ -1496,10 +1642,8 @@ def main():
         try:
             if args.window:
                 # today - ndays
-                d = Date(year=now.year,
-                         month=now.month,
-                         day=now.day)
-                dates = [d-int(args.window[0]), d]
+                d = Date(year=now.year, month=now.month, day=now.day)
+                dates = [d - int(args.window[0]), d]
             else:
                 dates = process_date(args.date_range)
 
@@ -1508,43 +1652,50 @@ def main():
 
         min_date = Date(gpsWeek=650, gpsWeekDay=0)
         if dates[0] < min_date:
-            dates = [min_date,
-                     Date(year=now.year,
-                          month=now.month,
-                          day=now.day)]
+            dates = [min_date, Date(year=now.year, month=now.month, day=now.day)]
 
         # go through the dates
-        drange = np.arange(dates[0].mjd,
-                           dates[1].mjd + 1,
-                           1,
-                           dtype=int)
+        drange = np.arange(dates[0].mjd, dates[1].mjd + 1, 1, dtype=int)
 
         if db_migrate_if_needed(cnn):
             tqdm.write(" ** DB MIGRATED TO NEW VERSION ** ")
 
         # Cluster Job Server
-        job_server = pyJobServer.JobServer(Config, check_atx=False,
-                                           check_executables=False,
-                                           check_archive=False,
-                                           run_parallel=not args.noparallel)
+        job_server = pyJobServer.JobServer(
+            Config,
+            check_atx=False,
+            check_executables=False,
+            check_archive=False,
+            run_parallel=not args.noparallel,
+        )
 
         # process_file dependencies:
         depfuncs = (dir_try_remove, file_try_remove)
-        depmodules = ('tempfile', 'shutil', 'os', 'subprocess', 'glob',
-                      # app
-                      'pgamit.pyRinex', 'pgamit.pyRinexName')
+        depmodules = (
+            "tempfile",
+            "shutil",
+            "os",
+            "subprocess",
+            "glob",
+            # app
+            "pgamit.pyRinex",
+            "pgamit.pyRinexName",
+        )
 
         jobs_mgr = JobsManager(job_server, Config.format_scripts_path)
-        job_server.create_cluster(process_file,  # called in remote node
-                                  depfuncs,
-                                  jobs_mgr.on_job_result,
-                                  None, modules=depmodules,
-                                  on_nodes_changed=jobs_mgr.on_nodes_changed)
+        job_server.create_cluster(
+            process_file,  # called in remote node
+            depfuncs,
+            jobs_mgr.on_job_result,
+            None,
+            modules=depmodules,
+            on_nodes_changed=jobs_mgr.on_nodes_changed,
+        )
 
         try:
-            download_all_stations_data(cnn, jobs_mgr,
-                                       Config.repository_data_in,
-                                       stnlist, drange)
+            download_all_stations_data(
+                cnn, jobs_mgr, Config.repository_data_in, stnlist, drange
+            )
             job_server.wait()
         finally:
             job_server.close_cluster()
@@ -1555,5 +1706,5 @@ def main():
     tqdm.write(" ** Finished")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

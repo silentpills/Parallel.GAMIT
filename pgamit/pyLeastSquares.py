@@ -17,12 +17,11 @@ LIMIT = 2.5
 
 
 def adjust_lsq(A, L, limit=LIMIT):
-
-    factor = 1.
-    So = 1.
-    dof = (A.shape[0] - A.shape[1])
-    X1 = chi2.ppf(1 - 0.05 / 2., dof)
-    X2 = chi2.ppf(0.05 / 2., dof)
+    factor = 1.0
+    So = 1.0
+    dof = A.shape[0] - A.shape[1]
+    X1 = chi2.ppf(1 - 0.05 / 2.0, dof)
+    X2 = chi2.ppf(0.05 / 2.0, dof)
 
     s = np.array([])
     v = np.array([])
@@ -71,7 +70,7 @@ def adjust_lsq(A, L, limit=LIMIT):
             break  # cst_pass = True
 
     # make sure there are no values below eps. Otherwise, matrix becomes singular
-    P[P < np.finfo(float).eps] = np.finfo(float).eps
+    P[np.finfo(float).eps > P] = np.finfo(float).eps
 
     # some statistics
     SS = np.linalg.inv(A.transpose() @ np.multiply(P, A))
@@ -86,5 +85,4 @@ def adjust_lsq(A, L, limit=LIMIT):
 
 
 def rotate_vector(ecef, lat, lon):
-
     return ct2lg(ecef[0], ecef[1], ecef[2], lat, lon)

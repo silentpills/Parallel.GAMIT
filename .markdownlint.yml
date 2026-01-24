@@ -1,0 +1,20 @@
+---
+# markdownlint configuration
+# Docs: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+# Disable line length (MkDocs handles wrapping)
+MD013: false
+
+# Disable inline HTML restriction (needed for MkDocs admonitions, tabs, etc.)
+MD033: false
+
+# Allow duplicate headings in sibling sections
+MD024:
+  siblings_only: true
+
+# Disable code block style enforcement (MkDocs uses both fenced and indented)
+MD046: false
+
+# Allow trailing punctuation in headings (for question marks, etc.)
+MD026:
+  punctuation: ".,;:!"

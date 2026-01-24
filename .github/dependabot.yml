@@ -1,0 +1,38 @@
+version: 2
+updates:
+  # Python dependencies (pyproject.toml)
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "python"]
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    labels: ["dependencies", "ci"]
+
+  # npm (frontend)
+  - package-ecosystem: npm
+    directory: "/web/frontend"
+    schedule:
+      interval: weekly
+    labels: ["dependencies", "frontend"]
+
+  # Docker (backend)
+  - package-ecosystem: docker
+    directory: "/web/backend/backend"
+    schedule:
+      interval: monthly
+    labels: ["dependencies", "docker"]
+
+  # Docker (frontend)
+  - package-ecosystem: docker
+    directory: "/web/frontend"
+    schedule:
+      interval: monthly
+    labels: ["dependencies", "docker"]

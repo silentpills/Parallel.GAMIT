@@ -4,17 +4,17 @@
 # Date: August 2024
 
 import time
+
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
 from sklearn.neighbors import NearestNeighbors
 
 from pgamit.Utils import ecef2lla
 
 
-def plot_global_network(central_points, OC, labels, points,
-                        output_path, lat_lon=False):
+def plot_global_network(central_points, OC, labels, points, output_path, lat_lon=False):
     """Plot global GNSS station clustering and subnetwork connections
 
     Plots six views of the GNSS station clustering segmentation: polar
@@ -68,14 +68,12 @@ def plot_global_network(central_points, OC, labels, points,
 
     # define projections, stack into list for iteration
     ref_r = (6378137.00, 6356752.3142)
-    m1 = Basemap(projection='npstere', boundinglat=10, lon_0=270,
-                 resolution='l')
-    m2 = Basemap(projection='geos', lon_0=0, resolution='l', rsphere=ref_r)
-    m3 = Basemap(projection='geos', lon_0=90, resolution='l', rsphere=ref_r)
-    m4 = Basemap(projection='geos', lon_0=180, resolution='l', rsphere=ref_r)
-    m5 = Basemap(projection='geos', lon_0=-90, resolution='l', rsphere=ref_r)
-    m6 = Basemap(projection='spstere', boundinglat=-10, lon_0=270,
-                 resolution='l')
+    m1 = Basemap(projection="npstere", boundinglat=10, lon_0=270, resolution="l")
+    m2 = Basemap(projection="geos", lon_0=0, resolution="l", rsphere=ref_r)
+    m3 = Basemap(projection="geos", lon_0=90, resolution="l", rsphere=ref_r)
+    m4 = Basemap(projection="geos", lon_0=180, resolution="l", rsphere=ref_r)
+    m5 = Basemap(projection="geos", lon_0=-90, resolution="l", rsphere=ref_r)
+    m6 = Basemap(projection="spstere", boundinglat=-10, lon_0=270, resolution="l")
     projs = [m1, m2, m3, m4, m5, m6]
 
     # for estimating start of plot run-time...
@@ -93,10 +91,12 @@ def plot_global_network(central_points, OC, labels, points,
             # add same point to beginning of list
             points.insert(0, central_points[label])
         except IndexError:
-            nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree',
-                                    metric='haversine').fit(LL[points])
-            idx = nbrs.kneighbors(LL[central_points[label]].reshape(1, -1),
-                                  return_distance=False)
+            nbrs = NearestNeighbors(
+                n_neighbors=1, algorithm="ball_tree", metric="haversine"
+            ).fit(LL[points])
+            idx = nbrs.kneighbors(
+                LL[central_points[label]].reshape(1, -1), return_distance=False
+            )
             # add central point to beginning as the central connection point
             points.insert(0, points.pop(idx.squeeze()))
             central_points[label] = points[0]
@@ -110,12 +110,18 @@ def plot_global_network(central_points, OC, labels, points,
     for position, proj, sub in zip(positions, projs, subs):
         fig.add_subplot(sub)
         proj.drawcoastlines()
-        proj.fillcontinents(color='grey', lake_color='aqua', alpha=0.3)
+        proj.fillcontinents(color="grey", lake_color="aqua", alpha=0.3)
         for i, node in enumerate(nodes):
             # need reshape to squash warning
             r, g, b, a = colors[i]
-            nx.draw(node, position[i], node_size=4, alpha=0.95, width=.2,
-                    node_color=np.array([r, g, b, a]).reshape(1, 4))
+            nx.draw(
+                node,
+                position[i],
+                node_size=4,
+                alpha=0.95,
+                width=0.2,
+                node_color=np.array([r, g, b, a]).reshape(1, 4),
+            )
 
     # end of plot run-time...
     t1 = time.time()
@@ -155,26 +161,42 @@ def plot_geographic_cluster_graph(centroids, cluster_ids, tie_labels, stnm, poin
     edges = []
     for i in range(len(cluster_ids)):
         for j in range(i + 1, len(cluster_ids)):
-            shared = set(tie_labels[i]) & set(cluster_ids[j]) | set(tie_labels[j]) & set(cluster_ids[i])
+            shared = set(tie_labels[i]) & set(cluster_ids[j]) | set(
+                tie_labels[j]
+            ) & set(cluster_ids[i])
             if shared:
                 edges.append((i, j, len(shared)))
 
     # Plot
     plt.figure(figsize=(14, 10))
-    plt.scatter(lon_cent, lat_cent, s=np.array(cluster_sizes) * 10,
-                color='cornflowerblue', edgecolor='black', alpha=0.8, zorder=3, marker='o')
+    plt.scatter(
+        lon_cent,
+        lat_cent,
+        s=np.array(cluster_sizes) * 10,
+        color="cornflowerblue",
+        edgecolor="black",
+        alpha=0.8,
+        zorder=3,
+        marker="o",
+    )
 
     for i, j, w in edges:
-        plt.plot([lon_cent[i], lon_cent[j]], [lat_cent[i], lat_cent[j]],
-                 'k-', lw=0.5 + 0.2 * w, alpha=0.4, zorder=2)
+        plt.plot(
+            [lon_cent[i], lon_cent[j]],
+            [lat_cent[i], lat_cent[j]],
+            "k-",
+            lw=0.5 + 0.2 * w,
+            alpha=0.4,
+            zorder=2,
+        )
 
     for lon, lat, label in zip(lon_cent, lat_cent, centroid_station_names):
-        plt.text(lon, lat, label, fontsize=7, ha='center', va='center', zorder=4)
+        plt.text(lon, lat, label, fontsize=7, ha="center", va="center", zorder=4)
 
     plt.title("Geographic Cluster Graph (Labeled by Centroid Station)")
     plt.xlabel("Longitude")
     plt.ylabel("Latitude")
     plt.grid(True)
-    plt.axis('equal')  # Ensure equal scaling for longitude and latitude
+    plt.axis("equal")  # Ensure equal scaling for longitude and latitude
     plt.tight_layout()
     plt.show()

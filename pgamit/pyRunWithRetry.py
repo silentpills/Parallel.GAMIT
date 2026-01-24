@@ -5,11 +5,11 @@ Author: Demian D. Gomez
 """
 
 import os
+import platform
+import shlex
 import subprocess
 import threading
 import time
-import platform
-import shlex
 
 # app
 from pgamit import pyEvents
@@ -19,23 +19,23 @@ from pgamit.Utils import file_open
 class RunCommandWithRetryExeception(Exception):
     def __init__(self, value):
         self.value = value
-        self.event = pyEvents.Event(Description = value,
-                                    EventType   = 'error',
-                                    module      = type(self).__name__)
+        self.event = pyEvents.Event(
+            Description=value, EventType="error", module=type(self).__name__
+        )
+
     def __str__(self):
         return str(self.value)
 
 
 class command(threading.Thread):
-
-    def __init__(self,command, cwd = os.getcwd(), cat_file = None):
-        self.cmd      = command
-        self.cwd      = cwd
+    def __init__(self, command, cwd=os.getcwd(), cat_file=None):
+        self.cmd = command
+        self.cwd = cwd
         self.cat_file = cat_file
 
         # Command results:
-        self.stdout   = None
-        self.stderr   = None
+        self.stdout = None
+        self.stderr = None
 
         threading.Thread.__init__(self)
 
@@ -45,33 +45,34 @@ class command(threading.Thread):
             cmd_stdin = None
             try:
                 if self.cat_file:
-                    cmd_stdin = file_open(os.path.join(self.cwd or '',
-                                                       self.cat_file))
+                    cmd_stdin = file_open(os.path.join(self.cwd or "", self.cat_file))
 
                 if isinstance(self.cmd, str):
                     popen_cmd = shlex.split(self.cmd)
                 else:
                     popen_cmd = list(self.cmd)
 
-                self.p = subprocess.Popen(popen_cmd,
-                                          shell     = False,
-                                          stdin     = cmd_stdin,
-                                          stdout    = subprocess.PIPE,
-                                          stderr    = subprocess.PIPE,
-                                          cwd       = self.cwd,
-                                          close_fds = True,
-                                          bufsize   = -1,
-                                          # text mode:
-                                          universal_newlines = True,
-                                          encoding           = 'utf-8',
-                                          errors             = 'ignore')
+                self.p = subprocess.Popen(
+                    popen_cmd,
+                    shell=False,
+                    stdin=cmd_stdin,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    cwd=self.cwd,
+                    close_fds=True,
+                    bufsize=-1,
+                    # text mode:
+                    universal_newlines=True,
+                    encoding="utf-8",
+                    errors="ignore",
+                )
 
                 # Block until finalization
                 self.stdout, self.stderr = self.p.communicate()
                 break
 
             except OSError as e:
-                if str(e) == '[Errno 35] Resource temporarily unavailable':
+                if str(e) == "[Errno 35] Resource temporarily unavailable":
                     if retry <= 2:
                         retry += 1
                         # wait a moment
@@ -79,7 +80,9 @@ class command(threading.Thread):
                         continue
                     else:
                         print(self.cmd)
-                        raise OSError(str(e) + ' after 3 retries on node: ' + platform.node())
+                        raise OSError(
+                            str(e) + " after 3 retries on node: " + platform.node()
+                        )
                 else:
                     print(self.cmd)
                     raise
@@ -92,9 +95,7 @@ class command(threading.Thread):
                 if cmd_stdin:
                     cmd_stdin.close()
 
-
     def wait(self, timeout=None):
-
         self.join(timeout=timeout)
         if self.is_alive():
             try:
@@ -119,13 +120,13 @@ class command(threading.Thread):
         return self
 
 
-class RunCommand():
-    def __init__(self, command, time_out, cwd = os.getcwd(), cat_file = None):
-        self.stdout   = None
-        self.stderr   = None
-        self.cmd      = command
+class RunCommand:
+    def __init__(self, command, time_out, cwd=os.getcwd(), cat_file=None):
+        self.stdout = None
+        self.stderr = None
+        self.cmd = command
         self.time_out = time_out
-        self.cwd      = cwd
+        self.cwd = cwd
         self.cat_file = cat_file
 
     def run_shell(self):
@@ -140,13 +141,15 @@ class RunCommand():
                         continue
                     else:
                         raise RunCommandWithRetryExeception(
-                            "Error in RunCommand.run_shell -- (" + self.cmd + "): Timeout after 3 retries")
+                            "Error in RunCommand.run_shell -- ("
+                            + self.cmd
+                            + "): Timeout after 3 retries"
+                        )
 
                 # remove non-ASCII chars
-                if not cmd.stderr is None:
-                    cmd.stderr = ''.join([i if ord(i) < 128 else ' ' for i in cmd.stderr])
+                if cmd.stderr is not None:
+                    cmd.stderr = "".join(
+                        [i if ord(i) < 128 else " " for i in cmd.stderr]
+                    )
 
                 return cmd.stdout, cmd.stderr
-
-
-

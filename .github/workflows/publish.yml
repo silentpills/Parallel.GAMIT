@@ -2,7 +2,11 @@ name: Publish
 on:
   push:
     tags:
-      - "1.*"
+      - "[0-9]*"
+
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build distribution 📦
