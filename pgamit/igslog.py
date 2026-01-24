@@ -176,7 +176,9 @@ def determine_log_version(data: bytes) -> str:
     if result_v2:
         return "v2.0"
 
-    raise LogVersionError(f"File does not conform to any known IGS Site Log version. First line is: {first_line_bytes}")
+    raise LogVersionError(
+        f"File does not conform to any known IGS Site Log version. First line is: {first_line_bytes}"
+    )
 
 
 def extract_id_block(
@@ -189,7 +191,7 @@ def extract_id_block(
     :param str version: Version number of log file (e.g. "v2.0") - determined if version=None, defaults to None
     :raises LogVersionError: Raises an error if an unknown version string is passed in
     :return bytes: The site ID block of tshe IGS site log
-    
+
     PDS Jan 2025
     remove code&date input; only input file name (don't check log matches code later)
     """
@@ -201,7 +203,9 @@ def extract_id_block(
     elif version == "v2.0":
         _REGEX_ID = _REGEX_ID_V2
     else:
-        raise LogVersionError(f"Incorrect version string '{version}' passed to the extract_id_block() function")
+        raise LogVersionError(
+            f"Incorrect version string '{version}' passed to the extract_id_block() function"
+        )
 
     id_block = _REGEX_ID.search(data)
 
@@ -209,12 +213,17 @@ def extract_id_block(
         logger.warning(f"ID rejected from {file_path}")
         return _np.array([]).reshape(0, 12)
 
-    id_block = [id_block[1].decode().upper(), id_block[2].decode().upper()]  # no .groups() thus 1 and 2
+    id_block = [
+        id_block[1].decode().upper(),
+        id_block[2].decode().upper(),
+    ]  # no .groups() thus 1 and 2
     code = id_block[0]
     return id_block
 
 
-def extract_location_block(data: bytes, file_path: str, version: Union[str, None] = None) -> _np.ndarray:
+def extract_location_block(
+    data: bytes, file_path: str, version: Union[str, None] = None
+) -> _np.ndarray:
     """Extract the location block given the bytes object read from an IGS site log file
 
     :param bytes data: The bytes object returned from an open() call on a IGS site log in "rb" mode
@@ -232,7 +241,9 @@ def extract_location_block(data: bytes, file_path: str, version: Union[str, None
     elif version == "v2.0":
         _REGEX_LOC = _REGEX_LOC_V2
     else:
-        raise LogVersionError(f"Incorrect version string '{version}' passed to extract_location_block() function")
+        raise LogVersionError(
+            f"Incorrect version string '{version}' passed to extract_location_block() function"
+        )
 
     location_block = _REGEX_LOC.search(data)
     if location_block is None:
@@ -241,7 +252,9 @@ def extract_location_block(data: bytes, file_path: str, version: Union[str, None
     return location_block
 
 
-def extract_receiver_block(data: bytes, file_path: str) -> Union[List[Tuple[bytes]], _np.ndarray]:
+def extract_receiver_block(
+    data: bytes, file_path: str
+) -> Union[List[Tuple[bytes]], _np.ndarray]:
     """Extract the location block given the bytes object read from an IGS site log file
 
     :param bytes data: The bytes object returned from an open() call on a IGS site log in "rb" mode
@@ -257,15 +270,21 @@ def extract_receiver_block(data: bytes, file_path: str) -> Union[List[Tuple[byte
     for i, r in enumerate(receiver_block):
         receiver_block[i] = list(receiver_block[i])
         if not r[8]:
-            receiver_block[i][8] = b'2100-12-31T23:59Z'
-        
-        receiver_block[i][7] = datetime.strptime(receiver_block[i][7].decode("utf-8"), '%Y-%m-%dT%H:%MZ')
-        receiver_block[i][8] = datetime.strptime(receiver_block[i][8].decode("utf-8"), '%Y-%m-%dT%H:%MZ')
-        
+            receiver_block[i][8] = b"2100-12-31T23:59Z"
+
+        receiver_block[i][7] = datetime.strptime(
+            receiver_block[i][7].decode("utf-8"), "%Y-%m-%dT%H:%MZ"
+        )
+        receiver_block[i][8] = datetime.strptime(
+            receiver_block[i][8].decode("utf-8"), "%Y-%m-%dT%H:%MZ"
+        )
+
     return receiver_block
 
 
-def extract_antenna_block(data: bytes, file_path: str) -> Union[List[Tuple[bytes]], _np.ndarray]:
+def extract_antenna_block(
+    data: bytes, file_path: str
+) -> Union[List[Tuple[bytes]], _np.ndarray]:
     """Extract the antenna block given the bytes object read from an IGS site log file
 
     :param bytes data: The bytes object returned from an open() call on a IGS site log in "rb" mode
@@ -277,15 +296,19 @@ def extract_antenna_block(data: bytes, file_path: str) -> Union[List[Tuple[bytes
     if antenna_block == []:
         logger.warning(f"ANT rejected from {file_path}")
         return _np.array([]).reshape(0, 12)
-    
+
     for i, a in enumerate(antenna_block):
         antenna_block[i] = list(antenna_block[i])
         if not a[8]:
-            antenna_block[i][8] = b'2100-12-31T23:59Z'
-        
-        antenna_block[i][7] = datetime.strptime(antenna_block[i][7].decode("utf-8"), '%Y-%m-%dT%H:%MZ')
-        antenna_block[i][8] = datetime.strptime(antenna_block[i][8].decode("utf-8"), '%Y-%m-%dT%H:%MZ')
-        
+            antenna_block[i][8] = b"2100-12-31T23:59Z"
+
+        antenna_block[i][7] = datetime.strptime(
+            antenna_block[i][7].decode("utf-8"), "%Y-%m-%dT%H:%MZ"
+        )
+        antenna_block[i][8] = datetime.strptime(
+            antenna_block[i][8].decode("utf-8"), "%Y-%m-%dT%H:%MZ"
+        )
+
     return antenna_block
 
 
@@ -297,13 +320,13 @@ def parse_igs_log_data(data: bytes, file_path: str) -> Union[_np.ndarray, None]:
     :param str file_code: Code from the file_path_array passed to the parse_igs_log() function
     :return Union[_np.ndarray, None]: Returns array with relevant data from the IGS log file bytes object,
         or `None` for unsupported version of the IGS Site log format.
-    
+
     PDS Jan 2025
     remove code&date input; only input file name (don't check log matches code later)
     unified output has receiver and antenna entries for each time block
     simplified output with data pgamit needs
     """
-       
+
     # PDS Jan 2025 edit
     # split antenna entries at receiver entry dates & vice versa
     #
@@ -316,7 +339,7 @@ def parse_igs_log_data(data: bytes, file_path: str) -> Union[_np.ndarray, None]:
     #   |       |       | receiver blocks
     #   |   |           | antenna blocks
     #   |   |   |       | output blocks
-    
+
     # Determine the version of the IGS log based on the data, Warn if unrecognised
     try:
         version = determine_log_version(data)
@@ -327,19 +350,21 @@ def parse_igs_log_data(data: bytes, file_path: str) -> Union[_np.ndarray, None]:
     # Extract information from ID block
     blk_id = extract_id_block(data=data, file_path=file_path, version=version)
     code = [blk_id[0]]  # Site code
-    
+
     # Extract information from Location block
     blk_loc = extract_location_block(
         data=data,
         file_path=file_path,
         version=version,
     )
-    blk_loc = [group.decode(encoding="utf8", errors="ignore") for group in blk_loc.groups()]
+    blk_loc = [
+        group.decode(encoding="utf8", errors="ignore") for group in blk_loc.groups()
+    ]
     # Combine ID and Location information:
     # PDS Jan 2025
-    #blk_id_loc = _np.asarray([0] + blk_id + blk_loc, dtype=object)[_np.newaxis]
-    blk_id_loc=_np.asarray([blk_id[0], blk_loc[0]], dtype=object)[_np.newaxis]
-    
+    # blk_id_loc = _np.asarray([0] + blk_id + blk_loc, dtype=object)[_np.newaxis]
+    blk_id_loc = _np.asarray([blk_id[0], blk_loc[0]], dtype=object)[_np.newaxis]
+
     # Extract and re-format information from receiver block:
     blk_rec = extract_receiver_block(data=data, file_path=file_path)
     blk_rec = _np.asarray(blk_rec)
@@ -364,71 +389,76 @@ def parse_igs_log_data(data: bytes, file_path: str) -> Union[_np.ndarray, None]:
         ],
         axis=1,
     )
-    
+
     # combine values for all install times of receiver block and antenna block
-    break_ant=blk_ant[:,9]
-    break_rec=blk_rec[:,9]
-    break_times=_np.sort(_np.unique(_np.concatenate([break_ant,break_rec],axis=0)))
-    
+    break_ant = blk_ant[:, 9]
+    break_rec = blk_rec[:, 9]
+    break_times = _np.sort(_np.unique(_np.concatenate([break_ant, break_rec], axis=0)))
+
     # Split data by break_times & formatted with values we need in sql database
-    blk_full=_np.zeros((len(break_times), 16), dtype=object)
+    blk_full = _np.zeros((len(break_times), 16), dtype=object)
 
     for i in range(len(break_times)):
-
         _start_time = break_times[i]
-        
+
         # Find active antenna block
-        _et_a = _np.where((blk_ant[:,9] <= _start_time) & (blk_ant[:,10] > _start_time))[0]
+        _et_a = _np.where(
+            (blk_ant[:, 9] <= _start_time) & (blk_ant[:, 10] > _start_time)
+        )[0]
         _et_a = _et_a[0] if _et_a.size > 0 else -1  # -1 means no valid antenna found
 
         # Find active receiver block
-        _et_r = _np.where((blk_rec[:,9] <= _start_time) & (blk_rec[:,10] > _start_time))[0]
+        _et_r = _np.where(
+            (blk_rec[:, 9] <= _start_time) & (blk_rec[:, 10] > _start_time)
+        )[0]
         _et_r = _et_r[0] if _et_r.size > 0 else -1  # -1 means no valid receiver found
 
         if _et_a == -1 or _et_r == -1:
             logger.warning(f"Missing antenna or receiver data for time {_start_time}")
             continue  # Skip this interval or handle as needed
-    
-        session_end = min(blk_rec[_et_r,10], blk_ant[_et_a,10])
-        
-        blk_full[i,:]=_np.concatenate(
-        [
-            # station code
-            blk_rec[_et_r,(1)],
-            # station name
-             _np.asarray(blk_loc[0]),
-            # session start
-             _np.asarray([_start_time],dtype=object),
-            #session end
-            _np.asarray(session_end,dtype=object),
-            #Ant Ht,
-            blk_ant[_et_a,(5)],
-            #HtCod, 
-            _np.asarray(['DHARP'],dtype=object),
-            #Ant N, Ant E
-            blk_ant[_et_a,(6,7)],
-            # receiver type
-            blk_rec[_et_r,(2)].decode("utf-8"),
-            # rec firmware vers
-            blk_rec[_et_r,(5)].decode("utf-8"),
-            # rec SW vers
-            _np.asarray([''],dtype=object),
-            # rec S/N
-            blk_rec[_et_r,(4)].decode("utf-8"),
-            # antenna_type dome sn
-            blk_ant[_et_a,2].decode("utf-8"),
-            blk_ant[_et_a,3].decode("utf-8"),
-            blk_ant[_et_a,4].decode("utf-8"),
-            # comment            
-            _np.asarray(["from IGS logfile: "+file_path],dtype=object)
-        ], axis=None)
-        
+
+        session_end = min(blk_rec[_et_r, 10], blk_ant[_et_a, 10])
+
+        blk_full[i, :] = _np.concatenate(
+            [
+                # station code
+                blk_rec[_et_r, (1)],
+                # station name
+                _np.asarray(blk_loc[0]),
+                # session start
+                _np.asarray([_start_time], dtype=object),
+                # session end
+                _np.asarray(session_end, dtype=object),
+                # Ant Ht,
+                blk_ant[_et_a, (5)],
+                # HtCod,
+                _np.asarray(["DHARP"], dtype=object),
+                # Ant N, Ant E
+                blk_ant[_et_a, (6, 7)],
+                # receiver type
+                blk_rec[_et_r, (2)].decode("utf-8"),
+                # rec firmware vers
+                blk_rec[_et_r, (5)].decode("utf-8"),
+                # rec SW vers
+                _np.asarray([""], dtype=object),
+                # rec S/N
+                blk_rec[_et_r, (4)].decode("utf-8"),
+                # antenna_type dome sn
+                blk_ant[_et_a, 2].decode("utf-8"),
+                blk_ant[_et_a, 3].decode("utf-8"),
+                blk_ant[_et_a, 4].decode("utf-8"),
+                # comment
+                _np.asarray(["from IGS logfile: " + file_path], dtype=object),
+            ],
+            axis=None,
+        )
+
     return blk_full
 
     # Create unified information block:
-    #blk_uni = _np.concatenate([blk_id_loc, blk_rec, blk_ant], axis=0)
-    #file_path_arr = _np.asarray([file_path] * (1 + len_ants + len_recs))[:, _np.newaxis]
-    #return _np.concatenate([blk_uni, file_path_arr], axis=1)
+    # blk_uni = _np.concatenate([blk_id_loc, blk_rec, blk_ant], axis=0)
+    # file_path_arr = _np.asarray([file_path] * (1 + len_ants + len_recs))[:, _np.newaxis]
+    # return _np.concatenate([blk_uni, file_path_arr], axis=1)
 
 
 def parse_igs_log_file(file_path: _np.ndarray) -> Union[_np.ndarray, None]:
@@ -437,7 +467,7 @@ def parse_igs_log_file(file_path: _np.ndarray) -> Union[_np.ndarray, None]:
     :param _np.ndarray file_path: Metadata on input log file. Expects ndarray of the form [PATH]
     :return Union[_np.ndarray, None]: Returns array with data from the parsed IGS log file, or `None` for unsupported
         version of the IGS Site log format.
-        
+
     PDS Jan 2025
     remove code&date input; only input file name (don't check log matches code later)
     """
@@ -448,31 +478,35 @@ def parse_igs_log_file(file_path: _np.ndarray) -> Union[_np.ndarray, None]:
 
 
 if __name__ == "__main__":
-    test_input = ('CHOY.log')
+    test_input = "CHOY.log"
     result = parse_igs_log_file(test_input)
-    fs = ' {:4.4}  {:16.16}  {:19.19}{:19.19}{:7.4f}  {:5.5}  {:7.4f}  {:7.4f}  {:20.20}  ' \
-                     '{:20.20}  {:>5.5}  {:20.20}  {:15.15}  {:5.5}  {:20.20}'
+    fs = (
+        " {:4.4}  {:16.16}  {:19.19}{:19.19}{:7.4f}  {:5.5}  {:7.4f}  {:7.4f}  {:20.20}  "
+        "{:20.20}  {:>5.5}  {:20.20}  {:15.15}  {:5.5}  {:20.20}"
+    )
 
     stninfo = []
     for row in result:
-        stninfo.append(fs.format(
-        row[0],  # station code
-        row[1],  # station name
-        row[2],  # session start
-        row[3],  # session end
-        float(row[4]),  # antenna height
-        row[5],  # height code
-        float(row[6]),  # antenna north offset
-        float(row[7]),  # antenna east offset
-        row[8],  # receiver type
-        row[9],  # receiver firmware version
-        row[10],  # software version
-        row[11],  # receiver serial number
-        row[12],  # antenna type
-        row[13],  # radome
-        row[14],  # antenna serial number
-        row[15],  # comment
-        ))
-    
+        stninfo.append(
+            fs.format(
+                row[0],  # station code
+                row[1],  # station name
+                row[2],  # session start
+                row[3],  # session end
+                float(row[4]),  # antenna height
+                row[5],  # height code
+                float(row[6]),  # antenna north offset
+                float(row[7]),  # antenna east offset
+                row[8],  # receiver type
+                row[9],  # receiver firmware version
+                row[10],  # software version
+                row[11],  # receiver serial number
+                row[12],  # antenna type
+                row[13],  # radome
+                row[14],  # antenna serial number
+                row[15],  # comment
+            )
+        )
+
     for row in stninfo:
         print(row)

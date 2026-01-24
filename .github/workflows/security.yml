@@ -50,10 +50,10 @@ jobs:
           cache: true
           locked: true
 
-      - name: Install pip-audit
-        run: pixi exec pip install pip-audit
-
       - name: Run pip-audit on dependencies
+        shell: bash
         run: |
-          pixi exec pip-audit --desc --requirement <(pixi list --json | jq -r '.[] | select(.type == "pypi") | "\(.name)==\(.version)"')
+          eval "$(pixi shell-hook)"
+          pip install pip-audit
+          pip-audit --desc -r <(pixi list --json | jq -r '.[] | select(.type == "pypi") | "\(.name)==\(.version)"')
         continue-on-error: true  # Don't fail the build, just report

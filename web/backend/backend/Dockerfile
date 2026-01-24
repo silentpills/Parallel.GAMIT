@@ -6,7 +6,7 @@ ARG USER_ID_TO_SAVE_FILES
 ARG GROUP_ID_TO_SAVE_FILES
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
     redis-server \
     libpq-dev \
@@ -15,18 +15,17 @@ RUN apt-get update && apt-get install -y \
     libffi-dev \
     libssl-dev \
     gdal-bin \
-    libgdal-dev
+    libgdal-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create user
 RUN groupadd -g ${GROUP_ID_TO_SAVE_FILES} dummy-user && \
-    useradd -u ${USER_ID_TO_SAVE_FILES} -g dummy-user -m dummy-user
+    useradd -l -u ${USER_ID_TO_SAVE_FILES} -g dummy-user -m dummy-user
 
 # Install uv using the recommended installer and add it to the PATH
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
-
-# Install/upgrade pip
-# RUN pip install --upgrade pip
 
 WORKDIR /code
 COPY . /code/

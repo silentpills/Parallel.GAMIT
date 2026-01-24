@@ -6,7 +6,7 @@ import pgamit
 
 def test_version_exists():
     """Verify pgamit has a version string."""
-    assert hasattr(pgamit, '__version__')
+    assert hasattr(pgamit, "__version__")
     assert isinstance(pgamit.__version__, str)
     assert len(pgamit.__version__) > 0
 

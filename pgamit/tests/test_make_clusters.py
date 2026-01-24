@@ -22,14 +22,19 @@ from ..cluster import BisectingQMeans, overcluster
 )
 def test_ceiling_variable_density(qmax, clust_size):
     """Test algorithmic guarantee of BisectingQMeans on variable density data
-    
+
     Verify that when `min_size=2`, that the max per cluster membership is
     under (<, less than) what parameter `opt_cluster_size` is set to"""
 
     data = gen_variable_density_clusters(clust_size)
-    clust = BisectingQMeans(qmax=qmax,
-                            init='random', n_init=50, algorithm='lloyd',
-                            max_iter=8000, random_state=42)
+    clust = BisectingQMeans(
+        qmax=qmax,
+        init="random",
+        n_init=50,
+        algorithm="lloyd",
+        max_iter=8000,
+        random_state=42,
+    )
     clust.fit(data)
 
     _, counts = np.unique(clust.labels_, return_counts=True)
@@ -52,18 +57,27 @@ def test_max_clust_expansion(qmax, overlap, nmax):
 
     Verify that expanded cluster size is under (<=, less than or equal to):
     [initial cluster size + (neighbors * overlap)]"""
-    
+
     data = gen_variable_density_clusters()
-    clust = BisectingQMeans(qmax=qmax,
-                            init='random', n_init=50, algorithm='lloyd',
-                            max_iter=8000, random_state=42)
+    clust = BisectingQMeans(
+        qmax=qmax,
+        init="random",
+        n_init=50,
+        algorithm="lloyd",
+        max_iter=8000,
+        random_state=42,
+    )
     clust.fit(data)
- 
-    OC = overcluster(clust.labels_, data, metric='euclidean', 
-                      overlap=overlap, nmax=nmax,
-                      method='dynamic')
+
+    OC = overcluster(
+        clust.labels_,
+        data,
+        metric="euclidean",
+        overlap=overlap,
+        nmax=nmax,
+        method="dynamic",
+    )
 
     expanded_sizes = np.sum(OC, axis=1)
     _, original_sizes = np.unique(clust.labels_, return_counts=True)
-    assert np.all((expanded_sizes - original_sizes) <= overlap*nmax)
-
+    assert np.all((expanded_sizes - original_sizes) <= overlap * nmax)

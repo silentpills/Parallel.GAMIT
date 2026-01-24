@@ -22,30 +22,31 @@ class pyGamitConfigException(Exception):
 
 
 class GamitConfiguration(ReadOptions):
-
     def __init__(self, session_config_file, check_config=True):
-        self.gamitopt = {'gnss_data'          : None,
-                         'eop_type'           : 'usno',
-                         'expt_type'          : 'baseline',
-                         'systems'            : ['G', 'E', 'R'],
-                         'should_iterate'     : 'yes',
-                         'org'                : 'IGN',
-                         'expt'               : 'expt',
-                         'overconst_action'   : 'inflate',
-                         'process_defaults'   : None,
-                         'sestbl'             : None,
-                         'solutions_dir'      : None,
-                         'max_cores'          : 1,
-                         'noftp'              : 'yes',
-                         'sigma_floor_h'      : 0.10,
-                         'sigma_floor_v'      : 0.15,
-                         'gamit_remote_local' : ()}
+        self.gamitopt = {
+            "gnss_data": None,
+            "eop_type": "usno",
+            "expt_type": "baseline",
+            "systems": ["G", "E", "R"],
+            "should_iterate": "yes",
+            "org": "IGN",
+            "expt": "expt",
+            "overconst_action": "inflate",
+            "process_defaults": None,
+            "sestbl": None,
+            "solutions_dir": None,
+            "max_cores": 1,
+            "noftp": "yes",
+            "sigma_floor_h": 0.10,
+            "sigma_floor_v": 0.15,
+            "gamit_remote_local": (),
+        }
 
         self.NetworkConfig = None
-        
+
         self.load_session_config(session_config_file, check_config)
-        
-        ReadOptions.__init__(self, self.gamitopt['gnss_data'])  # type: ReadOptions
+
+        ReadOptions.__init__(self, self.gamitopt["gnss_data"])  # type: ReadOptions
 
     def load_session_config(self, session_config_file, check_config):
         try:
@@ -59,58 +60,72 @@ class GamitConfiguration(ReadOptions):
                 self.__check_config(config)
 
             # get gamit config items from session config file
-            self.gamitopt.update(dict(config.items('gamit')))
+            self.gamitopt.update(dict(config.items("gamit")))
 
-            if type(self.gamitopt['systems']) is str:
+            if type(self.gamitopt["systems"]) is str:
                 # only if config parameter was given
-                self.gamitopt['systems'] = [item.strip() for item in self.gamitopt['systems'].strip(',').split(',')]
+                self.gamitopt["systems"] = [
+                    item.strip()
+                    for item in self.gamitopt["systems"].strip(",").split(",")
+                ]
 
-            self.NetworkConfig = pyBunch.Bunch().fromDict(dict(config.items('network')))
+            self.NetworkConfig = pyBunch.Bunch().fromDict(dict(config.items("network")))
 
-            if 'type' not in self.NetworkConfig.keys():
-                raise ValueError('Network "type" must be specified in config file: use "regional" or "global"')
+            if "type" not in self.NetworkConfig.keys():
+                raise ValueError(
+                    'Network "type" must be specified in config file: use "regional" or "global"'
+                )
 
-            if 'cluster_size' not in self.NetworkConfig.keys():
-                self.NetworkConfig.cluster_size = '25'
+            if "cluster_size" not in self.NetworkConfig.keys():
+                self.NetworkConfig.cluster_size = "25"
 
-            if 'ties' not in self.NetworkConfig.keys():
-                self.NetworkConfig.ties = '4'
+            if "ties" not in self.NetworkConfig.keys():
+                self.NetworkConfig.ties = "4"
 
-            if 'algorithm' not in self.NetworkConfig.keys():
-                self.NetworkConfig.algorithm = 'qmeans'
+            if "algorithm" not in self.NetworkConfig.keys():
+                self.NetworkConfig.algorithm = "qmeans"
 
-            if self.NetworkConfig.algorithm.lower() not in ('qmeans', 'agglomerative'):
-                raise ValueError('Invalid clustering algorithm, options are qmeans or agglomerative.')
+            if self.NetworkConfig.algorithm.lower() not in ("qmeans", "agglomerative"):
+                raise ValueError(
+                    "Invalid clustering algorithm, options are qmeans or agglomerative."
+                )
 
-            self.gamitopt['gnss_data'] = config.get('Archive', 'gnss_data')
-            self.gamitopt['max_cores'] = int(self.gamitopt['max_cores'])
+            self.gamitopt["gnss_data"] = config.get("Archive", "gnss_data")
+            self.gamitopt["max_cores"] = int(self.gamitopt["max_cores"])
 
             # TO-DO: check that all the required parameters are present
-            if len(self.gamitopt['expt']) != 4:
-                raise ValueError('The experiment name parameter must be 4 characters long.')
+            if len(self.gamitopt["expt"]) != 4:
+                raise ValueError(
+                    "The experiment name parameter must be 4 characters long."
+                )
 
         except configparser.NoOptionError:
             raise
 
     @staticmethod
     def __check_config(config):
-
-        item = config.get('gamit', 'process_defaults')
+        item = config.get("gamit", "process_defaults")
         if not os.path.isfile(item):
-            raise pyGamitConfigException('process_defaults file '+item+' could not be found')
+            raise pyGamitConfigException(
+                "process_defaults file " + item + " could not be found"
+            )
 
-        item = config.get('gamit', 'sestbl')
+        item = config.get("gamit", "sestbl")
         if not os.path.isfile(item):
-            raise pyGamitConfigException('sestbl file '+item+' could not be found')
+            raise pyGamitConfigException("sestbl file " + item + " could not be found")
 
         try:
-            item = config.get('gamit', 'overconst_action')
-            if item not in ('relax', 'inflate', 'delete', 'remove'):
-                raise pyGamitConfigException('overconst_action accepts the following options: '
-                                             'relax or inflate, and delete or remove')
+            item = config.get("gamit", "overconst_action")
+            if item not in ("relax", "inflate", "delete", "remove"):
+                raise pyGamitConfigException(
+                    "overconst_action accepts the following options: "
+                    "relax or inflate, and delete or remove"
+                )
         except configparser.NoOptionError:
-            raise pyGamitConfigException('overconst_action not present. Option accepts the following: '
-                                         'relax or inflate, and delete or remove')
+            raise pyGamitConfigException(
+                "overconst_action not present. Option accepts the following: "
+                "relax or inflate, and delete or remove"
+            )
 
         # item = config.get('gamit','atx')
         # if not os.path.isfile(item):

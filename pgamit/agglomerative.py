@@ -7,9 +7,13 @@ from sklearn.neighbors import NearestNeighbors
 
 
 class DeterministicClustering(object):
-    def __init__(self, target_size=15, tolerance=4,
-                 num_tie_points=4, max_dist_to_centroid=5_000_000):
-
+    def __init__(
+        self,
+        target_size=15,
+        tolerance=4,
+        num_tie_points=4,
+        max_dist_to_centroid=5_000_000,
+    ):
         self.target_size = target_size
         self.num_tie_points = num_tie_points
         self.tolerance = tolerance
@@ -75,18 +79,28 @@ class DeterministicClustering(object):
             centroid = merged_points.mean(axis=0)
             # compare to square distance to avoid computing the sqrt
             # and save some computation time
-            if np.any(np.einsum('ij,ij->i', merged_points - centroid,
-                                merged_points -
-                                centroid) > max_dist_to_centroid ** 2):
+            if np.any(
+                np.einsum(
+                    "ij,ij->i", merged_points - centroid, merged_points - centroid
+                )
+                > max_dist_to_centroid**2
+            ):
                 continue
 
             clusters[next_cluster_id] = merged_cluster
             centroids[next_cluster_id] = centroid
             del clusters[ci], clusters[cj]
             del centroids[ci], centroids[cj]
-            self.update_heap_vectorized(heap, clusters, centroids, centroid,
-                                        merged_cluster, next_cluster_id,
-                                        max_size, max_dist_to_centroid)
+            self.update_heap_vectorized(
+                heap,
+                clusters,
+                centroids,
+                centroid,
+                merged_cluster,
+                next_cluster_id,
+                max_size,
+                max_dist_to_centroid,
+            )
 
             next_cluster_id += 1
 
@@ -96,14 +110,15 @@ class DeterministicClustering(object):
         is_final = cluster_lens >= min_size
 
         # Split clusters
-        final_clusters = [cluster_items[i] for i in
-                          range(len(cluster_items)) if is_final[i]]
-        leftovers = [cluster_items[i] for i in
-                     range(len(cluster_items)) if not is_final[i]]
+        final_clusters = [
+            cluster_items[i] for i in range(len(cluster_items)) if is_final[i]
+        ]
+        leftovers = [
+            cluster_items[i] for i in range(len(cluster_items)) if not is_final[i]
+        ]
 
         # Compute centroids for final clusters
-        centroids_arr = np.array([points[c].mean(axis=0) for c in
-                                  final_clusters])
+        centroids_arr = np.array([points[c].mean(axis=0) for c in final_clusters])
         # Snap to closest input point in cluster
         snapped_idxs = [
             c[np.argmin(np.linalg.norm(points[c] - centroid, axis=1))]
@@ -116,11 +131,13 @@ class DeterministicClustering(object):
             if len(cluster) == 1:
                 idx = cluster[0]
                 point = points[idx]
-                dists = np.linalg.norm(np.array(final_centroids) - point,
-                                       axis=1)
-                valid = [i for i in range(len(final_clusters)) if
-                         len(final_clusters[i]) < max_size and
-                         dists[i] <= max_dist_to_centroid]
+                dists = np.linalg.norm(np.array(final_centroids) - point, axis=1)
+                valid = [
+                    i
+                    for i in range(len(final_clusters))
+                    if len(final_clusters[i]) < max_size
+                    and dists[i] <= max_dist_to_centroid
+                ]
                 if valid:
                     best_fit = valid[np.argmin(dists[valid])]
                 else:
@@ -128,38 +145,40 @@ class DeterministicClustering(object):
                 final_clusters[best_fit].append(idx)
                 cluster_points = points[final_clusters[best_fit]]
                 centroid = cluster_points.mean(axis=0)
-                snapped_idx = final_clusters[best_fit][np.argmin(
-                    np.linalg.norm(cluster_points - centroid, axis=1))]
+                snapped_idx = final_clusters[best_fit][
+                    np.argmin(np.linalg.norm(cluster_points - centroid, axis=1))
+                ]
                 final_centroids[best_fit] = points[snapped_idx]
                 centroid_ids[best_fit] = snapped_idx
             else:
                 centroid = points[cluster].mean(axis=0)
-                dists = np.linalg.norm(np.array(final_centroids) - centroid,
-                                       axis=1)
+                dists = np.linalg.norm(np.array(final_centroids) - centroid, axis=1)
                 best_fit = None
                 for i in np.argsort(dists):
                     potential = final_clusters[i] + cluster
                     if len(potential) <= max_size:
                         test_points = points[potential]
                         test_centroid = test_points.mean(axis=0)
-                        if np.all(np.linalg.norm(test_points -
-                                                 test_centroid,
-                                                 axis=1) <=
-                                  max_dist_to_centroid):
+                        if np.all(
+                            np.linalg.norm(test_points - test_centroid, axis=1)
+                            <= max_dist_to_centroid
+                        ):
                             best_fit = i
                             break
                 if best_fit is not None:
                     final_clusters[best_fit].extend(cluster)
                     cluster_points = points[final_clusters[best_fit]]
                     centroid = cluster_points.mean(axis=0)
-                    snapped_idx = final_clusters[best_fit][np.argmin(
-                        np.linalg.norm(cluster_points - centroid, axis=1))]
+                    snapped_idx = final_clusters[best_fit][
+                        np.argmin(np.linalg.norm(cluster_points - centroid, axis=1))
+                    ]
                     final_centroids[best_fit] = points[snapped_idx]
                     centroid_ids[best_fit] = snapped_idx
                 else:
                     final_clusters.append(cluster)
-                    snapped_idx = cluster[np.argmin(np.linalg.norm(
-                        points[cluster] - centroid, axis=1))]
+                    snapped_idx = cluster[
+                        np.argmin(np.linalg.norm(points[cluster] - centroid, axis=1))
+                    ]
                     final_centroids.append(points[snapped_idx])
                     centroid_ids.append(snapped_idx)
 
@@ -177,9 +196,17 @@ class DeterministicClustering(object):
 
         return final_clusters, labels, centroid_ids
 
-    def update_heap_vectorized(self, heap, clusters, centroids, centroid,
-                               merged_cluster, next_cluster_id, max_size,
-                               max_dist_to_centroid):
+    def update_heap_vectorized(
+        self,
+        heap,
+        clusters,
+        centroids,
+        centroid,
+        merged_cluster,
+        next_cluster_id,
+        max_size,
+        max_dist_to_centroid,
+    ):
         """
         Vectorized version to update heap with valid cluster pairs post merge
 
@@ -206,16 +233,19 @@ class DeterministicClustering(object):
 
         # Evaluate which existing clusters are valid for merging
         size_sum = existing_sizes + len(merged_cluster)
-        valid = ((existing_ids != next_cluster_id) &
-                 (size_sum <= max_size) &
-                 (dists <= max_dist_to_centroid * 2))
+        valid = (
+            (existing_ids != next_cluster_id)
+            & (size_sum <= max_size)
+            & (dists <= max_dist_to_centroid * 2)
+        )
 
         # Push valid merge pairs into heap
         for other_id, dist in zip(existing_ids[valid], dists[valid]):
             heapq.heappush(heap, (dist, next_cluster_id, other_id))
 
-    def add_tie_points(self, cluster_labels, num_neighbors=4,
-                       max_tie_distance=5_000_000):
+    def add_tie_points(
+        self, cluster_labels, num_neighbors=4, max_tie_distance=5_000_000
+    ):
         """
         Add reciprocal tie points to each cluster from its nearest neighbors,
         then ensure every disconnected cluster component (island) is connected
@@ -273,8 +303,9 @@ class DeterministicClustering(object):
                 pj = [idx for idx in clusters[j] if idx not in used_points]
                 if not pi or not pj:
                     continue
-                dist_matrix = np.linalg.norm(points[pi][:, None, :] -
-                                             points[pj][None, :, :], axis=2)
+                dist_matrix = np.linalg.norm(
+                    points[pi][:, None, :] - points[pj][None, :, :], axis=2
+                )
                 min_idx = np.unravel_index(np.argmin(dist_matrix), dist_matrix.shape)
                 min_dist = dist_matrix[min_idx]
                 if min_dist <= max_tie_distance:
@@ -285,7 +316,9 @@ class DeterministicClustering(object):
         G.add_nodes_from(range(n_clusters))
         for i in range(n_clusters):
             for j in range(i + 1, n_clusters):
-                if set(tie_points[i]) & set(clusters[j]) or set(tie_points[j]) & set(clusters[i]):
+                if set(tie_points[i]) & set(clusters[j]) or set(tie_points[j]) & set(
+                    clusters[i]
+                ):
                     G.add_edge(i, j)
 
         # === Step 4: Ensure every disconnected component connects to at least `num_neighbors` others ===
@@ -306,16 +339,17 @@ class DeterministicClustering(object):
                         pj = [idx for idx in clusters[j] if idx not in used_points]
                         if not pi or not pj:
                             continue
-                        dist_matrix = np.linalg.norm(points[pi][:, None, :] -
-                                                     points[pj][None, :, :],
-                                                     axis=2)
-                        min_idx = np.unravel_index(np.argmin(dist_matrix),
-                                                   dist_matrix.shape)
+                        dist_matrix = np.linalg.norm(
+                            points[pi][:, None, :] - points[pj][None, :, :], axis=2
+                        )
+                        min_idx = np.unravel_index(
+                            np.argmin(dist_matrix), dist_matrix.shape
+                        )
                         dist = dist_matrix[min_idx]
                         if dist <= max_tie_distance:
-                            connection_candidates.append((dist, i, j,
-                                                          pi[min_idx[0]],
-                                                          pj[min_idx[1]]))
+                            connection_candidates.append(
+                                (dist, i, j, pi[min_idx[0]], pj[min_idx[1]])
+                            )
 
                 # Sort connections by shortest distance
                 connection_candidates.sort()
@@ -354,12 +388,10 @@ class DeterministicClustering(object):
         return new_clusters, tie_points
 
     def get_cluster_coordinates(self):
-        return [[self.points[i] for i in cluster]
-                for cluster in self.clustered_ids]
+        return [[self.points[i] for i in cluster] for cluster in self.clustered_ids]
 
     def get_centroid_coordinates(self):
         return [self.points[i] for i in self.centroid_ids]
 
     def get_tie_coordinates(self):
-        return [[self.points[i] for i in cluster]
-                for cluster in self.tie_ids]
+        return [[self.points[i] for i in cluster] for cluster in self.tie_ids]

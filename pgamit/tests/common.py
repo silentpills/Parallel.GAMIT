@@ -5,8 +5,9 @@
 
 import numpy as np
 
+
 def gen_variable_density_clusters(n_points_per_cluster=250, seed=0):
-    """Generates 6 cluster blobs of varying density as synthetic continents 
+    """Generates 6 cluster blobs of varying density as synthetic continents
 
     Modified from the sklearn OPTICS example and unit tests. (see
     https://scikit-learn.org/stable/auto_examples/cluster/plot_optics.html)"""
@@ -23,8 +24,10 @@ def gen_variable_density_clusters(n_points_per_cluster=250, seed=0):
 
     return X
 
-def generate_clustered_data(seed=0, n_clusters=3, n_features=2, 
-                            n_samples_per_cluster=20, std=0.4):
+
+def generate_clustered_data(
+    seed=0, n_clusters=3, n_features=2, n_samples_per_cluster=20, std=0.4
+):
     """Generic cluster generator (taken from sklearn common cluster tests)"""
 
     prng = np.random.RandomState(seed)

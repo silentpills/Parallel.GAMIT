@@ -14,14 +14,17 @@ from sklearn.base import _fit_context
 from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
 from sklearn.utils._param_validation import Integral, Interval, StrOptions
 from sklearn.utils.extmath import row_norms
-from sklearn.utils.validation import (_check_sample_weight, check_random_state)
+from sklearn.utils.validation import _check_sample_weight, check_random_state
 from sklearn.cluster._k_means_common import _inertia_dense, _inertia_sparse
-from sklearn.cluster._kmeans import (_BaseKMeans, _kmeans_single_elkan,
-                                     _kmeans_single_lloyd)
+from sklearn.cluster._kmeans import (
+    _BaseKMeans,
+    _kmeans_single_elkan,
+    _kmeans_single_lloyd,
+)
 from sklearn.utils.validation import check_array
 
 
-def prune(OC, central_points, method='minsize'):
+def prune(OC, central_points, method="minsize"):
     """Prune redundant clusters from overcluster (OC) and other arrays
 
     Parameters
@@ -62,7 +65,7 @@ def prune(OC, central_points, method='minsize'):
     return OC[pruned], central_points[pruned]
 
 
-def select_central_point(coordinates, centroids, metric='euclidean'):
+def select_central_point(coordinates, centroids, metric="euclidean"):
     """Select the nearest central point in a given neighborhood
 
     Note this code explicitly assumes that centroids are passed from a
@@ -96,14 +99,22 @@ def select_central_point(coordinates, centroids, metric='euclidean'):
         Indices of the central most point for each cluster; indices match the
         `labels` ordering.
     """
-    nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree',
-                            metric=metric).fit(coordinates)
+    nbrs = NearestNeighbors(n_neighbors=1, algorithm="ball_tree", metric=metric).fit(
+        coordinates
+    )
     idxs = nbrs.kneighbors(centroids, return_distance=False)
     return idxs.squeeze()
 
 
-def overcluster(labels, coordinates, metric='euclidean', overlap=4,
-                nmax=2, rejection_threshold=5e6, method='static'):
+def overcluster(
+    labels,
+    coordinates,
+    metric="euclidean",
+    overlap=4,
+    nmax=2,
+    rejection_threshold=5e6,
+    method="static",
+):
     """Expand cluster membership to include edge points of neighbor clusters
 
     Expands an existing clustering to create overlapping membership between
@@ -200,14 +211,14 @@ def overcluster(labels, coordinates, metric='euclidean', overlap=4,
         integers starting at 0, then the row number will match the cluster
         label; if not, rows are ordered to monotonically increase from the
         smallest cluster label.
-"""
+    """
 
     # Returns already sorted
     clusters = np.unique(labels)
     n_clusters = len(clusters)
 
     if (n_clusters - 1) < overlap:
-        overlap = (n_clusters - 1)
+        overlap = n_clusters - 1
 
     # reference index for reverse lookups
     ridx = np.array(list(range(len(labels))))
@@ -221,9 +232,10 @@ def overcluster(labels, coordinates, metric='euclidean', overlap=4,
 
         # Implements 'edge' method of overlap expansion
         # Build index tree on members
-        nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree',
-                                metric=metric).fit(coordinates[members])
-        if method == 'dynamic':
+        nbrs = NearestNeighbors(
+            n_neighbors=1, algorithm="ball_tree", metric=metric
+        ).fit(coordinates[members])
+        if method == "dynamic":
             coverage = len(np.unique(labels[output[row_idx, :]]))
         else:  # method == 'static' or 'paired'
             coverage = 1
@@ -237,13 +249,14 @@ def overcluster(labels, coordinates, metric='euclidean', overlap=4,
             # Grab label of new member for overlap and other checks
             nm_label = labels[new_member]
             # Paired method removes full cluster from consideration
-            if method == 'paired':
+            if method == "paired":
                 # 'remove' is the captured cluster, from which we select pairs
                 remove = nm_label == labels
                 # For simplicity, we use the single point defined my 'mindex'
                 # as the 'member point' to calculate max eligible distance
-                rdists = pairwise_distances(coordinates[members][indx[mindex]],
-                                            coordinates[remove])
+                rdists = pairwise_distances(
+                    coordinates[members][indx[mindex]], coordinates[remove]
+                )
                 # Filter too far points from argmax eligibility
                 rdists[rdists >= rejection_threshold] = 0
                 far_member = ridx[remove][np.argmax(rdists)]
@@ -263,10 +276,10 @@ def overcluster(labels, coordinates, metric='euclidean', overlap=4,
                 nonmembers[new_member] = 0
                 # Add to member label array
                 output[row_idx, new_member] = 1
-                if method == 'dynamic':
+                if method == "dynamic":
                     # Update current count of overclustered neighbors
                     coverage = len(np.unique(labels[output[row_idx, :]]))
-                elif method == 'static':
+                elif method == "static":
                     # Update current point expansion count
                     coverage += 1
                 # Check if we've exceeded our overlap allotment...
@@ -396,7 +409,8 @@ class BisectingQMeans(_BaseKMeans):
         "init": [StrOptions({"k-means++", "random"}), callable],
         "n_init": [Interval(Integral, 1, None, closed="left")],
         "copy_x": ["boolean"],
-        "algorithm": [StrOptions({"lloyd", "elkan"})], }
+        "algorithm": [StrOptions({"lloyd", "elkan"})],
+    }
 
     def __init__(
         self,
@@ -410,7 +424,7 @@ class BisectingQMeans(_BaseKMeans):
         tol=1e-4,
         copy_x=True,
         algorithm="elkan",
-        n_clusters=2,      # needed for base class, do not remove
+        n_clusters=2,  # needed for base class, do not remove
     ):
         super().__init__(
             init=init,
@@ -493,7 +507,7 @@ class BisectingQMeans(_BaseKMeans):
 
         counts = np.bincount(best_labels, minlength=2)
         scores = counts
-        if (counts[0] + counts[1] >= self.qmax):
+        if counts[0] + counts[1] >= self.qmax:
             cluster_to_bisect.split(best_labels, best_centers, scores)
         else:
             self.bisect = False
@@ -573,8 +587,7 @@ class BisectingQMeans(_BaseKMeans):
             # Split this cluster into 2 subclusters
             # if cluster_to_bisect is not None:
             if cluster_to_bisect.score > self.qmax:
-                self._bisect(X, x_squared_norms, sample_weight,
-                             cluster_to_bisect)
+                self._bisect(X, x_squared_norms, sample_weight, cluster_to_bisect)
             else:
                 self.bisect = False
                 break
@@ -591,8 +604,7 @@ class BisectingQMeans(_BaseKMeans):
             cluster_node.indices = None  # release memory
 
         self.n_clusters = len(self.cluster_centers_)
-        cluster_centers_ = np.empty((self.n_clusters, X.shape[1]),
-                                    dtype=X.dtype)
+        cluster_centers_ = np.empty((self.n_clusters, X.shape[1]), dtype=X.dtype)
         for i, center in enumerate(self.cluster_centers_):
             cluster_centers_[i] = center[:]
         self.cluster_centers_ = cluster_centers_
@@ -603,8 +615,9 @@ class BisectingQMeans(_BaseKMeans):
             self.cluster_centers_ += self._X_mean
 
         _inertia = _inertia_sparse if sp.issparse(X) else _inertia_dense
-        self.inertia_ = _inertia(X, sample_weight, self.cluster_centers_,
-                                 self.labels_, self._n_threads)
+        self.inertia_ = _inertia(
+            X, sample_weight, self.cluster_centers_, self.labels_, self._n_threads
+        )
 
         self._n_features_out = self.cluster_centers_.shape[0]
 
@@ -632,10 +645,12 @@ class _BisectingTree:
 
     def split(self, labels, centers, scores):
         """Split the cluster node into two subclusters."""
-        self.left = _BisectingTree(indices=self.indices[labels == 0],
-                                   center=centers[0], score=scores[0])
-        self.right = _BisectingTree(indices=self.indices[labels == 1],
-                                    center=centers[1], score=scores[1])
+        self.left = _BisectingTree(
+            indices=self.indices[labels == 0], center=centers[0], score=scores[0]
+        )
+        self.right = _BisectingTree(
+            indices=self.indices[labels == 1], center=centers[1], score=scores[1]
+        )
 
         # reset the indices attribute to save memory
         self.indices = None
