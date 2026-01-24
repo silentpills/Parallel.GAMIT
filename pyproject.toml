@@ -33,7 +33,7 @@ dependencies = [
     "country-converter",
     "earthscope-cli==0.8.2",
     "earthscope-sdk==0.2.0",
-    "basemap==1.4.0",
+    "basemap==2.0.0",
     "cryptography==44.0.1",
     "dirsync>=2.2.4",
     "geopy==2.4.1",
