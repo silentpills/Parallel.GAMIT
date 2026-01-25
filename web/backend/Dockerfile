@@ -2,8 +2,8 @@
 FROM python:3.11
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ARG USER_ID_TO_SAVE_FILES
-ARG GROUP_ID_TO_SAVE_FILES
+ARG USER_ID_TO_SAVE_FILES=1000
+ARG GROUP_ID_TO_SAVE_FILES=1000
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
