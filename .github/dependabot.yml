@@ -7,32 +7,32 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 10
-    labels: ["dependencies", "python"]
+    labels: ["dependencies"]
 
   # GitHub Actions
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
-    labels: ["dependencies", "ci"]
+    labels: ["dependencies"]
 
   # npm (frontend)
   - package-ecosystem: npm
     directory: "/web/frontend"
     schedule:
       interval: weekly
-    labels: ["dependencies", "frontend"]
+    labels: ["dependencies"]
 
   # Docker (backend)
   - package-ecosystem: docker
     directory: "/web/backend"
     schedule:
       interval: monthly
-    labels: ["dependencies", "docker"]
+    labels: ["dependencies"]
 
   # Docker (frontend)
   - package-ecosystem: docker
     directory: "/web/frontend"
     schedule:
       interval: monthly
-    labels: ["dependencies", "docker"]
+    labels: ["dependencies"]
