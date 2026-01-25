@@ -82,7 +82,8 @@ jobs:
   commit-check:
     name: Check Commit Messages
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    # Skip for Dependabot PRs since automated commits don't follow conventional format
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v4
         with:
