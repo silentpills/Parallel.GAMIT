@@ -101,7 +101,7 @@ repos:
 exclude: |
   (?x)^(
     archive/.*|
-    web/backend/backend/modified_packages/.*|
+    web/backend/modified_packages/.*|
     .*\.lock$|
     pixi\.lock$
   )$

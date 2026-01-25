@@ -25,7 +25,7 @@ updates:
 
   # Docker (backend)
   - package-ecosystem: docker
-    directory: "/web/backend/backend"
+    directory: "/web/backend"
     schedule:
       interval: monthly
     labels: ["dependencies", "docker"]

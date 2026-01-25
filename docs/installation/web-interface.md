@@ -36,7 +36,7 @@ DJANGO_DEBUG=False
 
 ### 2. Backend Configuration
 
-Create `gnss_data.cfg` in `web/backend/backend/` following the example in `configuration_files/gnss_data.cfg`.
+Create `gnss_data.cfg` in `web/backend/` following the example in `configuration_files/gnss_data.cfg`.
 
 ### 3. Frontend Environment
 
@@ -115,7 +115,7 @@ Before running tests, create a test database:
 Run tests:
 
 ```bash
-cd web/backend/backend/backend_django_project/
+cd web/backend/backend_django_project/
 python manage.py test --keepdb
 ```
 

@@ -148,9 +148,7 @@ web/frontend/lerna-debug.log*
 web/frontend/yarn.lock
 
 # Backend specific
-web/backend/db/data
-web/backend/db/.env
-web/backend/backend/update_gaps_status_client/__pycache__
+web/backend/update_gaps_status_client/__pycache__
 
 # General Logs
 logs
