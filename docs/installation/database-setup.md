@@ -75,17 +75,13 @@ The seed data includes:
     psql -U pgamit -d pgamit -f database/seed.sql
     ```
 
-3. **Run Django migrations** (adds web UI tables + api_id columns):
-    ```bash
-    docker exec -it gnss-backend python manage.py migrate
-    ```
-
-4. **Start the web interface**:
+3. **Start the web interface** (migrations run automatically):
     ```bash
     docker compose up -d
     ```
+    Django migrations run automatically on container startup, adding web UI tables and `api_id` columns.
 
-5. **Login** at `http://localhost:${APP_PORT}` with `admin/admin`
+4. **Login** at `http://localhost:${APP_PORT}` with `admin/admin`
 
 ## Recommended RINEX Archive Structure
 

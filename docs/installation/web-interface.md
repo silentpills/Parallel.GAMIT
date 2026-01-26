@@ -82,9 +82,20 @@ You will be prompted for:
 docker exec -it gnss-backend python manage.py changepassword admin
 ```
 
-## Running Django Migrations
+## Django Migrations
 
-After the database schema is loaded, run migrations to add web UI tables:
+Django migrations run automatically when the backend container starts. You should see output like:
+
+```
+Attempting database migrations...
+Operations to perform:
+  Apply all migrations: api, auth, contenttypes, sessions
+Running migrations:
+  ...
+Migrations complete.
+```
+
+If the database is unavailable at startup, the container will log a warning and continue running. You can manually run migrations later:
 
 ```bash
 docker exec -it gnss-backend python manage.py migrate
