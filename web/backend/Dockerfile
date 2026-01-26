@@ -35,5 +35,8 @@ RUN mkdir -p /var/log/gunicorn && chmod 755 /var/log/gunicorn
 RUN uv pip install --system --no-cache-dir -r requirements.txt
 
 COPY ./supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY ./entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
