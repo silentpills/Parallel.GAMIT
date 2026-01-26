@@ -12,31 +12,57 @@ The Parallel.GAMIT web interface provides a visual way to manage station metadat
 
 ### 1. Root `.env` File
 
-Create a `.env` file in the project root:
+Copy the example file and edit it:
 
 ```bash
-# Docker/Web UI Settings
-APP_PORT=8080
-MEDIA_FOLDER_HOST_PATH=/path/to/media
-USER_ID_TO_SAVE_FILES=1000
-GROUP_ID_TO_SAVE_FILES=1000
-VITE_API_URL=http://localhost:8080
+cp .env.example .env
+```
 
+Key settings to configure:
+
+```bash
 # PostgreSQL Connection
-POSTGRES_HOST=your-db-host
+# Use host.docker.internal for local setup (Docker reaching host PostgreSQL)
+# Use hostname/IP for remote database
+POSTGRES_HOST=host.docker.internal
 POSTGRES_PORT=5432
 POSTGRES_DB=pgamit
 POSTGRES_USER=pgamit
 POSTGRES_PASSWORD=your_secure_password
 
-# Django Settings
-DJANGO_SECRET_KEY=generate-a-secure-key-here
+# Django Settings - generate a secure secret key:
+#   python3 -c "import secrets; print(secrets.token_urlsafe(50))"
+DJANGO_SECRET_KEY=<paste-generated-key-here>
 DJANGO_DEBUG=False
+
+# Docker/Web UI Settings
+APP_PORT=8080
+VITE_API_URL=http://localhost:8080
+
+# Directory on host for uploaded station images and files
+# This folder will be mounted into the container
+MEDIA_FOLDER_HOST_PATH=/home/username/pgamit-media
+
+# File ownership (run 'id' to find your UID/GID)
+USER_ID_TO_SAVE_FILES=1000
+GROUP_ID_TO_SAVE_FILES=1000
 ```
 
-### 2. Backend Configuration
+Create the media directory:
 
-Create `gnss_data.cfg` in `web/backend/` following the example in `configuration_files/gnss_data.cfg`.
+```bash
+mkdir -p ~/pgamit-media
+```
+
+### 2. Backend Configuration (Optional)
+
+The `gnss_data.cfg` file in `configuration_files/` is used by the PGAMIT CLI for processing jobs. For the web interface, all database settings come from the `.env` file, so `gnss_data.cfg` is not required for Docker deployment.
+
+If you plan to use the CLI alongside the web interface, copy and configure it:
+
+```bash
+cp configuration_files/gnss_data.cfg ~/gnss_data.cfg
+```
 
 ### 3. Frontend Environment
 
@@ -134,15 +160,15 @@ python manage.py test --keepdb
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `APP_PORT` | Port where app is served | Yes |
-| `MEDIA_FOLDER_HOST_PATH` | Path for uploaded media files | Yes |
-| `USER_ID_TO_SAVE_FILES` | UID for file ownership | Yes |
-| `GROUP_ID_TO_SAVE_FILES` | GID for file ownership | Yes |
-| `VITE_API_URL` | Frontend API URL | Yes |
-| `POSTGRES_HOST` | Database hostname | Yes |
+| `APP_PORT` | Port where app is served (default: 8080) | Yes |
+| `MEDIA_FOLDER_HOST_PATH` | Host directory for uploaded station images and files | Yes |
+| `USER_ID_TO_SAVE_FILES` | UID for file ownership (run `id -u` to find) | Yes |
+| `GROUP_ID_TO_SAVE_FILES` | GID for file ownership (run `id -g` to find) | Yes |
+| `VITE_API_URL` | URL users access the app at | Yes |
+| `POSTGRES_HOST` | Database hostname (`host.docker.internal` for local) | Yes |
 | `POSTGRES_PORT` | Database port (default: 5432) | No |
 | `POSTGRES_DB` | Database name | Yes |
 | `POSTGRES_USER` | Database username | Yes |
 | `POSTGRES_PASSWORD` | Database password | Yes |
-| `DJANGO_SECRET_KEY` | Django secret key | Yes |
-| `DJANGO_DEBUG` | Enable debug mode | No |
+| `DJANGO_SECRET_KEY` | Cryptographic key for Django (generate with `python3 -c "import secrets; print(secrets.token_urlsafe(50))"`) | Yes |
+| `DJANGO_DEBUG` | Enable debug mode (default: False) | No |

@@ -4,7 +4,7 @@ PGAMIT relies heavily on a PostgreSQL database. Ideally, use two systems: one fo
 
 ## Install PostgreSQL
 
-On your database server (can be remote):
+On your database server (can be remote or local):
 
 ```bash
 sudo apt update
@@ -13,21 +13,90 @@ sudo apt install postgresql
 
 ## Network Configuration
 
+Choose the appropriate configuration based on your setup:
+
+- **Local Setup (Docker on same machine)**: See [Local Development Setup](#local-development-setup)
+- **Remote Setup (database on separate server)**: See [Remote Server Setup](#remote-server-setup)
+
+### Local Development Setup
+
+When running PostgreSQL and Docker on the same machine, you need to configure PostgreSQL to accept connections from Docker containers.
+
+#### PostgreSQL Listen Address
+
+Edit `/etc/postgresql/XX/main/postgresql.conf` (replace `XX` with your version):
+
+```bash
+# Find your PostgreSQL version
+ls /etc/postgresql/
+
+# Edit the config
+sudo nano /etc/postgresql/XX/main/postgresql.conf
+```
+
+Change:
+
+```
+#listen_addresses = 'localhost'
+```
+
+To:
+
+```
+listen_addresses = 'localhost,172.17.0.1'
+```
+
+This allows PostgreSQL to accept connections from the Docker bridge gateway while keeping it off public interfaces.
+
+#### PostgreSQL Client Authentication
+
+Edit `/etc/postgresql/XX/main/pg_hba.conf`:
+
+```bash
+sudo nano /etc/postgresql/XX/main/pg_hba.conf
+```
+
+Add this line to allow Docker containers to connect:
+
+```
+# Docker networks (172.16.x.x - 172.31.x.x)
+host    all    pgamit    172.16.0.0/12    md5
+```
+
+!!! note
+    We use `172.16.0.0/12` instead of `172.17.0.0/16` because Docker Compose creates its own networks in the `172.18.x.x` range, not just the default bridge network.
+
+#### Apply Changes
+
+```bash
+sudo systemctl restart postgresql
+```
+
+#### Docker Configuration
+
+In your `.env` file, use `host.docker.internal` to reach PostgreSQL on the host:
+
+```
+POSTGRES_HOST=host.docker.internal
+```
+
+### Remote Server Setup
+
 If using a remote server, it is highly recommended to use a VPN like [Tailscale](https://tailscale.com/) to secure the database connection instead of exposing port 5432 to the public internet.
 
-### Tailscale Setup (Recommended)
+#### Tailscale Setup (Recommended)
 
 ```bash
 sudo tailscale serve --bg --tcp=5432 tcp://127.0.0.1:5432
 ```
 
-### PostgreSQL Configuration
+#### PostgreSQL Configuration
 
-Edit `pg_hba.conf` to allow connections from your network:
+Edit `pg_hba.conf` to allow connections from your Tailscale network:
 
 ```
 # Allow Tailscale subnet
-host    all    all    100.64.0.0/10    md5
+host    all    pgamit    100.64.0.0/10    md5
 ```
 
 ## Create User and Database
