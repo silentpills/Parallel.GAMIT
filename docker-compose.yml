@@ -6,6 +6,8 @@ services:
       args:
         USER_ID_TO_SAVE_FILES: ${USER_ID_TO_SAVE_FILES}
         GROUP_ID_TO_SAVE_FILES: ${GROUP_ID_TO_SAVE_FILES}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       # PostgreSQL connection (overrides gnss_data.cfg)
       - POSTGRES_HOST=${POSTGRES_HOST:-}
