@@ -101,7 +101,7 @@ celerybeat-schedule
 .env
 
 # CLI config file (copy from gnss_data.cfg.example)
-gnss_data.cfg
+/gnss_data.cfg
 
 # virtualenv
 venv/
