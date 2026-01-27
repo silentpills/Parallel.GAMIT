@@ -1,10 +1,17 @@
 # Configuration Reference
 
-Parallel.GAMIT uses configuration files and environment variables for settings.
+Parallel.GAMIT uses two configuration methods:
+
+- **CLI Tools**: Use `gnss_data.cfg` (copy from `gnss_data.cfg.example`)
+- **Web Interface**: Uses `.env` file only (copy from `.env.example`)
 
 ## Configuration File (gnss_data.cfg)
 
-The main configuration file uses INI format with multiple sections.
+The CLI configuration file uses INI format with multiple sections. Copy the example to get started:
+
+```bash
+cp gnss_data.cfg.example gnss_data.cfg
+```
 
 ### [postgres] Section
 
@@ -129,7 +136,6 @@ Environment variables override configuration file settings when set.
 | `DJANGO_SECRET_KEY` | Django secret key | Required |
 | `DJANGO_DEBUG` | Enable debug mode | `False` |
 | `DJANGO_HTTPS` | Enable HTTPS | `False` |
-| `GNSS_CONFIG_PATH` | Path to gnss_data.cfg | `/code/gnss_data.cfg` |
 
 ### Docker/Web Settings
 
@@ -151,13 +157,14 @@ Environment variables override configuration file settings when set.
 
 ---
 
-## Configuration Priority
+## Configuration by Component
 
-Settings are resolved in order (highest priority first):
+| Component | Configuration Source |
+|-----------|---------------------|
+| **CLI Tools** | `gnss_data.cfg` in working directory |
+| **Web Interface** | `.env` file (environment variables) |
 
-1. Environment variables
-2. Configuration file (gnss_data.cfg)
-3. Default values
+The web interface uses only environment variables and does not read `gnss_data.cfg`.
 
 ---
 

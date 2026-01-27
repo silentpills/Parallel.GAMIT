@@ -54,14 +54,15 @@ Create the media directory:
 mkdir -p ~/pgamit-media
 ```
 
-### 2. Backend Configuration (Optional)
+### 2. CLI Configuration (Optional)
 
-The `gnss_data.cfg` file in `configuration_files/` is used by the PGAMIT CLI for processing jobs. For the web interface, all database settings come from the `.env` file, so `gnss_data.cfg` is not required for Docker deployment.
+The `gnss_data.cfg` file is used by the PGAMIT CLI tools for GNSS processing. The web interface uses only the `.env` file, so `gnss_data.cfg` is not required for Docker deployment.
 
-If you plan to use the CLI alongside the web interface, copy and configure it:
+If you plan to use CLI tools alongside the web interface, copy and configure it:
 
 ```bash
-cp configuration_files/gnss_data.cfg ~/gnss_data.cfg
+cp gnss_data.cfg.example gnss_data.cfg
+# Edit gnss_data.cfg with your archive paths and settings
 ```
 
 ### 3. Frontend Environment

@@ -1,0 +1,106 @@
+# =============================================================================
+# Parallel.GAMIT CLI Configuration
+# =============================================================================
+# Copy this file to gnss_data.cfg in your working directory and fill in your values.
+# CLI tools (ScanArchive.py, ArchiveService.py, etc.) look for gnss_data.cfg
+# in the current working directory.
+#
+# For the web interface, use .env instead (see .env.example).
+
+# -----------------------------------------------------------------------------
+# Database Connection
+# -----------------------------------------------------------------------------
+[postgres]
+# PostgreSQL server hostname or IP address
+hostname = your-db-server.example.com
+# Database port (default: 5432)
+port = 5432
+# Database username
+username = pgamit
+# Database password
+password = your_secure_password
+# Database name
+database = pgamit
+
+# Path to format scripts for data download processing (optional)
+format_scripts_path = /path/to/format_scripts
+
+# -----------------------------------------------------------------------------
+# Archive Settings
+# -----------------------------------------------------------------------------
+# Path variables supported: $year, $doy, $month, $day, $gpsweek, $gpswkday
+
+[archive]
+# Absolute location of the RINEX archive (tank structure)
+path = /path/to/archive
+# Location for incoming RINEX files to be processed
+repository = /path/to/repository
+# Optional: media/external drive path for additional storage
+media = /path/to/media
+
+# Parallel processing settings
+parallel = True
+cpus = 4
+# Delay between cluster job submissions (seconds)
+cluster_delay = 90
+# Comma-separated list of processing node hostnames
+node_list = node1,node2,node3
+
+# Orbit file locations (use path variables as needed)
+# Broadcast ephemeris
+brdc = /path/to/orbits/brdc/$year
+# Precise SP3 orbits
+sp3 = /path/to/orbits/sp3/$gpsweek
+# IONEX files
+ionex = /path/to/orbits/ionex/$year
+
+# SP3 orbit center type precedence (modern long-name format)
+# AC = Analysis Center (e.g., COD, IGS, JPL)
+# CS = Campaign/Solution code (e.g., OPS, R03, MGX)
+# ST = Solution type (e.g., FIN, RAP, SNX)
+sp3_ac = COD,IGS,JPL
+sp3_cs = OPS,R03,MGX
+sp3_st = FIN,SNX,RAP
+
+# Legacy short-name orbit types (optional, for older archives)
+# Type precedence: type_1 > type_2 > type_3
+# Alternative types tried if PPP fails: altr_1, altr_2
+# sp3_type_1 = ig2
+# sp3_type_2 = igs
+# sp3_type_3 = igr
+# sp3_altr_1 = jp2
+# sp3_altr_2 = jpl
+
+# -----------------------------------------------------------------------------
+# Ocean Tide Loading (OTL)
+# -----------------------------------------------------------------------------
+[otl]
+# Path to GAMIT grdtab binary
+grdtab = /path/to/gamit/bin/grdtab
+# Path to OTL grid file
+otlgrid = /path/to/gamit/tables/otl.grid
+# OTL model name
+otlmodel = FES2014b
+
+# -----------------------------------------------------------------------------
+# Precise Point Positioning (PPP)
+# -----------------------------------------------------------------------------
+[ppp]
+# PPP software directory (e.g., PPP_NRCAN)
+ppp_path = /path/to/PPP_NRCAN
+# PPP executable
+ppp_exe = /path/to/PPP_NRCAN/source/ppp
+# Institution name for SINEX headers
+institution = Your Institution Name
+# Group/division information
+info = Your Group or Division
+
+# Reference frames configuration
+# Comma-separated list of frame names
+frames = IGS20,
+# For each frame, specify date range as: FRAME = start_year_doy,end_year_doy
+# Use just start for open-ended ranges
+IGS20 = 1987_1,
+
+# ATX antenna calibration files (same order as frames list)
+atx = /path/to/resources/atx/igs20_2335_plus.atx

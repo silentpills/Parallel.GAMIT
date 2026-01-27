@@ -16,4 +16,4 @@ docs/**/*.md
 
 # Configuration templates (not actual secrets)
 .env.example
-configuration_files/conf_example.txt
+gnss_data.cfg.example
