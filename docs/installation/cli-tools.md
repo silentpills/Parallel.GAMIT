@@ -19,9 +19,16 @@ pixi shell
 
 ## Configuration File
 
-Create a configuration file named `gnss_data.cfg` in your working directory. PGAMIT commands will read settings from this file.
+Copy the example configuration file to your working directory and customize it:
 
-### Example Configuration
+```bash
+cp gnss_data.cfg.example gnss_data.cfg
+# Edit gnss_data.cfg with your database credentials and paths
+```
+
+PGAMIT commands look for `gnss_data.cfg` in the current working directory.
+
+### Configuration Sections
 
 ```ini
 [postgres]
