@@ -32,7 +32,7 @@ dependencies = [
     "pycos",
     "country-converter",
     "charset-normalizer==3.4.4",
-    "earthscope-cli==0.8.2",
+    "earthscope-cli==1.1.0",
     "earthscope-sdk==0.2.0",
     "basemap==1.4.0",
     "cryptography==44.0.1",
