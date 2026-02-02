@@ -713,7 +713,7 @@ def scan_station_info(JobServer, pyArchive, archive_path, master_list):
 
     pbar = tqdm(total=len(stninfo), ncols=80, disable=None)
 
-    modules = ('pgamit.dbConnection', 'pgamit.metadata.station_info', 'sys', 'datetime', 'pgamit.pyDate',
+    modules = ('geode.dbConnection', 'geode.metadata.station_info', 'sys', 'datetime', 'geode.pyDate',
                'platform', 'traceback')
 
     JobServer.create_cluster(insert_stninfo, callback=callback_handle, progress_bar=pbar, modules=modules)
@@ -867,9 +867,9 @@ def process_ppp(cnn, Config, pyArchive, archive_path, JobServer, master_list, sd
 
     pbar = tqdm(total=len(tblrinex), ncols=80, disable=None)
 
-    modules = ('pgamit.dbConnection', 'pgamit.pyRinex', 'pgamit.pyPPP', 'pgamit.metadata.station_info', 'pgamit.pyDate',
-               'pgamit.pyProducts', 'os', 'platform', 'pgamit.pyArchiveStruct', 'traceback', 'pgamit.pyOptions',
-               'pgamit.pyEvents', 'pgamit.Utils')
+    modules = ('geode.dbConnection', 'geode.pyRinex', 'geode.pyPPP', 'geode.metadata.station_info', 'geode.pyDate',
+               'geode.pyProducts', 'os', 'platform', 'geode.pyArchiveStruct', 'traceback', 'geode.pyOptions',
+               'geode.pyEvents', 'geode.Utils')
 
     depfuncs = (remove_from_archive, verify_rinex_date_multiday)
 

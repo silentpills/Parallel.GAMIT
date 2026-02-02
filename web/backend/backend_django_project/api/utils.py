@@ -21,9 +21,9 @@ import grp
 import os
 from lxml import etree
 import zipfile
-from pgamit import pyOkada, dbConnection
-from pgamit import pyStationInfo, dbConnection, pyDate, pyETM
-from pgamit import Utils as pyUtils
+from geode import pyOkada, dbConnection, pyDate, pyETM
+from geode.metadata import station_info as pyStationInfo
+from geode import Utils as pyUtils
 import dateutil.parser
 from django.http import Http404
 import matplotlib.pyplot as plt

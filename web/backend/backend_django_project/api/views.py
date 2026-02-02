@@ -31,8 +31,9 @@ from django.core.cache import cache
 import time
 from .tasks import update_gaps_status
 from django.core.files.storage import default_storage
-from pgamit import pyStationInfo, dbConnection, pyDate, pyETM
-from pgamit import Utils as pyUtils
+from geode.metadata import station_info as pyStationInfo
+from geode import dbConnection, pyDate, pyETM
+from geode import Utils as pyUtils
 import dateutil.parser
 from io import BytesIO
 

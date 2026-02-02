@@ -13,7 +13,7 @@ import decimal
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 import country_converter as coco
-from pgamit.Utils import ecef2lla, lla2ecef
+from geode.Utils import ecef2lla, lla2ecef
 
 
 def validate_file_size(value):

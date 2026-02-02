@@ -64,7 +64,7 @@ repos:
       - id: debug-statements
       - id: name-tests-test
         args: [--pytest-test-first]
-        exclude: ^pgamit/tests/common\.py$
+        exclude: ^geode/tests/common\.py$
 
   # actionlint - Lint GitHub Actions workflow files
   - repo: https://github.com/rhysd/actionlint
