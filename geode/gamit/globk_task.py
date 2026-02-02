@@ -3,14 +3,15 @@ Project: Geodesy Database Engine (GeoDE)
 Date: Dic-03-2016
 Author: Demian D. Gomez
 """
-import os
+
 import glob
-import subprocess
+import os
 import shutil
+import subprocess
 
 # app
 from geode import snxParse
-from geode.Utils import file_open, chmod_exec, stationID
+from geode.Utils import chmod_exec, file_open, stationID
 
 
 class GlobkException(Exception):
@@ -22,35 +23,33 @@ class GlobkException(Exception):
 
 
 class Globk(object):
-
-    def __init__(self, pwd_comb, date, Sessions, net_type='regional'):
-        self.polyhedron     = None
+    def __init__(self, pwd_comb, date, Sessions, net_type="regional"):
+        self.polyhedron = None
         self.VarianceFactor = None
-        self.date           = date
-        self.eop            = Sessions[0].GamitOpts['eop_type']
-        self.org            = Sessions[0].GamitOpts['org']
-        self.expt           = Sessions[0].GamitOpts['expt']
-        self.pwd_comb       = pwd_comb
-        self.Sessions       = Sessions  # type: list
-        self.h_files        = []
-        self.stdout         = None
-        self.stderr         = None
-        self.p              = None
-        self.polyhedron     = None
-        self.variance       = None
-        self.net_type       = net_type
+        self.date = date
+        self.eop = Sessions[0].GamitOpts["eop_type"]
+        self.org = Sessions[0].GamitOpts["org"]
+        self.expt = Sessions[0].GamitOpts["expt"]
+        self.pwd_comb = pwd_comb
+        self.Sessions = Sessions  # type: list
+        self.h_files = []
+        self.stdout = None
+        self.stderr = None
+        self.p = None
+        self.polyhedron = None
+        self.variance = None
+        self.net_type = net_type
 
     def linktables(self, year, eop_type):
-        script_path = os.path.join(self.pwd_comb, 'link_tables.sh')
+        script_path = os.path.join(self.pwd_comb, "link_tables.sh")
         try:
-            link_tables = file_open(script_path, 'w')
+            link_tables = file_open(script_path, "w")
         except:
-            raise GlobkException('could not open file link_tables.sh')
+            raise GlobkException("could not open file link_tables.sh")
 
         # link the apr file as the lfile.
         with link_tables:
-            contents = \
-                """#!/bin/bash
+            contents = """#!/bin/bash
                 # set up links
                 sh_links.tables -frame J2000 -year %s -eop %s -topt none &> sh_links.out;
                 # link the bulletin A
@@ -62,7 +61,6 @@ class Globk(object):
         chmod_exec(script_path)
 
     def execute(self, parse_sinex=True):
-
         # if multiple session, run globk first, then returned parsed sinex
         # if single session, then self.pwd_comb points to the folder where the sinex files is
         if len(self.Sessions) > 1:
@@ -74,38 +72,49 @@ class Globk(object):
             os.makedirs(self.pwd_comb)
 
             for s in self.Sessions:
-                for glx in glob.glob(os.path.join(s.pwd_glbf, 'h*.glx')):
+                for glx in glob.glob(os.path.join(s.pwd_glbf, "h*.glx")):
                     # save the files that have to be copied, the copy process is done on each node
-                    h_file = 'h' + s.DirName + self.date.yyyy() + self.date.ddd() + '_' + self.expt + '.glx'
+                    h_file = (
+                        "h"
+                        + s.DirName
+                        + self.date.yyyy()
+                        + self.date.ddd()
+                        + "_"
+                        + self.expt
+                        + ".glx"
+                    )
                     shutil.copyfile(glx, os.path.join(self.pwd_comb, h_file))
 
             self.linktables(self.date.yyyy(), self.eop)
             self.create_combination_script(self.date, self.org)
 
             # multiple sessions execute globk
-            self.p = subprocess.Popen('./globk.sh', shell=False, stdout=subprocess.PIPE,
-                                      stderr=subprocess.PIPE, cwd=self.pwd_comb)
+            self.p = subprocess.Popen(
+                "./globk.sh",
+                shell=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=self.pwd_comb,
+            )
 
             self.stdout, self.stderr = self.p.communicate()
 
         return self.parse_sinex() if parse_sinex else None
 
     def create_combination_script(self, date, org):
-
         # extract the gps week and convert to string
         gpsWeek_str = date.wwww()
 
         # set the path and name for the run script
-        run_file_path = os.path.join(self.pwd_comb, 'globk.sh')
+        run_file_path = os.path.join(self.pwd_comb, "globk.sh")
 
         try:
-            run_file = file_open(run_file_path, 'w')
+            run_file = file_open(run_file_path, "w")
         except:
-            raise GlobkException('could not open file '+run_file_path)
+            raise GlobkException("could not open file " + run_file_path)
 
         with run_file:
-            contents = \
-            r"""#!/bin/bash
+            contents = r"""#!/bin/bash
 
             export INSTITUTE=%s
 
@@ -130,16 +139,14 @@ class Globk(object):
             echo " descript Daily combination of global and regional solutions"          >> globk.cmd
             """ % (org, org, gpsWeek_str, str(date.gpsWeekDay))
 
-            if self.net_type == 'global':
-                contents += \
-                """
+            if self.net_type == "global":
+                contents += """
                 echo "# activated for global network merge"                                  >> globk.cmd
                 echo " apr_wob    10 10  10 10 "                                             >> globk.cmd
                 echo " apr_ut1    10 10        "                                             >> globk.cmd
                 echo " apr_svs all 0.05 0.05 0.05 0.005 0.005 0.005 0.01 0.01 0.00 0.01 FR"  >> globk.cmd
                 """
-            contents += \
-            r"""
+            contents += r"""
             echo " max_chii  1. 0.6"                                                     >> globk.cmd
             echo " apr_neu  all 1 1 1 0 0 0"                                             >> globk.cmd
             echo "#apr_atm  all 1 1 1"                                                   >> globk.cmd
@@ -207,12 +214,11 @@ class Globk(object):
         chmod_exec(run_file_path)
 
     def parse_sinex(self):
-
         for sinex in os.listdir(self.pwd_comb):
-            if sinex.endswith('.snx'):
+            if sinex.endswith(".snx"):
                 snx = snxParse.snxFileParser(os.path.join(self.pwd_comb, sinex))
                 snx.parse()
-                self.polyhedron     = snx.stationDict
+                self.polyhedron = snx.stationDict
                 self.VarianceFactor = snx.varianceFactor
 
         if self.polyhedron:
@@ -221,7 +227,9 @@ class Globk(object):
                 for stn in GamitSession.StationInstances:
                     # replace the key
                     try:
-                        self.polyhedron[stationID(stn)] = self.polyhedron.pop(stn.StationAlias.upper())
+                        self.polyhedron[stationID(stn)] = self.polyhedron.pop(
+                            stn.StationAlias.upper()
+                        )
                     except KeyError:
                         # maybe the station didn't have a solution
                         pass

@@ -1,9 +1,10 @@
-
-import numpy as np
 from typing import Tuple
 
-def gaussian_func(data ,a ,b ,c):
-    """ Generate gaussian function given parameters
+import numpy as np
+
+
+def gaussian_func(data, a, b, c):
+    """Generate gaussian function given parameters
 
     Parameters: data    : 1D np.ndarray in the size of (num_data,)
                 a       : float
@@ -12,10 +13,11 @@ def gaussian_func(data ,a ,b ,c):
 
     Returns:    1D np.ndarray in the size of (num_data,)
     """
-    return a * (1 - (data / b )**2) * np.exp(-(data  / c )**2)
+    return a * (1 - (data / b) ** 2) * np.exp(-((data / c) ** 2))
 
-def cauchy_func(data ,a ,b):
-    """ Generate cauchy function given parameters
+
+def cauchy_func(data, a, b):
+    """Generate cauchy function given parameters
 
     Parameters: data    : 1D np.ndarray in the size of (num_data,)
                 a       : float
@@ -23,10 +25,12 @@ def cauchy_func(data ,a ,b):
 
     Returns:    1D np.ndarray in the size of (num_data,)
     """
-    return a / (1 + (data / b )**2)
+    return a / (1 + (data / b) ** 2)
 
 
-def covariance_1d(time_vector_mjd: np.ndarray, data: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def covariance_1d(
+    time_vector_mjd: np.ndarray, data: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     time_vector_mjd
     """
@@ -34,7 +38,9 @@ def covariance_1d(time_vector_mjd: np.ndarray, data: np.ndarray) -> Tuple[np.nda
     n = int(np.floor(time_vector_mjd.size / 2))
 
     # Normalize time indices
-    tx = (time_vector_mjd - np.min(time_vector_mjd) + 1).astype(int) - 1  # Convert to 0-based indexing
+    tx = (time_vector_mjd - np.min(time_vector_mjd) + 1).astype(
+        int
+    ) - 1  # Convert to 0-based indexing
 
     # Outer product with upper triangular
     dd = np.triu(np.outer(data, data))
@@ -59,4 +65,3 @@ def covariance_1d(time_vector_mjd: np.ndarray, data: np.ndarray) -> Tuple[np.nda
     bins_fyr = np.arange(max_offset) / 365.25
 
     return bins_mjd, bins_fyr, cov
-

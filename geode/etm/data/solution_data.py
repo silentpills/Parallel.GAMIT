@@ -5,12 +5,13 @@ Author: Demian D. Gomez
 """
 
 # solution_data.py
-from abc import ABC, abstractmethod
-from typing import List, Optional, Union
-from dataclasses import dataclass, field
 import json
-import numpy as np
 import logging
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import List, Optional, Union
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ from ..core.etm_config import EtmConfig
 from ..core.type_declarations import SolutionType
 from ..etm_functions.jumps import JumpFunction, JumpType
 
+
 class SolutionDataException(Exception):
     pass
 
@@ -29,6 +31,7 @@ class SolutionDataException(Exception):
 @dataclass
 class CoordinateTimeSeries:
     """Dataclass for coordinate time series data with JSON serialization support"""
+
     xyz: np.ndarray = field(default_factory=lambda: np.array([]))
     neu: np.ndarray = field(default_factory=lambda: np.array([]))
     time_vector: np.ndarray = field(default_factory=lambda: np.array([]))
@@ -36,16 +39,19 @@ class CoordinateTimeSeries:
     dates: List[Date] = field(default_factory=list)  # Store date info as dicts for JSON
 
     @classmethod
-    def from_arrays(cls, xyz: np.ndarray,
-                    time_vector: np.ndarray,
-                    time_vector_mjd: np.ndarray,
-                    dates: List[Date]) -> 'CoordinateTimeSeries':
+    def from_arrays(
+        cls,
+        xyz: np.ndarray,
+        time_vector: np.ndarray,
+        time_vector_mjd: np.ndarray,
+        dates: List[Date],
+    ) -> "CoordinateTimeSeries":
         """Create from numpy arrays and Date objects"""
         return cls(
             xyz=xyz,
             time_vector=time_vector,
             time_vector_mjd=time_vector_mjd,
-            dates=dates
+            dates=dates,
         )
 
     def __len__(self) -> int:
@@ -59,8 +65,12 @@ class CoordinateTimeSeries:
     def validate(self) -> List[str]:
         """Validate coordinate time series consistency"""
         issues = []
-        lengths = [self.xyz.size, self.time_vector.size,
-                   self.time_vector_mjd.size, len(self.dates)]
+        lengths = [
+            self.xyz.size,
+            self.time_vector.size,
+            self.time_vector_mjd.size,
+            len(self.dates),
+        ]
 
         if not all(l == lengths[0] for l in lengths):
             issues.append("Coordinate and time arrays have different lengths")
@@ -70,24 +80,26 @@ class CoordinateTimeSeries:
     def to_json(self, filepath: Optional[str] = None) -> Union[str, None]:
         """Save to JSON file or return JSON string"""
         data = {
-            'xyz': self.xyz,
-            'time_vector': self.time_vector,
-            'time_vector_mjd': self.time_vector_mjd,
-            'dates': self.dates
+            "xyz": self.xyz,
+            "time_vector": self.time_vector,
+            "time_vector_mjd": self.time_vector_mjd,
+            "dates": self.dates,
         }
 
         if filepath:
-            with open(filepath, 'w') as f:
+            with open(filepath, "w") as f:
                 json.dump(data, f, indent=2)
             return None
         else:
             return json.dumps(data, indent=2)
 
     @classmethod
-    def from_json(cls, filepath: Optional[str] = None, json_string: Optional[str] = None) -> 'CoordinateTimeSeries':
+    def from_json(
+        cls, filepath: Optional[str] = None, json_string: Optional[str] = None
+    ) -> "CoordinateTimeSeries":
         """Load from JSON file or string"""
         if filepath:
-            with open(filepath, 'r') as f:
+            with open(filepath, "r") as f:
                 data = json.load(f)
         elif json_string:
             data = json.loads(json_string)
@@ -194,25 +206,37 @@ class SolutionData(ABC):
     @property
     def hash(self):
         if not self.solutions:
-            raise SolutionDataException('Hash value requested but no solutions were loaded!')
+            raise SolutionDataException(
+                "Hash value requested but no solutions were loaded!"
+            )
         else:
             return self.compute_hash(self.soln + self.stack_name)
 
-    def _set_coordinates_from_arrays(self, xyz: np.ndarray,
-                                     time_vector: np.ndarray, time_vector_mjd: np.ndarray,
-                                     dates: List[Date]) -> None:
+    def _set_coordinates_from_arrays(
+        self,
+        xyz: np.ndarray,
+        time_vector: np.ndarray,
+        time_vector_mjd: np.ndarray,
+        dates: List[Date],
+    ) -> None:
         """Set coordinates from numpy arrays (internal method)"""
         self.coordinates = CoordinateTimeSeries.from_arrays(
             xyz, time_vector, time_vector_mjd, dates
         )
         # immediately transform to neu to leave them ready for export
-        self.coordinates.neu = np.array(self.transform_to_local(ignore_data_window=True))
+        self.coordinates.neu = np.array(
+            self.transform_to_local(ignore_data_window=True)
+        )
         self.solutions = self.coordinates.xyz.shape[1]
 
-    def _process_coordinate_solutions(self, solutions: List, solution_type: str = "solutions") -> None:
+    def _process_coordinate_solutions(
+        self, solutions: List, solution_type: str = "solutions"
+    ) -> None:
         """Common processing for coordinate solutions"""
         if not len(solutions):
-            raise SolutionDataException(f"No {solution_type} for {self.get_station_id()}")
+            raise SolutionDataException(
+                f"No {solution_type} for {self.get_station_id()}"
+            )
 
         # Filter by distance from reference coordinates
         coordinates = np.array([(s[0], s[1], s[2]) for s in solutions])
@@ -240,7 +264,9 @@ class SolutionData(ABC):
         time_vector_mjd = np.array([date.mjd for date in dates])
 
         # Set using the new dataclass
-        self._set_coordinates_from_arrays(valid_solutions.T, time_vector, time_vector_mjd, dates)
+        self._set_coordinates_from_arrays(
+            valid_solutions.T, time_vector, time_vector_mjd, dates
+        )
 
     def _compute_completion_percentage(self, time_vector_ns: np.ndarray) -> None:
         """Common completion percentage calculation"""
@@ -309,25 +335,33 @@ class SolutionData(ABC):
         else:
             mask = np.ones(self.time_vector.shape).astype(bool)
 
-        ecef_diff = np.array([
-            self.x[mask] - self.auto_x[0],
-            self.y[mask] - self.auto_y[0],
-            self.z[mask] - self.auto_z[0]
-        ])
-        neu = list(ct2lg(ecef_diff[0], ecef_diff[1], ecef_diff[2], self.lat[0], self.lon[0]))
+        ecef_diff = np.array(
+            [
+                self.x[mask] - self.auto_x[0],
+                self.y[mask] - self.auto_y[0],
+                self.z[mask] - self.auto_z[0],
+            ]
+        )
+        neu = list(
+            ct2lg(ecef_diff[0], ecef_diff[1], ecef_diff[2], self.lat[0], self.lon[0])
+        )
 
         # @ todo: apply detrending models to x y z as well?
         neu = self.apply_prefit_models(self.time_vector[mask], neu)
 
         return neu
 
-    def apply_prefit_models(self, time_vector: np.ndarray, observations: List[np.ndarray]):
+    def apply_prefit_models(
+        self, time_vector: np.ndarray, observations: List[np.ndarray]
+    ):
         """detrend the data using the provided models"""
         for model in self.config.modeling.prefit_models:
-            logger.info('Applying prefit model ' + str(model))
+            logger.info("Applying prefit model " + str(model))
             for i in range(3):
-                if model.p.object == 'jump':
-                    observations[i] -= model.eval(i, time_vector, remove_postseismic=True)
+                if model.p.object == "jump":
+                    observations[i] -= model.eval(
+                        i, time_vector, remove_postseismic=True
+                    )
                 else:
                     observations[i] -= model.eval(i, time_vector)
 
@@ -337,13 +371,14 @@ class SolutionData(ABC):
         """Transform local NEU coordinates back to ECEF"""
         from geode.Utils import lg2ct
 
-        ecef_diff = lg2ct(neu_coords[0], neu_coords[1], neu_coords[2],
-                          self.lat[0], self.lon[0])
+        ecef_diff = lg2ct(
+            neu_coords[0], neu_coords[1], neu_coords[2], self.lat[0], self.lon[0]
+        )
         # Add reference coordinates back
         ecef = [
             ecef_diff[0] + self.auto_x[0],
             ecef_diff[1] + self.auto_y[0],
-            ecef_diff[2] + self.auto_z[0]
+            ecef_diff[2] + self.auto_z[0],
         ]
         return ecef
 
@@ -351,66 +386,74 @@ class SolutionData(ABC):
         # load basic fields from json file
         data = load_json(json_)
 
-        if data['observations'] is not None:
-            x = data['observations']['xyz'][0]
-            y = data['observations']['xyz'][1]
-            z = data['observations']['xyz'][2]
-            yr = [d['year'] for d in data['observations']['dates']]
-            doy = [d['doy'] for d in data['observations']['dates']]
+        if data["observations"] is not None:
+            x = data["observations"]["xyz"][0]
+            y = data["observations"]["xyz"][1]
+            z = data["observations"]["xyz"][2]
+            yr = [d["year"] for d in data["observations"]["dates"]]
+            doy = [d["doy"] for d in data["observations"]["dates"]]
 
             # deal with prefit functions
             # @todo: finish the other functions
             for i, model in enumerate(self.config.modeling.prefit_models):
-                if model['object'] == 'jump':
+                if model["object"] == "jump":
                     self.config.modeling.prefit_models[i] = JumpFunction(
                         self.config,
-                        np.array(data['observations']['time_vector']),
-                        Date(**model['jump_date']),
-                        JumpType(model['jump_type']),
-                        metadata=model['metadata']
+                        np.array(data["observations"]["time_vector"]),
+                        Date(**model["jump_date"]),
+                        JumpType(model["jump_type"]),
+                        metadata=model["metadata"],
                     )
-                    self.config.modeling.prefit_models[i].p.params = [np.array(p) for p in model['params']]
-                    self.config.modeling.prefit_models[i].p.sigmas = [np.array(p) for p in model['sigmas']]
+                    self.config.modeling.prefit_models[i].p.params = [
+                        np.array(p) for p in model["params"]
+                    ]
+                    self.config.modeling.prefit_models[i].p.sigmas = [
+                        np.array(p) for p in model["sigmas"]
+                    ]
 
-            self._process_coordinate_solutions([[x,y,z,yr,doy] for x,y,z,yr,doy in zip(x,y,z,yr,doy)])
+            self._process_coordinate_solutions(
+                [[x, y, z, yr, doy] for x, y, z, yr, doy in zip(x, y, z, yr, doy)]
+            )
 
-            self.project = data['solution_options']['project']
+            self.project = data["solution_options"]["project"]
             # no info on missing solutions when coming from json
             self.rnx_no_ppp = []
             self.time_vector_ns = np.array([])
 
             total_epochs = len(self.time_vector_ns) + len(self.time_vector)
             if total_epochs > 0:
-                self.completion = 100.0 - (len(self.time_vector_ns) / total_epochs * 100.0)
+                self.completion = 100.0 - (
+                    len(self.time_vector_ns) / total_epochs * 100.0
+                )
             else:
                 self.completion = 0.0
         else:
-            raise SolutionDataException('observations section not present in json file')
+            raise SolutionDataException("observations section not present in json file")
 
     def save_to_json(self, filepath: str) -> None:
         """Save solution data to JSON file"""
         data = {
-            'network_code': self.network_code,
-            'station_code': self.station_code,
-            'solutions': self.solutions,
-            'completion': self.completion,
-            'soln': self.soln,
-            'stack_name': self.stack_name,
-            'project': self.project,
-            'coordinates': self.coordinates.__dict__,
-            'time_vector_ns': self.time_vector_ns.tolist(),
-            'gaps': self.gaps.tolist(),
-            'excluded': self.excluded,
-            'rnx_no_ppp': self.rnx_no_ppp
+            "network_code": self.network_code,
+            "station_code": self.station_code,
+            "solutions": self.solutions,
+            "completion": self.completion,
+            "soln": self.soln,
+            "stack_name": self.stack_name,
+            "project": self.project,
+            "coordinates": self.coordinates.__dict__,
+            "time_vector_ns": self.time_vector_ns.tolist(),
+            "gaps": self.gaps.tolist(),
+            "excluded": self.excluded,
+            "rnx_no_ppp": self.rnx_no_ppp,
         }
 
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             json.dump(data, f, indent=2)
 
         logger.info(f"Saved solution data to {filepath}")
 
     @classmethod
-    def create_instance(cls, config: EtmConfig) -> 'SolutionData':
+    def create_instance(cls, config: EtmConfig) -> "SolutionData":
         """Determine the type of object needed and return it to the called"""
 
         # Determine which subclass to create based on solution type
@@ -423,8 +466,10 @@ class SolutionData(ABC):
         elif config.solution.solution_type == SolutionType.NGL:
             instance = FileSolutionData(config)
         else:
-            raise ValueError(f"Unknown solution type "
-                             f"{config.solution.solution_type.description} not implemented")
+            raise ValueError(
+                f"Unknown solution type "
+                f"{config.solution.solution_type.description} not implemented"
+            )
 
         return instance
 
@@ -443,7 +488,9 @@ class SolutionData(ABC):
         """Get formatted station identifier"""
         return f"{self.network_code}.{self.station_code}"
 
-    def filter_by_distance(self, coordinates: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    def filter_by_distance(
+        self, coordinates: np.ndarray, reference: np.ndarray
+    ) -> np.ndarray:
         """Filter coordinates by distance from reference"""
         distances = np.sqrt(np.sum(np.square(coordinates - reference), axis=1))
         return distances <= self.max_dist
@@ -454,12 +501,12 @@ class PPPSolutionData(SolutionData):
 
     def __init__(self, config: EtmConfig):
         super().__init__(config)
-        self.soln = 'ppp'
-        self.stack_name = 'ppp'
-        self.project = 'from_ppp'
+        self.soln = "ppp"
+        self.stack_name = "ppp"
+        self.project = "from_ppp"
 
         # Update config to reflect which solution we are working with
-        config.solution.stack_name = 'ppp'
+        config.solution.stack_name = "ppp"
         self.config = config
 
     def load_data(self, cnn: Cnn = None, **kwargs) -> None:
@@ -477,28 +524,32 @@ class PPPSolutionData(SolutionData):
 
     def _load_ppp_solutions(self, cnn) -> None:
         """Load PPP coordinate solutions"""
-        query = '''
+        query = """
             SELECT "X", "Y", "Z", "Year", "DOY" FROM ppp_soln p1
             WHERE p1."NetworkCode" = '%s' AND p1."StationCode" = '%s' 
             ORDER BY "Year", "DOY"
-        '''
-        logger.info(f'Loading PPP solutions for {self.get_station_id()}')
-        solutions = self._execute_query(cnn, query, (self.network_code, self.station_code))
+        """
+        logger.info(f"Loading PPP solutions for {self.get_station_id()}")
+        solutions = self._execute_query(
+            cnn, query, (self.network_code, self.station_code)
+        )
 
         # Use shared processing method
         self._process_coordinate_solutions(solutions, "PPP solutions")
 
     def _load_excluded_solutions(self, cnn) -> None:
         """Load list of excluded solutions"""
-        query = '''
+        query = """
             SELECT "Year", "DOY" FROM ppp_soln_excl
             WHERE "NetworkCode" = '%s' AND "StationCode" = '%s'
-        '''
-        self.excluded = self._execute_query(cnn, query, (self.network_code, self.station_code))
+        """
+        self.excluded = self._execute_query(
+            cnn, query, (self.network_code, self.station_code)
+        )
 
     def _compute_completion_stats(self, cnn) -> None:
         """Compute completion percentage and missing solution epochs"""
-        query = '''
+        query = """
             SELECT r."ObservationFYear" FROM rinex_proc as r
             LEFT JOIN ppp_soln as p ON 
                 r."NetworkCode" = p."NetworkCode" AND
@@ -507,8 +558,10 @@ class PPPSolutionData(SolutionData):
                 r."ObservationDOY" = p."DOY"
             WHERE r."NetworkCode" = '%s' AND r."StationCode" = '%s' AND
                 p."NetworkCode" IS NULL
-        '''
-        missing = self._execute_query(cnn, query, (self.network_code, self.station_code))
+        """
+        missing = self._execute_query(
+            cnn, query, (self.network_code, self.station_code)
+        )
         time_vector_ns = np.array([float(item[0]) for item in missing])
 
         # Use shared completion calculation
@@ -525,7 +578,9 @@ class PPPSolutionData(SolutionData):
         if len(self.coordinates) > 0:
             coord_range = np.ptp([self.x, self.y, self.z])
             if coord_range > 1000:  # 1km seems unreasonable for a single station
-                issues.append(f"Coordinate range suspiciously large: {coord_range:.1f}m")
+                issues.append(
+                    f"Coordinate range suspiciously large: {coord_range:.1f}m"
+                )
 
         return issues
 
@@ -535,15 +590,16 @@ class GAMITSolutionData(SolutionData):
 
     def __init__(self, stack_name: str, config: EtmConfig):
         super().__init__(config)
-        self.soln = 'gamit'
+        self.soln = "gamit"
         self.stack_name = stack_name
 
         # Update config to reflect which solution we are working with
         config.solution.stack_name = stack_name
         self.config = config
 
-    def load_data(self, cnn: Cnn = None,
-                  polyhedrons: Optional[List] = None, **kwargs) -> None:
+    def load_data(
+        self, cnn: Cnn = None, polyhedrons: Optional[List] = None, **kwargs
+    ) -> None:
         """Load GAMIT solutions from database or polyhedron list"""
         if polyhedrons is None and cnn:
             polyhedrons = self._load_polyhedrons_from_db(cnn)
@@ -551,7 +607,7 @@ class GAMITSolutionData(SolutionData):
             # if self.config.json_file is set, try to load
             self._load_json(self.config.json_file)
         elif polyhedrons is None and cnn is None:
-            raise SolutionDataException('No source for solution given')
+            raise SolutionDataException("No source for solution given")
 
         self._process_polyhedrons(polyhedrons)
 
@@ -563,37 +619,39 @@ class GAMITSolutionData(SolutionData):
 
     def _load_polyhedrons_from_db(self, cnn) -> List:
         """Load polyhedrons from stacks table"""
-        query = '''
+        query = """
             SELECT "X", "Y", "Z", "Year", "DOY" FROM stacks
             WHERE "name" = '%s' AND "NetworkCode" = '%s' AND "StationCode" = '%s'
             ORDER BY "Year", "DOY", "NetworkCode", "StationCode"
-        ''' % (self.stack_name, self.network_code, self.station_code)
+        """ % (self.stack_name, self.network_code, self.station_code)
         return cnn.query_float(query)
 
     def _load_project_info(self, cnn) -> None:
         """Load project information"""
-        query = '''
+        query = """
             SELECT "Project" FROM stacks 
             WHERE name = '%s' AND "NetworkCode" = '%s' AND "StationCode" = '%s' 
             LIMIT 1
-        ''' % (self.stack_name, self.network_code, self.station_code)
+        """ % (self.stack_name, self.network_code, self.station_code)
         result = cnn.query_float(query, as_dict=True)
         if result:
-            self.project = result[0]['Project']
+            self.project = result[0]["Project"]
             self.config.solution.project = self.project
 
     def _process_polyhedrons(self, polyhedrons: List) -> None:
         """Process polyhedron data into coordinate arrays"""
         if not len(polyhedrons):
-            raise SolutionDataException(f"No GAMIT polyhedrons available for {self.get_station_id()} "
-                                        f"in stack {self.stack_name}")
+            raise SolutionDataException(
+                f"No GAMIT polyhedrons available for {self.get_station_id()} "
+                f"in stack {self.stack_name}"
+            )
 
         # Use shared processing method
         self._process_coordinate_solutions(polyhedrons, "GAMIT solutions")
 
     def _load_missing_solutions(self, cnn) -> None:
         """Load epochs with RINEX files but no solutions"""
-        query = '''
+        query = """
             SELECT r.* FROM rinex_proc as r
             LEFT JOIN stacks as p ON
                 r."NetworkCode" = p."NetworkCode" AND
@@ -603,11 +661,13 @@ class GAMITSolutionData(SolutionData):
                 p."name" = '%s'
             WHERE r."NetworkCode" = '%s' AND r."StationCode" = '%s' AND
                 p."NetworkCode" IS NULL
-        ''' % (self.stack_name, self.network_code, self.station_code)
+        """ % (self.stack_name, self.network_code, self.station_code)
 
         missing = cnn.query(query)
         self.rnx_no_ppp = missing.dictresult()
-        self.time_vector_ns = np.array([float(item['ObservationFYear']) for item in self.rnx_no_ppp])
+        self.time_vector_ns = np.array(
+            [float(item["ObservationFYear"]) for item in self.rnx_no_ppp]
+        )
 
         total_epochs = len(self.time_vector_ns) + len(self.time_vector)
         if total_epochs > 0:
@@ -632,8 +692,8 @@ class GAMITSolutionData(SolutionData):
 class DRASolutionData(GAMITSolutionData):
     def __init__(self, project: str, config: EtmConfig):
         super().__init__(project, config)
-        self.soln = 'gamit'
-        self.stack_name = f'DRA {project}'
+        self.soln = "gamit"
+        self.stack_name = f"DRA {project}"
         self.project = project
 
         # Update config to reflect which solution we are working with
@@ -650,35 +710,49 @@ class FileSolutionData(SolutionData):
 
     def __init__(self, config: EtmConfig):
         super().__init__(config)
-        self.soln = 'ngl'
-        self.stack_name = 'external file'
+        self.soln = "ngl"
+        self.stack_name = "external file"
         self.config = config
 
     def load_data(self, cnn: Cnn = None, **kwargs) -> None:
         """Load GAMIT solutions from database or polyhedron list"""
         # execute on a file with wk XYZ coordinates
 
-        logger.info(f'Loading from external file {self.config.solution.filename}')
+        logger.info(f"Loading from external file {self.config.solution.filename}")
 
         ts = np.genfromtxt(self.config.solution.filename)
 
-        dd = []; x = []; y = []; z = []
+        dd = []
+        x = []
+        y = []
+        z = []
         for k in ts:
             d = {}
             for i, f in enumerate(self.config.solution.format):
-                if f in ('gpsWeek', 'gpsWeekDay', 'year', 'doy', 'fyear', 'month', 'day', 'mjd'):
+                if f in (
+                    "gpsWeek",
+                    "gpsWeekDay",
+                    "year",
+                    "doy",
+                    "fyear",
+                    "month",
+                    "day",
+                    "mjd",
+                ):
                     d[f] = k[i]
-                if f == 'x':
+                if f == "x":
                     x.append(k[i])
-                elif f == 'y':
+                elif f == "y":
                     y.append(k[i])
-                elif f == 'z':
+                elif f == "z":
                     z.append(k[i])
             dd.append(d)
 
         dd = [Date(**d) for d in dd]
 
-        polyhedrons = np.array((x, y, z, [d.year for d in dd], [d.doy for d in dd])).transpose()
+        polyhedrons = np.array(
+            (x, y, z, [d.year for d in dd], [d.doy for d in dd])
+        ).transpose()
 
         self._process_polyhedrons(polyhedrons.tolist())
 
@@ -687,8 +761,10 @@ class FileSolutionData(SolutionData):
     def _process_polyhedrons(self, polyhedrons: List) -> None:
         """Process polyhedron data into coordinate arrays"""
         if not polyhedrons:
-            raise SolutionDataException(f"No solution available for {self.get_station_id()} "
-                                        f"in {self.config.solution.filename}")
+            raise SolutionDataException(
+                f"No solution available for {self.get_station_id()} "
+                f"in {self.config.solution.filename}"
+            )
 
         # Use shared processing method
         self._process_coordinate_solutions(polyhedrons, "Text file solutions")

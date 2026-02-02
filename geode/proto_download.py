@@ -1,6 +1,6 @@
 """
 Project: Geodesy Database Engine (GeoDE)
-Date: 10/18/24 11:53 AM 
+Date: 10/18/24 11:53 AM
 Author: Demian D. Gomez
 
 Description goes here
@@ -8,37 +8,43 @@ Description goes here
 """
 
 # deps
-from typing import NamedTuple, Optional
-import threading
-import requests
-from abc import ABC, abstractmethod
-import ftplib
-import socket
-import paramiko
-import errno
 import _thread
-import subprocess
-import shutil
+import errno
+import ftplib
 import os
+import shutil
+import socket
+import subprocess
+import threading
 import time
-from tqdm import tqdm
 import traceback
+from abc import ABC, abstractmethod
+from typing import NamedTuple, Optional
+
+import paramiko
+import requests
+from tqdm import tqdm
 
 # app
-from .Utils import  file_try_remove, dir_try_remove
+from .Utils import file_try_remove
 
-SERVER_REFRESH_INTERVAL      = 2   # in seconds
-SERVER_CONNECTION_TIMEOUT    = 20  # in seconds
-SERVER_RECONNECTION_INTERVAL = 3   # in seconds
-SERVER_MAX_RECONNECTIONS     = 8
+SERVER_REFRESH_INTERVAL = 2  # in seconds
+SERVER_CONNECTION_TIMEOUT = 20  # in seconds
+SERVER_RECONNECTION_INTERVAL = 3  # in seconds
+SERVER_MAX_RECONNECTIONS = 8
 
 DEBUG = False
 
 
 class IProtocol(ABC):
-    def __init__(self, protocol: str,
-                 fqdn: str, port: int,
-                 username: Optional[str], password: Optional[str]):
+    def __init__(
+        self,
+        protocol: str,
+        fqdn: str,
+        port: int,
+        username: Optional[str],
+        password: Optional[str],
+    ):
         self.protocol = protocol
         self.fqdn = fqdn
         self.port = port
@@ -46,8 +52,11 @@ class IProtocol(ABC):
         self.password = password
 
     def desc(self):
-        return "%s://%s%s" % (self.protocol, self.username + "@" if self.username else '',
-                              self.fqdn)
+        return "%s://%s%s" % (
+            self.protocol,
+            self.username + "@" if self.username else "",
+            self.fqdn,
+        )
 
     @abstractmethod
     def connect(self):
@@ -69,6 +78,7 @@ class IProtocol(ABC):
     def disconnect(self):
         pass
 
+
 # -------
 # FTP
 # -------
@@ -78,7 +88,7 @@ class ProtocolFTP(IProtocol):
     DEFAULT_PORT = 21
 
     def __init__(self, *args, **kargs):
-        super(ProtocolFTP, self).__init__('ftp', *args, **kargs)
+        super(ProtocolFTP, self).__init__("ftp", *args, **kargs)
         # timeout here is for all socket operations, not only connection
         self.ftp = ftplib.FTP(timeout=SERVER_CONNECTION_TIMEOUT)
 
@@ -93,15 +103,17 @@ class ProtocolFTP(IProtocol):
         # "421 Timeout (no operation for 1800 seconds)" even when
         # we send PWD's. So here we also other commands.
         self.ftp.pwd()
-        self.ftp.sendcmd('NOOP')
+        self.ftp.sendcmd("NOOP")
         # self.ftp.sendcmd('STAT')
 
     @staticmethod
     def _check_critical_error(reply: str):
         code = reply[:3]
-        if code in ('530',  # Not logged in
-                    '332',  # Need account for login.
-                    '425'):  # Can't open data connection.
+        if code in (
+            "530",  # Not logged in
+            "332",  # Need account for login.
+            "425",
+        ):  # Can't open data connection.
             # https://datatracker.ietf.org/doc/html/rfc959
             # Critical errors, must break the connection
             raise Exception(reply)
@@ -109,11 +121,11 @@ class ProtocolFTP(IProtocol):
     def download(self, server_path: str, dest_path: str):
         try:
             try:
-                with open(dest_path, 'wb') as f:
+                with open(dest_path, "wb") as f:
                     reply = self.ftp.retrbinary("RETR " + server_path, f.write)
                     self._check_critical_error(reply)
                     code = reply[:3]
-                    if code == '226':
+                    if code == "226":
                         return None
                     else:
                         return reply
@@ -165,7 +177,7 @@ class ProtocolSFTP(IProtocol):
     DEFAULT_PORT = 22
 
     def __init__(self, *args, **kargs):
-        super(ProtocolSFTP, self).__init__('sftp', *args, **kargs)
+        super(ProtocolSFTP, self).__init__("sftp", *args, **kargs)
         self.transport = None
         self.sftp = None
 
@@ -183,7 +195,7 @@ class ProtocolSFTP(IProtocol):
 
     def refresh(self):
         # Must use stat, paramiko has no real cwd()
-        self.sftp.stat('.')
+        self.sftp.stat(".")
 
     def download(self, server_path: str, dest_path: str):
         try:
@@ -214,7 +226,7 @@ class ProtocolSFTP(IProtocol):
 class ProtocolHTTP(IProtocol):
     DEFAULT_PORT = 80
 
-    def __init__(self, *args, protocol='http', **kargs):
+    def __init__(self, *args, protocol="http", **kargs):
         super(ProtocolHTTP, self).__init__(protocol, *args, **kargs)
 
         # NASA server is problematic. It never sends a "401 Unauthorized" response
@@ -241,7 +253,7 @@ class ProtocolHTTP(IProtocol):
             # HTTP Basic Authorization
             self.session.auth = (self.username, self.password)
 
-        self.base_url = protocol + '://%s:%s' % (self.fqdn, self.port)
+        self.base_url = protocol + "://%s:%s" % (self.fqdn, self.port)
 
     def connect(self):
         pass
@@ -251,20 +263,25 @@ class ProtocolHTTP(IProtocol):
         pass
 
     def download(self, server_path: str, dest_path: str):
-
-        if 'gage' in self.base_url:
-            result = subprocess.run(['es', 'sso', 'access', '--token'], stdout=subprocess.PIPE)
-            gage_token = {'Authorization': 'Bearer ' + result.stdout.decode('utf-8').strip()}
+        if "gage" in self.base_url:
+            result = subprocess.run(
+                ["es", "sso", "access", "--token"], stdout=subprocess.PIPE
+            )
+            gage_token = {
+                "Authorization": "Bearer " + result.stdout.decode("utf-8").strip()
+            }
             # print(result.stdout.decode('utf-8'))
         else:
             gage_token = None
 
-        with self.session.get(self.base_url + server_path,
-                              stream=True,
-                              timeout=SERVER_CONNECTION_TIMEOUT,
-                              headers=gage_token) as r:
+        with self.session.get(
+            self.base_url + server_path,
+            stream=True,
+            timeout=SERVER_CONNECTION_TIMEOUT,
+            headers=gage_token,
+        ) as r:
             if 200 <= r.status_code <= 299:
-                with open(dest_path, 'wb') as f:
+                with open(dest_path, "wb") as f:
                     shutil.copyfileobj(r.raw, f)
                 return None
             else:
@@ -279,7 +296,7 @@ class ProtocolHTTP(IProtocol):
         if r.status_code == 200:
             return r.text
         else:
-            raise Exception('HTTP returned status code %i' % r.status_code)
+            raise Exception("HTTP returned status code %i" % r.status_code)
 
     def disconnect(self):
         self.session.close()
@@ -294,7 +311,7 @@ class ProtocolHTTPS(ProtocolHTTP):
     DEFAULT_PORT = 443
 
     def __init__(self, *args, **kargs):
-        super(ProtocolHTTPS, self).__init__(*args, protocol='https', **kargs)
+        super(ProtocolHTTPS, self).__init__(*args, protocol="https", **kargs)
 
 
 class Client:
@@ -308,30 +325,36 @@ class Client:
     state: str  # Literal['STARTED', 'STOP_PENDING', 'STOPPED', "FINISH_PENDING", "FINISHED"]
     next_download: Optional[NextDownload]
 
-    def __init__(self,
-                 on_download_result, on_client_stopped,
-                 server_id: int,
-                 protocol, host, port, username, password):
-
+    def __init__(
+        self,
+        on_download_result,
+        on_client_stopped,
+        server_id: int,
+        protocol,
+        host,
+        port,
+        username,
+        password,
+    ):
         self.on_download_result = on_download_result
         self.on_client_stopped = on_client_stopped
 
         self.server_id = server_id
         self.cond = threading.Condition()
-        self.state = 'STARTED'
+        self.state = "STARTED"
         self.next_download = None
 
-        protoClass = {'FTP': ProtocolFTP,
-                      'FTPA': ProtocolFTPA,
-                      'SFTP': ProtocolSFTP,
-                      'HTTP': ProtocolHTTP,
-                      'HTTPS': ProtocolHTTPS,
-                      }[protocol]
+        protoClass = {
+            "FTP": ProtocolFTP,
+            "FTPA": ProtocolFTPA,
+            "SFTP": ProtocolSFTP,
+            "HTTP": ProtocolHTTP,
+            "HTTPS": ProtocolHTTPS,
+        }[protocol]
 
-        self.proto = protoClass(host,
-                                port or protoClass.DEFAULT_PORT,
-                                username,
-                                password)
+        self.proto = protoClass(
+            host, port or protoClass.DEFAULT_PORT, username, password
+        )
 
     def start_thread(self):
         _thread.start_new_thread(self._client_thread, ())
@@ -339,25 +362,26 @@ class Client:
     def set_next_download(self, urlpath_file: str, abspath_down_file: str):
         with self.cond:
             assert not self.next_download
-            assert self.state not in ('FINISH_PENDING', 'FINISHED')
-            self.next_download = Client.NextDownload(urlpath_file=urlpath_file,
-                                                     abspath_down_file=abspath_down_file)
+            assert self.state not in ("FINISH_PENDING", "FINISHED")
+            self.next_download = Client.NextDownload(
+                urlpath_file=urlpath_file, abspath_down_file=abspath_down_file
+            )
             self.cond.notify()
 
     def stop(self):
         with self.cond:
-            if self.state != 'STOPPED':
-                self.state = 'STOP_PENDING'
+            if self.state != "STOPPED":
+                self.state = "STOP_PENDING"
                 self.cond.notify()
 
     def finish(self):
         with self.cond:
-            if self.state != 'FINISHED':
-                self.state = 'FINISH_PENDING'
+            if self.state != "FINISHED":
+                self.state = "FINISH_PENDING"
                 self.cond.notify()
 
     def _client_thread(self):
-        prefix = '[SERVER-%03d]' % self.server_id
+        prefix = "[SERVER-%03d]" % self.server_id
         conn_retries = 0
         connected = False
 
@@ -374,22 +398,25 @@ class Client:
             while True:
                 try:
                     conn_retries += 1
-                    postfix = '(try #%d/%d) to: %s' % (conn_retries, SERVER_MAX_RECONNECTIONS,
-                                                       self.proto.desc())
-                    tqdm.write('%s CONNECTING %s' % (prefix, postfix))
+                    postfix = "(try #%d/%d) to: %s" % (
+                        conn_retries,
+                        SERVER_MAX_RECONNECTIONS,
+                        self.proto.desc(),
+                    )
+                    tqdm.write("%s CONNECTING %s" % (prefix, postfix))
                     self.proto.connect()
                     connected = True
-                    tqdm.write('%s CONNECT OK %s' % (prefix, postfix))
+                    tqdm.write("%s CONNECT OK %s" % (prefix, postfix))
 
                     while True:
                         f = None
 
                         with self.cond:
-                            if not self.next_download and self.state != 'STOP_PENDING':
+                            if not self.next_download and self.state != "STOP_PENDING":
                                 self.cond.wait(timeout=SERVER_REFRESH_INTERVAL)
 
                             f = self.next_download
-                            if not f and self.state == 'STOP_PENDING':
+                            if not f and self.state == "STOP_PENDING":
                                 return
 
                         if not f:
@@ -403,14 +430,17 @@ class Client:
 
                         # tqdm.write('%s Downloading %s to %s' % (prefix, f.urlpath_file, f.abspath_down_file))
                         if DEBUG:
-                            tqdm.write('%s Download start: %s' % (prefix, f.urlpath_file))
+                            tqdm.write(
+                                "%s Download start: %s" % (prefix, f.urlpath_file)
+                            )
 
                         t_elapsed = size = 0
                         t_start = time.time()
                         error = None
                         try:
-                            error = self.proto.download(f.urlpath_file,
-                                                        f.abspath_down_file)
+                            error = self.proto.download(
+                                f.urlpath_file, f.abspath_down_file
+                            )
                             t_elapsed = time.time() - t_start
                             if not error:
                                 size = os.path.getsize(f.abspath_down_file)
@@ -425,27 +455,43 @@ class Client:
                                 file_try_remove(f.abspath_down_file)
 
                         if DEBUG:
-                            tqdm.write('%s %s %s' % (prefix,
-                                                     "Transfer OK!" if not error else "ERROR: " + error,
-                                                     f.urlpath_file))
+                            tqdm.write(
+                                "%s %s %s"
+                                % (
+                                    prefix,
+                                    "Transfer OK!" if not error else "ERROR: " + error,
+                                    f.urlpath_file,
+                                )
+                            )
 
                         with self.cond:
                             self.next_download = None
 
-                        while not self.on_download_result(self.server_id,
-                                                          None if not error else error,
-                                                          t_elapsed,
-                                                          size,
-                                                          timeout=SERVER_REFRESH_INTERVAL):
+                        while not self.on_download_result(
+                            self.server_id,
+                            None if not error else error,
+                            t_elapsed,
+                            size,
+                            timeout=SERVER_REFRESH_INTERVAL,
+                        ):
                             try:
                                 self.proto.refresh()
                             except:
                                 pass
 
                 except:
-                    tqdm.write("%s CONNECTION ERROR (try #%d/%d) to %s:\n%s\n %s%s" %
-                               (prefix, conn_retries, SERVER_MAX_RECONNECTIONS, self.proto.desc(),
-                                '~' * 70, traceback.format_exc(), '~' * 70))
+                    tqdm.write(
+                        "%s CONNECTION ERROR (try #%d/%d) to %s:\n%s\n %s%s"
+                        % (
+                            prefix,
+                            conn_retries,
+                            SERVER_MAX_RECONNECTIONS,
+                            self.proto.desc(),
+                            "~" * 70,
+                            traceback.format_exc(),
+                            "~" * 70,
+                        )
+                    )
 
                     if conn_retries < SERVER_MAX_RECONNECTIONS:
                         try_proto_disconnect()
@@ -464,7 +510,7 @@ class Client:
                 f = None
                 state = None
                 with self.cond:
-                    if not self.next_download and self.state != 'FINISH_PENDING':
+                    if not self.next_download and self.state != "FINISH_PENDING":
                         self.cond.wait()
 
                     f = self.next_download
@@ -476,8 +522,7 @@ class Client:
                     self.on_download_result(self.server_id, "Connection STOPPED")
                     with self.cond:
                         self.next_download = None
-                elif state == 'FINISH_PENDING':
+                elif state == "FINISH_PENDING":
                     with self.cond:
-                        self.state = 'FINISHED'
+                        self.state = "FINISHED"
                     return
-

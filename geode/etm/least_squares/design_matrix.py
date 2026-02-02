@@ -1,30 +1,33 @@
-from typing import List, Tuple, Union
-import numpy as np
 import logging
+from typing import List, Tuple, Union
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
 # app
 from ...pyDate import Date
-from ..core.etm_config import  EtmConfig
-from ..etm_functions.etm_function import EtmFunction
+from ..core.etm_config import EtmConfig
 from ..core.type_declarations import FitStatus
+from ..etm_functions.etm_function import EtmFunction
+
 
 class DesignMatrixException(Exception):
     pass
+
 
 # ============================================================================
 # Enhanced Design Matrix
 # ============================================================================
 
+
 # design_matrix.py
 class DesignMatrix:
     """Enhanced design matrix with validation and optimization"""
 
-    def __init__(self, config: EtmConfig,
-                 time_vector: np.ndarray,
-                 functions: List[EtmFunction]):
-
+    def __init__(
+        self, config: EtmConfig, time_vector: np.ndarray, functions: List[EtmFunction]
+    ):
         self.time_vector = time_vector
         self.functions = functions
         self.config = config
@@ -54,7 +57,7 @@ class DesignMatrix:
     def get_periodic(self) -> Union[None, EtmFunction]:
         """return the periodic object in the design matrix"""
         for f in self.functions:
-            if f.p.object == 'periodic':
+            if f.p.object == "periodic":
                 return f
 
         return None
@@ -62,7 +65,7 @@ class DesignMatrix:
     def get_polynomial(self) -> Union[None, EtmFunction]:
         """return the periodic object in the design matrix"""
         for f in self.functions:
-            if f.p.object == 'polynomial':
+            if f.p.object == "polynomial":
                 return f
 
         return None
@@ -106,40 +109,58 @@ class DesignMatrix:
             for f in self.functions:
                 if funct.p.object == f.p.object and f.fit:
                     # functions of same type. Simplify jump comparison to just date, ignore time
-                    if (f.p.object == 'jump' and
-                        Date(datetime=f.p.jump_date) == Date(datetime=funct.p.jump_date)) or f.p.object != 'jump':
+                    if (
+                        f.p.object == "jump"
+                        and Date(datetime=f.p.jump_date)
+                        == Date(datetime=funct.p.jump_date)
+                    ) or f.p.object != "jump":
                         # check if target jump_type is the same as incoming constraint
                         # it is possible that user is trying to constrain a relaxation with a jump from a station
                         # with both jump and relaxation. If that is the case, we need to reduce the object to remove
                         # the jump and avoid conflicts with function in the current ETM
-                        if f.p.object == 'jump' and funct.p.jump_type != f.p.jump_type:
+                        if f.p.object == "jump" and funct.p.jump_type != f.p.jump_type:
                             # see what type of reduction is needed
-                            logger.debug(f'Changing constraint jump_type from {funct.p.jump_type.description} to '
-                                         f'{f.p.jump_type.description} to match ETM')
-                            funct.configure_behavior({'jump_type': f.p.jump_type})
+                            logger.debug(
+                                f"Changing constraint jump_type from {funct.p.jump_type.description} to "
+                                f"{f.p.jump_type.description} to match ETM"
+                            )
+                            funct.configure_behavior({"jump_type": f.p.jump_type})
 
                         # find the columns and add ones
                         # params with NaNs are not constrained
-                        c_params = int(np.sum(np.logical_not(np.isnan(funct.p.params[comp]))))
+                        c_params = int(
+                            np.sum(np.logical_not(np.isnan(funct.p.params[comp])))
+                        )
                         nt = np.zeros((c_params, params))
                         pt = np.zeros((c_params, c_params))
                         k = 0
                         for i in range(f.param_count):
-                            if len(funct.p.params[comp]) > i and not np.isnan(funct.p.params[comp][i]):
+                            if len(funct.p.params[comp]) > i and not np.isnan(
+                                funct.p.params[comp][i]
+                            ):
                                 # flag component as constrained
                                 f.constrained[comp] = True
 
                                 j = f.column_index[i]
-                                logger.info(f'Constraining column {j} for {repr(f)} to {funct.p.params[comp][i]:.5f} '
-                                            f'sigma {funct.p.sigmas[comp][i]:.8f} using constraint {repr(funct)}')
-                                nt[k, j:j+1] = 1
+                                logger.info(
+                                    f"Constraining column {j} for {repr(f)} to {funct.p.params[comp][i]:.5f} "
+                                    f"sigma {funct.p.sigmas[comp][i]:.8f} using constraint {repr(funct)}"
+                                )
+                                nt[k, j : j + 1] = 1
                                 # pseudo observation weights
                                 pt[k, k] = 1 / funct.p.sigmas[comp][i] ** 2
                                 k += 1
 
                         # create vector for A.T @ P @ L
-                        n = n + nt.T  @ pt @ nt
-                        c = c + nt.T  @ pt @ funct.p.params[comp][np.logical_not(np.isnan(funct.p.params[comp]))]
+                        n = n + nt.T @ pt @ nt
+                        c = (
+                            c
+                            + nt.T
+                            @ pt
+                            @ funct.p.params[comp][
+                                np.logical_not(np.isnan(funct.p.params[comp]))
+                            ]
+                        )
                         self.total_constraints += 1
                         break
 
@@ -156,8 +177,10 @@ class DesignMatrix:
         # config.modeling.status == POSTFIT the size (column count) matrix cannot change
         #   only the jump function is affected by changing the time window
 
-        if (self.config.modeling.status == FitStatus.PREFIT and
-            self.config.modeling.data_model_window is not None):
+        if (
+            self.config.modeling.status == FitStatus.PREFIT
+            and self.config.modeling.data_model_window is not None
+        ):
             # pulling matrix in prefit mode, apply window filter
             mask = self.config.modeling.get_observation_mask(time_vector)
         else:
@@ -225,13 +248,19 @@ class DesignMatrix:
 
         if rank < matrix.shape[1]:
             self.rank_deficient = True
-            logger.warning(f"Design matrix is rank deficient: rank={rank}, cols={matrix.shape[1]}")
+            logger.warning(
+                f"Design matrix is rank deficient: rank={rank}, cols={matrix.shape[1]}"
+            )
             # create an exception that can be caught and treated
-            raise DesignMatrixException(f"Design matrix is rank deficient: rank={rank}, cols={self.matrix.shape[1]}")
+            raise DesignMatrixException(
+                f"Design matrix is rank deficient: rank={rank}, cols={self.matrix.shape[1]}"
+            )
 
         # Check condition number
         self.condition_number = self._compute_condition_number(matrix)
-        logger.debug(f"Design matrix log10 condition number: {self.condition_number:.1f}")
+        logger.debug(
+            f"Design matrix log10 condition number: {self.condition_number:.1f}"
+        )
         if self.condition_number > self.config.validation.max_condition_number:
             logger.warning(f"High condition number: {self.condition_number:.1f}")
 
@@ -248,7 +277,7 @@ class DesignMatrix:
         i = 0
         for func in self.functions:
             if func.fit and type(func) in function_types:
-                columns.extend(range(i, i+func.param_count))
+                columns.extend(range(i, i + func.param_count))
             else:
                 i += func.param_count
 

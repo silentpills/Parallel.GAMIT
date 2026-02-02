@@ -7,44 +7,49 @@ Modified from
 # Date:  September 12, 2014
 # Organization:  JPL, Caltech
 """
-from typing import List
-from sklearn.cluster import DBSCAN
-import numpy as np
+
 import logging
+from typing import List
+
+import numpy as np
+from sklearn.cluster import DBSCAN
 
 logger = logging.getLogger(__name__)
 
+from ...pyDate import Date
 from ..core.etm_config import EtmConfig
 from ..core.type_declarations import JumpType
 from ..etm_functions.jumps import JumpFunction
-from ...pyDate import Date
 
 
 class AutoJumps:
     """
     Class to find jumps automatically
     """
-    def __init__(self, config: EtmConfig,
-                 method: str = 'angry'):
+
+    def __init__(self, config: EtmConfig, method: str = "angry"):
         self.config = config
         self.jumps = []
         self.method = method
 
-        logger.info('Detecting jumps using method ' + method)
+        logger.info("Detecting jumps using method " + method)
 
     def detect(self, time_vector: np.ndarray, observations: List[np.ndarray]):
-        if self.method.lower() == 'angry':
+        if self.method.lower() == "angry":
             self._angry_search(time_vector, observations)
-        elif self.method.lower() == 'dbscan':
+        elif self.method.lower() == "dbscan":
             self._dbscan(time_vector, observations)
         else:
-            raise TypeError('auto detection method not implemented')
+            raise TypeError("auto detection method not implemented")
 
         return self.jumps
 
-    def _angry_search(self, time_vector: np.ndarray,
-                      observations: List[np.ndarray],
-                      ftest: float = 300.):
+    def _angry_search(
+        self,
+        time_vector: np.ndarray,
+        observations: List[np.ndarray],
+        ftest: float = 300.0,
+    ):
         # Initialize
         I = []
         L = []
@@ -103,15 +108,22 @@ class AutoJumps:
         L.sort(key=float)
 
         for j in L:
-            self.jumps.append(JumpFunction(
-                self.config,
-                metadata='auto-jump',
-                time_vector=time_vector,
-                date=Date(fyear=j),
-                jump_type=JumpType.AUTO_DETECTED
-            ))
+            self.jumps.append(
+                JumpFunction(
+                    self.config,
+                    metadata="auto-jump",
+                    time_vector=time_vector,
+                    date=Date(fyear=j),
+                    jump_type=JumpType.AUTO_DETECTED,
+                )
+            )
 
-    def _dbscan(self, time_vector: np.ndarray, observations: List[np.ndarray], eps_value: float = 0.003):
+    def _dbscan(
+        self,
+        time_vector: np.ndarray,
+        observations: List[np.ndarray],
+        eps_value: float = 0.003,
+    ):
         # scale the time to match the scale of the gnss positions
         time_scaled = (time_vector - time_vector.min()) / (1 / 365.25) * 0.0001
 
@@ -128,21 +140,24 @@ class AutoJumps:
         n_cluster_labels = dbscan.fit_predict(N_data)
 
         # from the detected jumps, remove duplicates with a +- 2 day difference
-        jump_times = self._find_sets(self._find_jumps(e_cluster_labels, time_vector) +
-                                              self._find_jumps(n_cluster_labels, time_vector))
+        jump_times = self._find_sets(
+            self._find_jumps(e_cluster_labels, time_vector)
+            + self._find_jumps(n_cluster_labels, time_vector)
+        )
         jump_times.sort()
 
         for j in jump_times:
-            self.jumps.append(JumpFunction(
-                self.config,
-                metadata='auto-jump',
-                time_vector=time_vector,
-                date=Date(fyear=j),
-                jump_type=JumpType.AUTO_DETECTED
-            ))
+            self.jumps.append(
+                JumpFunction(
+                    self.config,
+                    metadata="auto-jump",
+                    time_vector=time_vector,
+                    date=Date(fyear=j),
+                    jump_type=JumpType.AUTO_DETECTED,
+                )
+            )
 
     def _find_jumps(self, cluster_labels, time):
-
         jump_times = []
         p_cluster = 0
         p_time = 0

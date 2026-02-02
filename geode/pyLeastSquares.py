@@ -15,6 +15,7 @@ from .Utils import ct2lg
 
 LIMIT = 2.5
 
+
 # @todo: replace with new lsq in etm.least_squares
 def adjust_lsq(A, L, limit=LIMIT):
     factor = 1.0

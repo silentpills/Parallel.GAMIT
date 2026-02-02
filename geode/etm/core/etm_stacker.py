@@ -3,60 +3,62 @@ Project: Geodesy Database Engine (GeoDE)
 Date: 10/26/25 9:10AM
 Author: Demian D. Gomez
 """
-import os.path
-from functools import total_ordering
-from typing import List, Tuple, Dict, Union, Callable
-from dataclasses import dataclass, field
-import numpy as np
-import logging
-from abc import ABC, abstractmethod
-from enum import Enum
+
 import copy
-import time
+import logging
+import os.path
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Callable, Dict, List, Tuple, Union
 
 import matplotlib
+import numpy as np
 import numpy.linalg.linalg
 
-matplotlib.use('TkAgg')
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 from matplotlib.path import Path
+from scipy.interpolate import griddata
 from scipy.spatial import ConvexHull
 from scipy.stats import iqr
-from scipy.interpolate import griddata
-from tqdm import tqdm
 from shapely.geometry import Polygon
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
-logging.getLogger('geode.etm.core.etm_stacker').setLevel(logging.DEBUG)
+logging.getLogger("geode.etm.core.etm_stacker").setLevel(logging.DEBUG)
 
 from ...dbConnection import Cnn
-from .etm_engine import EtmEngine
-from .etm_config import EtmConfig
-from ..etm_functions.polynomial import PolynomialFunction
-from ..data.solution_data import SolutionDataException
-from ..etm_functions.periodic import PeriodicFunction
-from ..visualization.plot_fields import plot_velocity_field, mask_ocean_points
-from ..etm_functions.jumps import JumpFunction
-from .type_declarations import SolutionType, JumpType, FitStatus
-from .data_classes import BaseDataClass, Earthquake, AdjustmentResults
-from ..least_squares.design_matrix import DesignMatrixException
-from ...elasticity.elastic_interpolation import get_qpw, get_radius, spline2dgreen
 from ...elasticity.diskload import compute_diskload, load_love_numbers
+from ...elasticity.elastic_interpolation import get_qpw, get_radius, spline2dgreen
 from ...elasticity.green_func import build_design_matrix
 from ...elasticity.rectloadhs import mrectloadhs_dif
-from ...Utils import stationID, azimuthal_equidistant, print_yellow, inverse_azimuthal
 from ...pyDate import Date
 from ...pyOkada import Mask
+from ...Utils import azimuthal_equidistant, inverse_azimuthal, print_yellow, stationID
+from ..data.solution_data import SolutionDataException
+from ..etm_functions.jumps import JumpFunction
+from ..etm_functions.periodic import PeriodicFunction
+from ..etm_functions.polynomial import PolynomialFunction
+from ..least_squares.design_matrix import DesignMatrixException
+from ..visualization.plot_fields import mask_ocean_points, plot_velocity_field
+from .data_classes import AdjustmentResults, BaseDataClass, Earthquake
+from .etm_config import EtmConfig
+from .etm_engine import EtmEngine
+from .type_declarations import FitStatus, JumpType, SolutionType
 
 MISSING_DAYS_TOLERANCE = 3
+
 
 class EtmStackerException(Exception):
     pass
 
 
-def fill_region_with_grid(x_points, y_points, radius, apply_buffer=True) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def fill_region_with_grid(
+    x_points, y_points, radius, apply_buffer=True
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Fill the convex hull of scattered points with a square grid.
     Circles centered on these points with the given radius will just touch.
@@ -92,7 +94,7 @@ def fill_region_with_grid(x_points, y_points, radius, apply_buffer=True) -> Tupl
     if apply_buffer:
         poly = Polygon(hull_points)
         offset_distance = radius * 4
-        expanded_poly = poly.buffer(offset_distance, join_style='mitre')
+        expanded_poly = poly.buffer(offset_distance, join_style="mitre")
         expanded_hull_points = np.array(expanded_poly.exterior.coords[:-1])
 
         hull_x = expanded_hull_points[:, 0]
@@ -138,34 +140,44 @@ def visualize_disks(x_points, y_points, hull_x, hull_y, grid_x, grid_y, radius):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
 
     # Left plot: Scattered points, convex hull, and grid points
-    ax1.plot(np.append(hull_x, hull_x[0]), np.append(hull_y, hull_y[0]),
-             'b-', linewidth=2, label='Convex Hull')
-    ax1.plot(grid_x, grid_y, 'ro', markersize=4, label='Grid Points')
-    ax1.plot(x_points, y_points, 'bo', markersize=5, label='Scattered Points')
-    ax1.set_aspect('equal')
+    ax1.plot(
+        np.append(hull_x, hull_x[0]),
+        np.append(hull_y, hull_y[0]),
+        "b-",
+        linewidth=2,
+        label="Convex Hull",
+    )
+    ax1.plot(grid_x, grid_y, "ro", markersize=4, label="Grid Points")
+    ax1.plot(x_points, y_points, "bo", markersize=5, label="Scattered Points")
+    ax1.set_aspect("equal")
     ax1.grid(True, alpha=0.3)
     ax1.legend()
-    ax1.set_title('Region with Grid Points')
-    ax1.set_xlabel('X')
-    ax1.set_ylabel('Y')
+    ax1.set_title("Region with Grid Points")
+    ax1.set_xlabel("X")
+    ax1.set_ylabel("Y")
 
     # Right plot: Convex hull with circles
-    ax2.plot(np.append(hull_x, hull_x[0]), np.append(hull_y, hull_y[0]),
-             'b-', linewidth=2, label='Convex Hull')
+    ax2.plot(
+        np.append(hull_x, hull_x[0]),
+        np.append(hull_y, hull_y[0]),
+        "b-",
+        linewidth=2,
+        label="Convex Hull",
+    )
 
     # Draw circles at each grid point
     for x, y in zip(grid_x, grid_y):
-        circle = Circle((x, y), radius, fill=False, edgecolor='red', alpha=0.6)
+        circle = Circle((x, y), radius, fill=False, edgecolor="red", alpha=0.6)
         ax2.add_patch(circle)
 
     # Plot centers
-    ax2.plot(grid_x, grid_y, 'ko', markersize=2, alpha=0.5)
-    ax2.set_aspect('equal')
+    ax2.plot(grid_x, grid_y, "ko", markersize=2, alpha=0.5)
+    ax2.set_aspect("equal")
     ax2.grid(True, alpha=0.3)
     ax2.legend()
-    ax2.set_title(f'Circles with radius={radius:.3f} (just touching)')
-    ax2.set_xlabel('X')
-    ax2.set_ylabel('Y')
+    ax2.set_title(f"Circles with radius={radius:.3f} (just touching)")
+    ax2.set_xlabel("X")
+    ax2.set_ylabel("Y")
 
     # Set same limits for both plots
     x_margin = (np.max(hull_x) - np.min(hull_x)) * 0.1
@@ -187,14 +199,14 @@ def visualize_vectors(grid_x, grid_y, grid_vector):
     fig = plt.figure(figsize=(14, 6))
     ax1 = fig.add_subplot(111)
     # Left plot: Scattered points, convex hull, and grid points
-    ax1.plot(grid_x, grid_y, 'ro', markersize=4, label='Grid Points')
+    ax1.plot(grid_x, grid_y, "ro", markersize=4, label="Grid Points")
     ax1.quiver(grid_x, grid_y, grid_vector[0, :], grid_vector[1, :])
-    ax1.set_aspect('equal')
+    ax1.set_aspect("equal")
     ax1.grid(True, alpha=0.3)
     ax1.legend()
-    ax1.set_title('Region with Grid Points')
-    ax1.set_xlabel('X')
-    ax1.set_ylabel('Y')
+    ax1.set_title("Region with Grid Points")
+    ax1.set_xlabel("X")
+    ax1.set_ylabel("Y")
 
     plt.tight_layout()
     plt.show()
@@ -205,18 +217,24 @@ class CoseimicJumpFunction(JumpFunction):
     def __init__(self, config, time_vector, date):
         # invoking coseismic only jump because steps and decays are
         # applied on separate steps
-        super().__init__(config, time_vector=time_vector,
-                         date=date,
-                         jump_type=JumpType.COSEISMIC_ONLY,
-                         fit=True)
+        super().__init__(
+            config,
+            time_vector=time_vector,
+            date=date,
+            jump_type=JumpType.COSEISMIC_ONLY,
+            fit=True,
+        )
 
 
 class PostseismicJumpFunction(JumpFunction):
     def __init__(self, config, time_vector, date):
-        super().__init__(config, time_vector=time_vector,
-                         date=date,
-                         jump_type=JumpType.POSTSEISMIC_ONLY,
-                         fit=True)
+        super().__init__(
+            config,
+            time_vector=time_vector,
+            date=date,
+            jump_type=JumpType.POSTSEISMIC_ONLY,
+            fit=True,
+        )
 
 
 class ConstraintType(Enum):
@@ -232,7 +250,7 @@ class ConstraintType(Enum):
             ConstraintType.INTERSEISMIC: PolynomialFunction,
             ConstraintType.COSEISMIC: CoseimicJumpFunction,
             ConstraintType.POSTSEISMIC: PostseismicJumpFunction,
-            ConstraintType.PERIODIC: PeriodicFunction
+            ConstraintType.PERIODIC: PeriodicFunction,
         }
         return function_map.get(self, PolynomialFunction)
 
@@ -243,7 +261,7 @@ class ConstraintType(Enum):
             ConstraintType.INTERSEISMIC: "Interseismic",
             ConstraintType.COSEISMIC: "",
             ConstraintType.POSTSEISMIC: "",
-            ConstraintType.PERIODIC: "Periodic"
+            ConstraintType.PERIODIC: "Periodic",
         }
         return description_map.get(self, "Unknown")
 
@@ -251,14 +269,14 @@ class ConstraintType(Enum):
 @dataclass
 class EtmStackerField(BaseDataClass):
     base_type: ConstraintType
-    grids: 'GridSystem'
+    grids: "GridSystem"
     onset_date: Date = None
     event: Earthquake = None
     relaxation: float = None
     enu_field: np.ndarray = None
     enu_sigma: Union[np.ndarray, None] = None
     enu_covar: Union[np.ndarray, None] = None
-    constrain_stations: List['Station'] = field(default_factory=list)
+    constrain_stations: List["Station"] = field(default_factory=list)
     constrained_parameters: np.ndarray = None
     parameters_indices: np.ndarray = None
     convex_hull: np.ndarray = None
@@ -266,22 +284,24 @@ class EtmStackerField(BaseDataClass):
     @property
     def description(self) -> str:
         if self.base_type == ConstraintType.COSEISMIC:
-            event = f' {self.event.date.yyyyddd()} {self.event.id:.16}'
+            event = f" {self.event.date.yyyyddd()} {self.event.id:.16}"
         elif self.base_type == ConstraintType.POSTSEISMIC:
-            event = f' {self.event.date.yyyyddd()} {self.event.id:.16} ({self.relaxation:.3f})'
+            event = f" {self.event.date.yyyyddd()} {self.event.id:.16} ({self.relaxation:.3f})"
         else:
-            event = ''
+            event = ""
         return self.base_type.description + event
 
     @classmethod
-    def create_field(cls, stations: List['Station'],
-                     solution: np.ndarray,
-                     covariance: np.ndarray,
-                     grids: 'GridSystem',
-                     event: Earthquake = None,
-                     relaxation: np.ndarray = None,
-                     coseismic_constraint: 'CoseismicConstraint' = None):
-
+    def create_field(
+        cls,
+        stations: List["Station"],
+        solution: np.ndarray,
+        covariance: np.ndarray,
+        grids: "GridSystem",
+        event: Earthquake = None,
+        relaxation: np.ndarray = None,
+        coseismic_constraint: "CoseismicConstraint" = None,
+    ):
         # total parameters
         tp = solution.shape[1]
 
@@ -291,19 +311,25 @@ class EtmStackerField(BaseDataClass):
             # create array with indices of stations for covariance
             idx_ = np.concatenate((idx, idx + tp, idx + tp * 2))
             c = covariance[idx_][:, idx_]
-            velocity_field, velocity_sigma, velocity_cova = grids.interpolate_field(stations, v, c)
+            velocity_field, velocity_sigma, velocity_cova = grids.interpolate_field(
+                stations, v, c
+            )
 
-            return EtmStackerField(ConstraintType.INTERSEISMIC, grids,
-                                   enu_field=velocity_field,
-                                   enu_sigma=velocity_sigma,
-                                   constrain_stations=stations,
-                                   constrained_parameters=v,
-                                   parameters_indices=idx,
-                                   enu_covar=velocity_cova)
+            return EtmStackerField(
+                ConstraintType.INTERSEISMIC,
+                grids,
+                enu_field=velocity_field,
+                enu_sigma=velocity_sigma,
+                constrain_stations=stations,
+                constrained_parameters=v,
+                parameters_indices=idx,
+                enu_covar=velocity_cova,
+            )
 
         else:
             # get values and sigmas for each station
-            return_fields, idx = [], []; coseismic = {}
+            return_fields, idx = [], []
+            coseismic = {}
             for stn in stations:
                 par, _ = stn.get_constrained_jump(event, solution, covariance)
                 if par is not None:
@@ -317,21 +343,34 @@ class EtmStackerField(BaseDataClass):
                 idx_ = np.concatenate((idx, idx + tp, idx + tp * 2))
                 c = covariance[idx_][:, idx_]
                 # do the prediction
-                coseismic_field, coseismic_sigma, coseismic_covar = grids.predict_coseismic(event,
-                    list(coseismic.keys()), v, c, coseismic_constraint
+                coseismic_field, coseismic_sigma, coseismic_covar = (
+                    grids.predict_coseismic(
+                        event, list(coseismic.keys()), v, c, coseismic_constraint
+                    )
                 )
                 return_fields.append(
                     EtmStackerField(
-                        ConstraintType.COSEISMIC, grids, enu_field=coseismic_field, onset_date=event.date,
-                        enu_sigma=coseismic_sigma, constrain_stations=list(coseismic.keys()),
-                        event=event, constrained_parameters=v, parameters_indices=idx, enu_covar=coseismic_covar)
+                        ConstraintType.COSEISMIC,
+                        grids,
+                        enu_field=coseismic_field,
+                        onset_date=event.date,
+                        enu_sigma=coseismic_sigma,
+                        constrain_stations=list(coseismic.keys()),
+                        event=event,
+                        constrained_parameters=v,
+                        parameters_indices=idx,
+                        enu_covar=coseismic_covar,
+                    )
                 )
 
             # now do it for the postseismic fields
             for relax in relaxation:
-                idx = []; postseismic = {}
+                idx = []
+                postseismic = {}
                 for stn in stations:
-                    par, _ = stn.get_constrained_relax(event, relax, solution, covariance)
+                    par, _ = stn.get_constrained_relax(
+                        event, relax, solution, covariance
+                    )
                     if par is not None:
                         idx.append(stn.get_postseismic_column(event, relax))
                         postseismic[stn] = par
@@ -342,18 +381,28 @@ class EtmStackerField(BaseDataClass):
                     idx_ = np.concatenate((idx, idx + tp, idx + tp * 2))
                     c = covariance[idx_][:, idx_]
                     # do the interpolation
-                    postseismic_field, postseismic_sigma, postseismic_covar = grids.interpolate_field(
-                        list(postseismic.keys()), v, c, event)
+                    postseismic_field, postseismic_sigma, postseismic_covar = (
+                        grids.interpolate_field(list(postseismic.keys()), v, c, event)
+                    )
 
                     return_fields.append(
                         EtmStackerField(
-                            ConstraintType.POSTSEISMIC, grids, enu_field=postseismic_field, onset_date=event.date,
-                            enu_sigma=postseismic_sigma, constrain_stations=list(postseismic.keys()),
-                            event=event, relaxation=relax, constrained_parameters=v,
-                            parameters_indices=idx, enu_covar=postseismic_covar)
+                            ConstraintType.POSTSEISMIC,
+                            grids,
+                            enu_field=postseismic_field,
+                            onset_date=event.date,
+                            enu_sigma=postseismic_sigma,
+                            constrain_stations=list(postseismic.keys()),
+                            event=event,
+                            relaxation=relax,
+                            constrained_parameters=v,
+                            parameters_indices=idx,
+                            enu_covar=postseismic_covar,
+                        )
                     )
 
             return return_fields
+
     def get_interpolation_grid(self) -> Tuple[np.ndarray, np.ndarray]:
         if self.base_type == ConstraintType.INTERSEISMIC:
             return self.grids.interpolation_grid[0], self.grids.interpolation_grid[1]
@@ -362,20 +411,30 @@ class EtmStackerField(BaseDataClass):
         else:
             mask = self.grids.earthquake_masks[self.event.id][0]
 
-        return self.grids.interpolation_grid[0][mask], self.grids.interpolation_grid[1][mask]
+        return self.grids.interpolation_grid[0][mask], self.grids.interpolation_grid[1][
+            mask
+        ]
 
     def get_interpolation_grid_geographic(self) -> Tuple[np.ndarray, np.ndarray]:
         if self.base_type == ConstraintType.INTERSEISMIC:
-            return self.grids.interpolation_geographic[0], self.grids.interpolation_geographic[1]
+            return self.grids.interpolation_geographic[
+                0
+            ], self.grids.interpolation_geographic[1]
         elif self.base_type == ConstraintType.POSTSEISMIC:
             mask = self.grids.earthquake_masks[self.event.id][1]
         else:
             mask = self.grids.earthquake_masks[self.event.id][0]
 
-        return self.grids.interpolation_geographic[0][mask], self.grids.interpolation_geographic[1][mask]
+        return self.grids.interpolation_geographic[0][
+            mask
+        ], self.grids.interpolation_geographic[1][mask]
 
-    def get_values_geo(self, lon: float, lat: float) -> Tuple[Union[Tuple[np.ndarray, np.ndarray, np.ndarray], None],
-        Union[Tuple[np.ndarray, np.ndarray, np.ndarray], None]]:
+    def get_values_geo(
+        self, lon: float, lat: float
+    ) -> Tuple[
+        Union[Tuple[np.ndarray, np.ndarray, np.ndarray], None],
+        Union[Tuple[np.ndarray, np.ndarray, np.ndarray], None],
+    ]:
         """get the field value interpolated to input lon lat"""
         # first check if the station needs this field (CO or POST)
         if self.base_type in (ConstraintType.COSEISMIC, ConstraintType.POSTSEISMIC):
@@ -391,10 +450,15 @@ class EtmStackerField(BaseDataClass):
 
         return self.get_values_proj(x, y)
 
-    def get_values_proj(self,
-                        x: float,
-                        y: float) -> Union[Tuple[None, None],
-                        Tuple[Tuple[np.ndarray, np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]]:
+    def get_values_proj(
+        self, x: float, y: float
+    ) -> Union[
+        Tuple[None, None],
+        Tuple[
+            Tuple[np.ndarray, np.ndarray, np.ndarray],
+            Tuple[np.ndarray, np.ndarray, np.ndarray],
+        ],
+    ]:
         """get the field value interpolated to input x y"""
         # unpack the grid values
         xg, yg = self.get_interpolation_grid()
@@ -414,14 +478,20 @@ class EtmStackerField(BaseDataClass):
         valid[sorted_indices[10:]] = False
 
         if np.sum(valid) > 3:
-            ve_int = griddata((xg[valid], yg[valid]), ve[valid], (x, y), method='cubic')
-            vn_int = griddata((xg[valid], yg[valid]), vn[valid], (x, y), method='cubic')
-            vu_int = griddata((xg[valid], yg[valid]), vu[valid], (x, y), method='cubic')
+            ve_int = griddata((xg[valid], yg[valid]), ve[valid], (x, y), method="cubic")
+            vn_int = griddata((xg[valid], yg[valid]), vn[valid], (x, y), method="cubic")
+            vu_int = griddata((xg[valid], yg[valid]), vu[valid], (x, y), method="cubic")
             # now interpolate sigmas
             if self.enu_sigma is not None:
-                se_int = griddata((xg[valid], yg[valid]), se[valid], (x, y), method='cubic')
-                sn_int = griddata((xg[valid], yg[valid]), sn[valid], (x, y), method='cubic')
-                su_int = griddata((xg[valid], yg[valid]), su[valid], (x, y), method='cubic')
+                se_int = griddata(
+                    (xg[valid], yg[valid]), se[valid], (x, y), method="cubic"
+                )
+                sn_int = griddata(
+                    (xg[valid], yg[valid]), sn[valid], (x, y), method="cubic"
+                )
+                su_int = griddata(
+                    (xg[valid], yg[valid]), su[valid], (x, y), method="cubic"
+                )
 
             if not np.isnan(ve_int):
                 if self.base_type == ConstraintType.INTERSEISMIC:
@@ -457,8 +527,14 @@ class EtmStackerField(BaseDataClass):
 
         return (ve_out, vn_out, vu_out), (se_out, sn_out, su_out)
 
-    def get_etm_function(self, lon: float, lat: float, time_vector: np.ndarray,
-                         network_code: str = '', station_code: str = ''):
+    def get_etm_function(
+        self,
+        lon: float,
+        lat: float,
+        time_vector: np.ndarray,
+        network_code: str = "",
+        station_code: str = "",
+    ):
         """
         given a position in lat lon and a time vector (optionally provide a network and station code)
         get the corresponding EtmFunction
@@ -479,7 +555,9 @@ class EtmStackerField(BaseDataClass):
                 # dummy covariance matrix
                 result[i].covariance_matrix = np.ones((2, 2))
 
-            funct = self.base_type.function(config=config, time_vector=time_vector, date=self.onset_date)
+            funct = self.base_type.function(
+                config=config, time_vector=time_vector, date=self.onset_date
+            )
 
             funct.column_index = np.arange(0, funct.param_count)
             funct.load_parameters(result)
@@ -521,19 +599,20 @@ class EtmStackerConfig(BaseDataClass):
     station_weight_scale: float = 1.0
     interseismic_h_sigma: float = 0.0005
     interseismic_v_sigma: float = 0.001
-    coseismic_h_sigma: float = 10.
-    coseismic_v_sigma: float = 10.
+    coseismic_h_sigma: float = 10.0
+    coseismic_v_sigma: float = 10.0
     postseismic_h_sigma: float = 0.001
     postseismic_v_sigma: float = 0.003
-    vertical_method: str = 'spline2d'
-    vertical_load_radius: float = 50 # in km
+    vertical_method: str = "spline2d"
+    vertical_load_radius: float = 50  # in km
     tension: float = 0.10
-    grid_spacing: float = 25 # in km
+    grid_spacing: float = 25  # in km
 
 
 @dataclass
 class NormalEquations:
     """Holds normal equation components for a station"""
+
     station: str
     # stored as ENU
     neq: List[np.ndarray] = field(
@@ -543,9 +622,7 @@ class NormalEquations:
     ceq: List[np.ndarray] = field(
         default_factory=lambda: [np.array([]), np.array([]), np.array([])]
     )
-    design_matrix: np.ndarray = field(
-        default_factory=lambda: np.array([])
-    )
+    design_matrix: np.ndarray = field(default_factory=lambda: np.array([]))
     # stored as ENU
     observation_vector: List[np.ndarray] = field(
         default_factory=lambda: [np.array([]), np.array([]), np.array([])]
@@ -553,27 +630,22 @@ class NormalEquations:
     observation_weights: List[np.ndarray] = field(
         default_factory=lambda: [np.array([]), np.array([]), np.array([])]
     )
-    weighted_observations: List[float] = field(
-        default_factory=lambda: [0., 0., 0.]
-    )
+    weighted_observations: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
     weight_scale: float = 1.0
     dof: int = 0
-    prior_wrms: List[float] = field(
-        default_factory=lambda: [0., 0., 0.]
-    )
+    prior_wrms: List[float] = field(default_factory=lambda: [0.0, 0.0, 0.0])
 
     parameter_count: int = 0
     equation_count: int = 0
     parameter_start_idx: int = 0
     # range of indices in the general normal equations matrix
-    parameter_range: List[np.ndarray] = field(
-        default_factory=lambda: [np.array([])]
-    )
+    parameter_range: List[np.ndarray] = field(default_factory=lambda: [np.array([])])
 
 
 @dataclass
 class Station:
     """Pure data about a station - no computation logic"""
+
     network_code: str
     station_code: str
     lon: float
@@ -583,7 +655,7 @@ class Station:
     normal_equations: NormalEquations = None
 
     # Geometric properties
-    projected_coords: Tuple[float, float] = (0., 0.)
+    projected_coords: Tuple[float, float] = (0.0, 0.0)
     vertical_response: np.ndarray = field(default_factory=lambda: np.array([]))
     earthquake_responses: Dict = field(default_factory=dict)
 
@@ -593,7 +665,7 @@ class Station:
     posterior_wrms: List = None
 
     def __str__(self):
-        return f'{self.network_code}.{self.station_code}'
+        return f"{self.network_code}.{self.station_code}"
 
     def get_velocity_column(self):
         polynomial = self.etm.design_matrix.get_polynomial()
@@ -603,7 +675,10 @@ class Station:
         """by default returns the index of sin"""
         periodic = self.etm.design_matrix.get_periodic()
         if periodic is not None:
-            return np.array(periodic.get_periodic_cols(frequency)) + self.normal_equations.parameter_start_idx
+            return (
+                np.array(periodic.get_periodic_cols(frequency))
+                + self.normal_equations.parameter_start_idx
+            )
         else:
             return None
 
@@ -614,30 +689,47 @@ class Station:
         else:
             event_id = jump_or_id
 
-        jumps = [j for j in self.etm.jump_manager.jumps if j.is_geophysical()
-                 and j.earthquake is not None and j.p.jump_type < JumpType.POSTSEISMIC_ONLY and
-                 j.earthquake.id == event_id and j.fit]
+        jumps = [
+            j
+            for j in self.etm.jump_manager.jumps
+            if j.is_geophysical()
+            and j.earthquake is not None
+            and j.p.jump_type < JumpType.POSTSEISMIC_ONLY
+            and j.earthquake.id == event_id
+            and j.fit
+        ]
 
         if jumps:
             return jumps[0].get_jump_col() + self.normal_equations.parameter_start_idx
         else:
             return None
 
-    def get_postseismic_column(self, jump_or_id: Union[Earthquake, str], relaxation: float):
+    def get_postseismic_column(
+        self, jump_or_id: Union[Earthquake, str], relaxation: float
+    ):
         """get the column of a given earthquake or earthquake id and relaxation"""
         if isinstance(jump_or_id, Earthquake):
             event_id = jump_or_id.id
         else:
             event_id = jump_or_id
 
-        jumps = [j for j in self.etm.jump_manager.jumps if j.is_geophysical()
-                 and j.earthquake is not None and j.p.jump_type != JumpType.COSEISMIC_ONLY and
-                 j.earthquake.id == event_id and j.fit]
+        jumps = [
+            j
+            for j in self.etm.jump_manager.jumps
+            if j.is_geophysical()
+            and j.earthquake is not None
+            and j.p.jump_type != JumpType.COSEISMIC_ONLY
+            and j.earthquake.id == event_id
+            and j.fit
+        ]
 
         if jumps:
             # @ todo: remove the np.array: this function is meant to retrieve one relaxation at the time, so
             # @ todo: no need to return an array
-            return np.array(jumps[0].get_relaxation_cols(relaxation)) + self.normal_equations.parameter_start_idx
+            return (
+                np.array(jumps[0].get_relaxation_cols(relaxation))
+                + self.normal_equations.parameter_start_idx
+            )
         else:
             return None
 
@@ -645,46 +737,59 @@ class Station:
         """return the velocity and sigma"""
         idx = self.get_velocity_column()
         tp = solution.shape[1]
-        return solution[:, idx], np.sqrt(np.diag(covariance)[[idx, idx + tp, idx + 2 * tp]])
+        return solution[:, idx], np.sqrt(
+            np.diag(covariance)[[idx, idx + tp, idx + 2 * tp]]
+        )
 
     def get_constrained_periodic(self, frequency: float, solution, covariance):
         """return the velocity and sigma"""
         idx = self.get_periodic_columns(frequency)
         tp = solution.shape[1]
-        return solution[:, idx], np.sqrt(np.diag(covariance)[[idx, idx + tp, idx + 2 * tp]])
+        return solution[:, idx], np.sqrt(
+            np.diag(covariance)[[idx, idx + tp, idx + 2 * tp]]
+        )
 
-    def get_constrained_jump(self, event: Union[Earthquake, str],
-                             solution: np.ndarray,
-                             covariance: np.ndarray) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[None, None]]:
-
+    def get_constrained_jump(
+        self,
+        event: Union[Earthquake, str],
+        solution: np.ndarray,
+        covariance: np.ndarray,
+    ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[None, None]]:
         """return the jump and sigma or none if not fit"""
 
         idx = self.get_coseismic_column(event)
         if idx:
             tp = solution.shape[1]
-            return solution[:, idx], np.sqrt(np.diag(covariance)[[idx, idx + tp, idx + 2 * tp]])
+            return solution[:, idx], np.sqrt(
+                np.diag(covariance)[[idx, idx + tp, idx + 2 * tp]]
+            )
         else:
             return None, None
 
-    def get_constrained_relax(self, event: Union[Earthquake, str],
-                          relaxation: float,
-                          solution: np.ndarray,
-                          covariance: np.ndarray) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[None, None]]:
-
+    def get_constrained_relax(
+        self,
+        event: Union[Earthquake, str],
+        relaxation: float,
+        solution: np.ndarray,
+        covariance: np.ndarray,
+    ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[None, None]]:
         idx = self.get_postseismic_column(event, relaxation)
         tp = solution.shape[1]
         if idx:
             # this only requests one relaxation so solution[:, idx] can be flattened to be only 1d
-            return solution[:, idx].flatten(), np.sqrt(np.diag(covariance)[[idx, idx + tp, idx + 2 * tp]]).flatten()
+            return solution[:, idx].flatten(), np.sqrt(
+                np.diag(covariance)[[idx, idx + tp, idx + 2 * tp]]
+            ).flatten()
         else:
             return None, None
 
-    def extract_etm_constraints(self,
-                                earthquakes: List[Earthquake],
-                                relaxations: np.ndarray,
-                                solution: np.ndarray,
-                                covariance: np.ndarray):
-
+    def extract_etm_constraints(
+        self,
+        earthquakes: List[Earthquake],
+        relaxations: np.ndarray,
+        solution: np.ndarray,
+        covariance: np.ndarray,
+    ):
         # for mapping NEU to ENU
         col = [1, 0, 2]
 
@@ -708,8 +813,13 @@ class Station:
 
             if jump and jump.fit:
                 # create the constraint
-                jc = JumpFunction(self.etm.config, time_vector=np.array([0]),
-                                  date=jump.date, jump_type=jump.p.jump_type, fit=False)
+                jc = JumpFunction(
+                    self.etm.config,
+                    time_vector=np.array([0]),
+                    date=jump.date,
+                    jump_type=jump.p.jump_type,
+                    fit=False,
+                )
 
                 if jump.p.jump_type < JumpType.POSTSEISMIC_ONLY:
                     par, sig = self.get_constrained_jump(event, solution, covariance)
@@ -720,7 +830,9 @@ class Station:
                         jc.p.sigmas[j][0] = sig[col[j]] / MULT
 
                 for relax in relaxations:
-                    par, sig = self.get_constrained_relax(event, relax, solution, covariance)
+                    par, sig = self.get_constrained_relax(
+                        event, relax, solution, covariance
+                    )
                     idj = jump.get_relaxation_cols(relax, False)
 
                     for j in range(3):
@@ -739,35 +851,35 @@ class Station:
         """Two stations are equal if they have the same network and station code"""
         if not isinstance(other, Station):
             return False
-        return (self.network_code == other.network_code and
-                self.station_code == other.station_code)
+        return (
+            self.network_code == other.network_code
+            and self.station_code == other.station_code
+        )
 
 
 @dataclass
 class ConstraintEquation:
     """Parameters for a single constraint equation"""
+
     station: Station
     # design matrix of the constraint
     constraint_design: Tuple[np.ndarray, np.ndarray, np.ndarray] = field(
         default_factory=lambda: [np.array([]), np.array([]), np.array([])]
     )
-    constraint_sigma: np.ndarray = field(default_factory=lambda: np.array([]))  # Constraint sigma (for weighting)
+    constraint_sigma: np.ndarray = field(
+        default_factory=lambda: np.array([])
+    )  # Constraint sigma (for weighting)
     is_active: bool = True  # Can be toggled on/off
 
 
 @dataclass
 class GridSystem:
     """Encapsulates all grid-related computations"""
+
     origin: Tuple[float, float]  # (lon, lat)
-    interpolation_grid: np.ndarray = field(
-        default_factory=lambda: np.array([])
-    )
-    interpolation_geographic: np.ndarray = field(
-        default_factory=lambda: np.array([])
-    )
-    grid_vertical_response: np.ndarray = field(
-        default_factory=lambda: np.array([])
-    )
+    interpolation_grid: np.ndarray = field(default_factory=lambda: np.array([]))
+    interpolation_geographic: np.ndarray = field(default_factory=lambda: np.array([]))
+    grid_vertical_response: np.ndarray = field(default_factory=lambda: np.array([]))
 
     points: int = 0
     offset: float = 0.0
@@ -778,18 +890,23 @@ class GridSystem:
     earthquake_masks: Dict = field(default_factory=dict)
 
     @classmethod
-    def create_from_stations(cls, stations: List[Station],
-                             grid_spacing: float = 20,
-                             grid_load_radius: float = 50,
-                             method='rectload',
-                             tension: float = 0.10) -> 'GridSystem':
+    def create_from_stations(
+        cls,
+        stations: List[Station],
+        grid_spacing: float = 20,
+        grid_load_radius: float = 50,
+        method="rectload",
+        tension: float = 0.10,
+    ) -> "GridSystem":
         """Factory method to create grid system from stations"""
         lat = np.array([stn.lat for stn in stations])
         lon = np.array([stn.lon for stn in stations])
 
-        tqdm.write(f'Creating interpolation grids, station count {len(lat)}')
-        tqdm.write(f'lon {np.array(lon).min()} {np.array(lon).max()} '
-                    f'lat {np.array(lat).min()} {np.array(lat).max()}')
+        tqdm.write(f"Creating interpolation grids, station count {len(lat)}")
+        tqdm.write(
+            f"lon {np.array(lon).min()} {np.array(lon).max()} "
+            f"lat {np.array(lat).min()} {np.array(lat).max()}"
+        )
 
         # find an origin for the grid system
         grids_origin = (np.array(lon).mean(), np.array(lat).mean())
@@ -799,10 +916,11 @@ class GridSystem:
         x, y = azimuthal_equidistant(grids_origin[0], grids_origin[1], lon, lat)
 
         # compute the median of the station separation
-        r, _, _ = get_radius(np.column_stack([x, y]),
-                             np.column_stack([x, y]))
+        r, _, _ = get_radius(np.column_stack([x, y]), np.column_stack([x, y]))
 
-        tqdm.write(f'Station distance statistics -> mean: {np.mean(r):.1f} km, median: {np.median(r):.1f} km')
+        tqdm.write(
+            f"Station distance statistics -> mean: {np.mean(r):.1f} km, median: {np.median(r):.1f} km"
+        )
         offset = float(np.median(r))
 
         stations_projected = np.array([x, y])
@@ -825,9 +943,10 @@ class GridSystem:
         # visualize_disks(x,y,hx,hy,grid_x,grid_y,grid_spacing / 2)
         interpolation_grid = np.array([grid_x, grid_y])
         interpolation_geographic = np.array(
-            inverse_azimuthal(grids_origin[0], grids_origin[1], grid_x, grid_y))
+            inverse_azimuthal(grids_origin[0], grids_origin[1], grid_x, grid_y)
+        )
 
-        if method == 'diskload':
+        if method == "diskload":
             # disk load as the preferred response
             disk_grid_x, disk_grid_y, _, _ = fill_region_with_grid(
                 stations_projected[0], stations_projected[1], grid_load_radius
@@ -836,80 +955,125 @@ class GridSystem:
             grid_vertical_response = cls._compute_disk_responses(
                 stations, disk_grid_x, disk_grid_y, grid_load_radius, interpolation_grid
             )
-        elif method == 'spline2d':
+        elif method == "spline2d":
+            tqdm.write(
+                f"Computing spline grid response for interpolation "
+                f"grid (total points {grid_x.shape[0]})"
+            )
 
-            tqdm.write(f'Computing spline grid response for interpolation '
-                       f'grid (total points {grid_x.shape[0]})')
-
-            grid_vertical_response, stations_vertical_response = cls._compute_spline_responses(
-                stations_projected, grid_x, grid_y, tension
+            grid_vertical_response, stations_vertical_response = (
+                cls._compute_spline_responses(
+                    stations_projected, grid_x, grid_y, tension
+                )
             )
             # assign the vertical response to each station
             for i, station in enumerate(stations):
                 station.vertical_response = stations_vertical_response[i, :]
 
-        elif method == 'rectload':
+        elif method == "rectload":
             disk_grid_x, disk_grid_y, _, _ = fill_region_with_grid(
                 stations_projected[0], stations_projected[1], grid_load_radius
             )
             grid_vertical_response = cls._compute_rectload_responses(
-                stations, stations_projected, disk_grid_x, disk_grid_y, grid_load_radius, interpolation_grid
+                stations,
+                stations_projected,
+                disk_grid_x,
+                disk_grid_y,
+                grid_load_radius,
+                interpolation_grid,
             )
         else:
-            raise ValueError(f'Method {method} not implemented')
+            raise ValueError(f"Method {method} not implemented")
 
-        instance = GridSystem(grids_origin, interpolation_grid, interpolation_geographic,
-                              grid_vertical_response, points, offset)
+        instance = GridSystem(
+            grids_origin,
+            interpolation_grid,
+            interpolation_geographic,
+            grid_vertical_response,
+            points,
+            offset,
+        )
 
-        tqdm.write(f'Created interpolation grids with size {grid_x.shape}')
+        tqdm.write(f"Created interpolation grids with size {grid_x.shape}")
 
         return instance
 
     @staticmethod
-    def _compute_rectload_responses(stations: List[Station], stations_projected: np.ndarray,
-                                    disk_grid_x: np.ndarray, disk_grid_y: np.ndarray, disk_grid_spacing: float,
-                                    interpolation_grid: np.ndarray):
-
-        tqdm.write(f'Computing rectangular load grid response for interpolation '
-                   f'grid (total points {interpolation_grid[0].shape[0]})')
+    def _compute_rectload_responses(
+        stations: List[Station],
+        stations_projected: np.ndarray,
+        disk_grid_x: np.ndarray,
+        disk_grid_y: np.ndarray,
+        disk_grid_spacing: float,
+        interpolation_grid: np.ndarray,
+    ):
+        tqdm.write(
+            f"Computing rectangular load grid response for interpolation "
+            f"grid (total points {interpolation_grid[0].shape[0]})"
+        )
 
         # average earth crust
         e = 50e6
         poisson_ratio = 0.27
         # get mu and lambda
         mu = e / (2 * (1 + poisson_ratio))
-        lmb = e * poisson_ratio / ((1+poisson_ratio) * (1 - 2 * poisson_ratio))
+        lmb = e * poisson_ratio / ((1 + poisson_ratio) * (1 - 2 * poisson_ratio))
 
         # Extract coordinates
         x, y = stations_projected
 
-        [_, _, a] = mrectloadhs_dif(np.vstack((x, y, np.zeros_like(x))),
-                                    np.vstack((disk_grid_x - disk_grid_spacing, disk_grid_x + disk_grid_spacing)).T,
-                                    np.vstack((disk_grid_y - disk_grid_spacing, disk_grid_y + disk_grid_spacing)).T,
-                                    lmb , mu)
+        [_, _, a] = mrectloadhs_dif(
+            np.vstack((x, y, np.zeros_like(x))),
+            np.vstack(
+                (disk_grid_x - disk_grid_spacing, disk_grid_x + disk_grid_spacing)
+            ).T,
+            np.vstack(
+                (disk_grid_y - disk_grid_spacing, disk_grid_y + disk_grid_spacing)
+            ).T,
+            lmb,
+            mu,
+        )
 
         for i, station in enumerate(stations):
             station.vertical_response = a[i, :]
 
         grid_x, grid_y = interpolation_grid
         ########## now compute the response of the grid ##############
-        [_, _, a] = mrectloadhs_dif(np.vstack((grid_x, grid_y, np.zeros_like(grid_x))),
-                                    np.vstack((disk_grid_x - disk_grid_spacing, disk_grid_x + disk_grid_spacing)).T,
-                                    np.vstack((disk_grid_y - disk_grid_spacing, disk_grid_y + disk_grid_spacing)).T,
-                                    lmb, mu)
+        [_, _, a] = mrectloadhs_dif(
+            np.vstack((grid_x, grid_y, np.zeros_like(grid_x))),
+            np.vstack(
+                (disk_grid_x - disk_grid_spacing, disk_grid_x + disk_grid_spacing)
+            ).T,
+            np.vstack(
+                (disk_grid_y - disk_grid_spacing, disk_grid_y + disk_grid_spacing)
+            ).T,
+            lmb,
+            mu,
+        )
 
-        tqdm.write(f'disk count: {disk_grid_x.shape} '
-                   f'interpolation grid count: {interpolation_grid[0].shape} '
-                   f'size of response matrix: {a.shape}')
+        tqdm.write(
+            f"disk count: {disk_grid_x.shape} "
+            f"interpolation grid count: {interpolation_grid[0].shape} "
+            f"size of response matrix: {a.shape}"
+        )
 
         return a
 
     @staticmethod
-    def _compute_spline_responses(stations_projected: np.ndarray,
-                                  grid_x: np.ndarray, grid_y: np.ndarray, tension=0.10):
-
-        length_scale = np.abs(np.max(grid_x.flatten()) - np.min(grid_x.flatten()) +
-                              1j * (np.max(grid_y.flatten()) - np.min(grid_y.flatten()))) / 50
+    def _compute_spline_responses(
+        stations_projected: np.ndarray,
+        grid_x: np.ndarray,
+        grid_y: np.ndarray,
+        tension=0.10,
+    ):
+        length_scale = (
+            np.abs(
+                np.max(grid_x.flatten())
+                - np.min(grid_x.flatten())
+                + 1j * (np.max(grid_y.flatten()) - np.min(grid_y.flatten()))
+            )
+            / 50
+        )
 
         p = np.sqrt(tension / (1 - tension))
         p = p / length_scale
@@ -939,71 +1103,111 @@ class GridSystem:
         return grid_vertical_response, stations_vertical_response
 
     @staticmethod
-    def _compute_disk_responses(stations, disk_grid_x, disk_grid_y, disk_radius,
-                                interpolation_grid, nmax_max=2500):
+    def _compute_disk_responses(
+        stations,
+        disk_grid_x,
+        disk_grid_y,
+        disk_radius,
+        interpolation_grid,
+        nmax_max=2500,
+    ):
         # read love numbers now to accelerate the process later
         h_love, l_love, k_love = load_love_numbers()
 
         grid_vertical_response = []
-        tqdm.write(f'Computing disk grid response for interpolation '
-                   f'grid (total points {interpolation_grid[0].shape[0]})')
+        tqdm.write(
+            f"Computing disk grid response for interpolation "
+            f"grid (total points {interpolation_grid[0].shape[0]})"
+        )
 
         bar = tqdm(total=interpolation_grid[0].shape[0], ncols=120)
         # compute the responses for the interpolation grid
         for i, (x, y) in enumerate(interpolation_grid.T):
-            r, _, _ = get_radius(np.column_stack([disk_grid_x, disk_grid_y]),
-                                 np.column_stack([x, y]))
+            r, _, _ = get_radius(
+                np.column_stack([disk_grid_x, disk_grid_y]), np.column_stack([x, y])
+            )
             # add an offset to avoid singularities
             r = r + 8
-            response = compute_diskload(alpha=disk_radius, theta_range=r, nmax_max=nmax_max,
-                                        h_love=h_love, l_love=l_love, k_love=k_love)
+            response = compute_diskload(
+                alpha=disk_radius,
+                theta_range=r,
+                nmax_max=nmax_max,
+                h_love=h_love,
+                l_love=l_love,
+                k_love=k_love,
+            )
 
-            grid_vertical_response.append(response['U'])
+            grid_vertical_response.append(response["U"])
             bar.update()
 
         bar.close()
         grid_vertical_response = np.array(grid_vertical_response)
 
         # compute the response for each station
-        tqdm.write(f'Computing disk grid response for {len(stations)} stations')
+        tqdm.write(f"Computing disk grid response for {len(stations)} stations")
         bar = tqdm(total=len(stations), ncols=120)
 
         for i, stn in enumerate(stations):
-            r, _, _ = get_radius(np.column_stack([disk_grid_x, disk_grid_y]),
-                                 np.column_stack([stn.projected_coords[0],
-                                                  stn.projected_coords[1]]))
+            r, _, _ = get_radius(
+                np.column_stack([disk_grid_x, disk_grid_y]),
+                np.column_stack([stn.projected_coords[0], stn.projected_coords[1]]),
+            )
             # add an offset to avoid singularities
             r = r + 8
-            response = compute_diskload(alpha=disk_radius, theta_range=r, nmax_max=nmax_max,
-                                        h_love=h_love, l_love=l_love, k_love=k_love)
+            response = compute_diskload(
+                alpha=disk_radius,
+                theta_range=r,
+                nmax_max=nmax_max,
+                h_love=h_love,
+                l_love=l_love,
+                k_love=k_love,
+            )
 
             # response on the site to all disks
-            stn.vertical_response = response['U'].flatten()
+            stn.vertical_response = response["U"].flatten()
             bar.update()
 
         bar.close()
-        tqdm.write(f'disk count: {disk_grid_x.shape} '
-                   f'interpolation grid count: {interpolation_grid[0].shape} '
-                   f'size of response matrix: {grid_vertical_response.shape}')
+        tqdm.write(
+            f"disk count: {disk_grid_x.shape} "
+            f"interpolation grid count: {interpolation_grid[0].shape} "
+            f"size of response matrix: {grid_vertical_response.shape}"
+        )
 
         return grid_vertical_response
 
     def transform_coordinate(self, lon: float, lat: float):
-        return azimuthal_equidistant(np.array(self.origin[0]), np.array(self.origin[1]),
-                                     np.array(lon), np.array(lat))
+        return azimuthal_equidistant(
+            np.array(self.origin[0]),
+            np.array(self.origin[1]),
+            np.array(lon),
+            np.array(lat),
+        )
 
-    def compute_horizontal_interpolant_at_point(self, target_x: float, target_y: float,
-                                                source_x: np.ndarray,
-                                                source_y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def compute_horizontal_interpolant_at_point(
+        self,
+        target_x: float,
+        target_y: float,
+        source_x: np.ndarray,
+        source_y: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Sandwell-Wessel interpolation for a single point"""
         # compute response between all stations
-        q, p, w = get_qpw(np.column_stack([source_x, source_y]), np.column_stack([source_x, source_y]),
-                          self.offset, self.poisson_ratio)
+        q, p, w = get_qpw(
+            np.column_stack([source_x, source_y]),
+            np.column_stack([source_x, source_y]),
+            self.offset,
+            self.poisson_ratio,
+        )
         a = np.block([[q, w], [w, p]])  # type: ignore[arg-type]
 
         # compute response between current station (0, 0) and all stations
-        q, p, w = get_qpw(np.column_stack([source_x, source_y]), np.array([[target_x, target_y]]),
-                          self.offset, self.poisson_ratio)
+        q, p, w = get_qpw(
+            np.column_stack([source_x, source_y]),
+            np.array([[target_x, target_y]]),
+            self.offset,
+            self.poisson_ratio,
+        )
 
         ke = np.linalg.solve(a, np.concatenate((q.flatten(), w.flatten())))
         kn = np.linalg.solve(a, np.concatenate((w.flatten(), p.flatten())))
@@ -1011,8 +1215,9 @@ class GridSystem:
         return ke, kn
 
     @staticmethod
-    def compute_vertical_interpolant_at_point(target_response: np.ndarray,
-                                              source_responses: List[np.ndarray]) -> np.ndarray:
+    def compute_vertical_interpolant_at_point(
+        target_response: np.ndarray, source_responses: List[np.ndarray]
+    ) -> np.ndarray:
         """Elastic load interpolation for a single point"""
 
         # get the SVD decomposition for the design matrix
@@ -1031,28 +1236,38 @@ class GridSystem:
 
         return ku
 
-    def compute_horizontal_grid_interpolant(self, source_x: np.ndarray,
-                                            source_y: np.ndarray,
-                                            mask: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def compute_horizontal_grid_interpolant(
+        self, source_x: np.ndarray, source_y: np.ndarray, mask: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Interpolate to full grid (for visualization)"""
         # now create the influence matrix for each grid point to use in the horizontal interpolation
         # compute response between all stations participating
-        q, p, w = get_qpw(np.column_stack([source_x, source_y]),
-                          np.column_stack([source_x, source_y]), self.offset, self.poisson_ratio)
+        q, p, w = get_qpw(
+            np.column_stack([source_x, source_y]),
+            np.column_stack([source_x, source_y]),
+            self.offset,
+            self.poisson_ratio,
+        )
         a = np.block([[q, w], [w, p]])  # type: ignore[arg-type]
 
         # compute response between current station (0, 0) and all stations
-        q, p, w = get_qpw(np.column_stack([source_x, source_y]),
-                          np.column_stack([self.interpolation_grid[0][mask],
-                                           self.interpolation_grid[1][mask]]), self.offset, self.poisson_ratio)
+        q, p, w = get_qpw(
+            np.column_stack([source_x, source_y]),
+            np.column_stack(
+                [self.interpolation_grid[0][mask], self.interpolation_grid[1][mask]]
+            ),
+            self.offset,
+            self.poisson_ratio,
+        )
         # here, we do (A^-1 * B^t)^t so that we can multiply by v and get the answer at the interp points
         ke = np.linalg.solve(a, np.hstack((q, w)).T).T
         kn = np.linalg.solve(a, np.hstack((w, p)).T).T
 
         return ke, kn
 
-    def compute_vertical_grid_interpolant(self, source_responses: List[np.ndarray],
-                                          grid_vertical_response: np.ndarray) -> np.ndarray:
+    def compute_vertical_grid_interpolant(
+        self, source_responses: List[np.ndarray], grid_vertical_response: np.ndarray
+    ) -> np.ndarray:
         """Interpolate vertical to full grid"""
         a = np.array(source_responses)
         g = grid_vertical_response
@@ -1080,16 +1295,20 @@ class GridSystem:
         uncertainty than the input. This comes from the fact that
         uncertainty(solution) = Cond * uncertainty(data)
         """
-        #r = s[0] / s
-        #if np.max(np.where(r <= 2)[0]) == 0:
-            # too unstable, return fixed number of values
+        # r = s[0] / s
+        # if np.max(np.where(r <= 2)[0]) == 0:
+        # too unstable, return fixed number of values
         return int(len(s) * 4 / 5)
 
-        #return np.max(np.where(r <= 7)[0])
+        # return np.max(np.where(r <= 7)[0])
 
-    def interpolate_field(self, stations: List[Station],
-                          enu: np.ndarray, covar: np.ndarray,
-                          event: Earthquake = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def interpolate_field(
+        self,
+        stations: List[Station],
+        enu: np.ndarray,
+        covar: np.ndarray,
+        event: Earthquake = None,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """output enu_cov is en, e-u, n-u"""
         # get the number of parameters for this interpolation
 
@@ -1113,14 +1332,20 @@ class GridSystem:
         ah = np.vstack((ae, an))
 
         # find the ideal tension for this field
-        pv, av = self._find_tension(x, y, xg, yg, np.zeros_like(xg), enu[2, :].flatten(), enu[2, :].flatten())
+        pv, av = self._find_tension(
+            x, y, xg, yg, np.zeros_like(xg), enu[2, :].flatten(), enu[2, :].flatten()
+        )
         # av = self.compute_vertical_grid_interpolant(stations_vertical_response, grid_vertical_response)
 
         # full design matrix for sigma values
         zeros = np.zeros((ae.shape[0], av.shape[1]))
-        at = np.vstack((np.hstack((ae, zeros)),
-                        np.hstack((an, zeros)),
-                        np.hstack((zeros, zeros, av))))
+        at = np.vstack(
+            (
+                np.hstack((ae, zeros)),
+                np.hstack((an, zeros)),
+                np.hstack((zeros, zeros, av)),
+            )
+        )
 
         result = np.concatenate((ah @ enu[0:2, :].flatten(), pv))
         predict_cova = at @ covar @ at.T
@@ -1133,16 +1358,22 @@ class GridSystem:
         nu_cov = np.diag(predict_cova, k=active_points)[active_points:]  # Cov(N,U)
 
         # Reshape to (3, n_points)
-        enu_cov = np.reshape(np.concatenate((en_cov, nu_cov, eu_cov)),(3, active_points))
+        enu_cov = np.reshape(
+            np.concatenate((en_cov, nu_cov, eu_cov)), (3, active_points)
+        )
 
         return values, enu_sigmas, enu_cov
 
-    def predict_coseismic(self, event: Earthquake, stations: List[Station],
-                          observations: np.ndarray,
-                          covar: np.ndarray,
-                          constraint: 'CoseismicConstraint') -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def predict_coseismic(
+        self,
+        event: Earthquake,
+        stations: List[Station],
+        observations: np.ndarray,
+        covar: np.ndarray,
+        constraint: "CoseismicConstraint",
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """output enu_cov is en, eu, nu"""
-        tqdm.write(f'Predicting jumps for {event.id}')
+        tqdm.write(f"Predicting jumps for {event.id}")
 
         sites = np.isin(constraint.station_list, [stationID(stn) for stn in stations])
 
@@ -1159,41 +1390,55 @@ class GridSystem:
         depth = constraint.dislocation_grid[2][constraint.plane]
         depth_range = np.max(depth) - np.min(depth)
 
-        start_stop = np.mean([np.log10(constraint.search_stop_smoothing),
-                              np.log10(constraint.search_start_smoothing)])
+        start_stop = np.mean(
+            [
+                np.log10(constraint.search_stop_smoothing),
+                np.log10(constraint.search_start_smoothing),
+            ]
+        )
 
         start = np.logspace(np.log10(constraint.search_start_smoothing), start_stop, 10)
         stop = np.logspace(start_stop, np.log10(constraint.search_stop_smoothing), 10)
         # print(start)
         # print(stop)
         # Create meshgrid for plotting
-        START, STOP = np.meshgrid(start, stop, indexing='ij')
+        START, STOP = np.meshgrid(start, stop, indexing="ij")
 
         c_field = np.full((3, active_points), np.nan)
 
-        c_name = ['(a) East', '(b) North', '(c) Up']
+        c_name = ["(a) East", "(b) North", "(c) Up"]
         # assume noise floot of np.sqrt(0.001**2 + 0.001**2 + 0.003**2)
-        #nf = np.sqrt(0.001**2 + 0.001**2 + 0.003**2)
-        #snr = np.hypot(observations[0, :], observations[1, :], observations[2, :]) / nf
-        #snrl = 3.
+        # nf = np.sqrt(0.001**2 + 0.001**2 + 0.003**2)
+        # snr = np.hypot(observations[0, :], observations[1, :], observations[2, :]) / nf
+        # snrl = 3.
         # determine the minimum rms
         for i in range(3):
             p_ = self.earthquake_responses[event.id][i]
             a_ = constraint.dislocation_model[i]
 
             # weights for making all stations count
-            #s = np.abs(np.sum(a_, axis=1))
-            #w_ = 1 / (s / np.max(s))
-            #w_[snr < snrl] = w_[snr < snrl] * 10.**(snr[snr < snrl] - snrl)
-            #w_[w_ < np.finfo(float).eps] = np.finfo(float).eps
-            #w_ = np.diag(w_)
+            # s = np.abs(np.sum(a_, axis=1))
+            # w_ = 1 / (s / np.max(s))
+            # w_[snr < snrl] = w_[snr < snrl] * 10.**(snr[snr < snrl] - snrl)
+            # w_[w_ < np.finfo(float).eps] = np.finfo(float).eps
+            # w_ = np.diag(w_)
 
             c_ = a_.T @ observations[i, :]
             n_ = a_.T @ a_
 
             x, residual, rms = self._find_smoothing(
-                stations, start, stop, depth, depth_range,
-                constraint, n_, c_, observations[i], p_, i, a_
+                stations,
+                start,
+                stop,
+                depth,
+                depth_range,
+                constraint,
+                n_,
+                c_,
+                observations[i],
+                p_,
+                i,
+                a_,
             )
 
             c_field[i, :] = (p_ @ x) + residual
@@ -1205,35 +1450,42 @@ class GridSystem:
 
                 ax = axes[i]
                 # Plot as colored mesh
-                im = ax.pcolormesh(START, STOP, rms * 1000., shading='auto', cmap='viridis')
+                im = ax.pcolormesh(
+                    START, STOP, rms * 1000.0, shading="auto", cmap="viridis"
+                )
                 # Find and mark minimum RMS
                 min_idx = np.unravel_index(np.argmin(rms), rms.shape)
                 min_start = start[min_idx[0]]
                 min_stop = stop[min_idx[1]]
-                min_rms = rms[min_idx] * 1000.
-                ax.plot(min_start, min_stop, 'r*', markersize=15,
-                        label=f'{c_name[i]} min RMS={min_rms:.2f}')
+                min_rms = rms[min_idx] * 1000.0
+                ax.plot(
+                    min_start,
+                    min_stop,
+                    "r*",
+                    markersize=15,
+                    label=f"{c_name[i]} min RMS={min_rms:.2f}",
+                )
                 # print to screen
-                tqdm.write(f'{c_name[i]} min RMS={min_rms:.2f}')
+                tqdm.write(f"{c_name[i]} min RMS={min_rms:.2f}")
 
                 # Log scales
-                ax.set_xscale('log')
-                ax.set_yscale('log')
+                ax.set_xscale("log")
+                ax.set_yscale("log")
                 # Labels
-                ax.set_xlabel('Smoothing start', fontsize=12)
+                ax.set_xlabel("Smoothing start", fontsize=12)
                 if i == 0:
-                    ax.set_ylabel('Smoothing stop', fontsize=12)
-                ax.set_title(f'{c_name[i]} grid search', fontsize=14)
+                    ax.set_ylabel("Smoothing stop", fontsize=12)
+                ax.set_title(f"{c_name[i]} grid search", fontsize=14)
                 # Colorbar
                 cbar = plt.colorbar(im, ax=ax)
-                cbar.set_label('RMS [mm]', fontsize=12)
+                cbar.set_label("RMS [mm]", fontsize=12)
                 # Legend
                 ax.legend()
                 if i == 2:
                     plt.tight_layout()
-                    if not os.path.exists('./production/'):
-                        os.makedirs('./production/')
-                    plt.savefig(f'./production/{event.id}_search.png')
+                    if not os.path.exists("./production/"):
+                        os.makedirs("./production/")
+                    plt.savefig(f"./production/{event.id}_search.png")
                     plt.close()
 
         p = np.linalg.inv(covar)
@@ -1242,7 +1494,9 @@ class GridSystem:
         # compute uncertainties
         a_ = np.vstack((pe, pn, pu))
         # extend covar
-        covar_e = np.linalg.inv(a.T @ p @ a + constraint.laplacian.T @ constraint.laplacian)
+        covar_e = np.linalg.inv(
+            a.T @ p @ a + constraint.laplacian.T @ constraint.laplacian
+        )
         predict_cova = a_ @ covar_e @ a_.T
         # reshape the result
         enu_sigma = np.reshape(np.sqrt(np.diag(predict_cova)), (3, active_points))
@@ -1253,12 +1507,27 @@ class GridSystem:
         nu_cov = np.diag(predict_cova, k=active_points)[active_points:]  # Cov(N,U)
 
         # Reshape to (3, n_points)
-        enu_cov = np.reshape(np.concatenate((en_cov, eu_cov, nu_cov)),(3, active_points))
+        enu_cov = np.reshape(
+            np.concatenate((en_cov, eu_cov, nu_cov)), (3, active_points)
+        )
 
         return c_field, enu_sigma, enu_cov
 
-    def _find_smoothing(self, stations, start, stop, depth, depth_range,
-                        constraint, neq, ceq, observations, p_, comp, a_) -> Tuple[np.ndarray, np.ndarray, Union[np.ndarray, None]]:
+    def _find_smoothing(
+        self,
+        stations,
+        start,
+        stop,
+        depth,
+        depth_range,
+        constraint,
+        neq,
+        ceq,
+        observations,
+        p_,
+        comp,
+        a_,
+    ) -> Tuple[np.ndarray, np.ndarray, Union[np.ndarray, None]]:
         """method to find the best smoothing value for a fault"""
 
         # get the masked interpolation grid
@@ -1270,7 +1539,9 @@ class GridSystem:
         rms = None
 
         if constraint.start_smoothing[comp] is None:
-            tqdm.write('Need to determine ideal smoothing coefficients, this can take a while...')
+            tqdm.write(
+                "Need to determine ideal smoothing coefficients, this can take a while..."
+            )
 
             x = np.zeros((len(start), len(stop), neq.shape[1]))
             rms = np.zeros((len(start), len(stop)))
@@ -1279,7 +1550,11 @@ class GridSystem:
                 for col, e in enumerate(stop):
                     w = s - (depth - np.min(depth)) * (s - e) / depth_range
                     # create laplacian constraint based on depth
-                    l = (constraint.laplacian.T @ np.diag(np.concatenate((w, w))) @ constraint.laplacian)
+                    l = (
+                        constraint.laplacian.T
+                        @ np.diag(np.concatenate((w, w)))
+                        @ constraint.laplacian
+                    )
                     # apply to normal equations
                     n = neq + l
                     # compute resolution matrix
@@ -1292,9 +1567,11 @@ class GridSystem:
                         r_range = np.max(rn) - np.min(rn)
                         # worst resolved patch (r - np.min(r) = 0) gets the highest smoothing
                         # best resolved patch (r - np.min(r) = r_range) gets smallest smoothing
-                        w = np.concatenate((w, s - (rn - np.min(rn)) * (s - e) / r_range))
+                        w = np.concatenate(
+                            (w, s - (rn - np.min(rn)) * (s - e) / r_range)
+                        )
 
-                    l = (constraint.laplacian.T @ np.diag(w) @ constraint.laplacian)
+                    l = constraint.laplacian.T @ np.diag(w) @ constraint.laplacian
                     # create a better laplacian based on resolution of depth-dependent laplacian
                     n = neq + l
                     # solve system
@@ -1303,9 +1580,13 @@ class GridSystem:
                     f = p_ @ x[row, col, :]
 
                     # set to zero any possible stations just outside the mask (should not happen!)
-                    f_int = griddata((xg, yg), f, (xs, ys), method='cubic', fill_value=0)
+                    f_int = griddata(
+                        (xg, yg), f, (xs, ys), method="cubic", fill_value=0
+                    )
 
-                    rms[row, col] = np.sqrt(np.sum((observations - f_int) ** 2) / len(observations))
+                    rms[row, col] = np.sqrt(
+                        np.sum((observations - f_int) ** 2) / len(observations)
+                    )
 
             min_idx = np.unravel_index(np.argmin(rms), rms.shape)
 
@@ -1315,19 +1596,25 @@ class GridSystem:
             x = x[min_idx[0], min_idx[1], :]
 
             f = p_ @ x
-            f_int = griddata((xg, yg), f, (xs, ys), method='cubic', fill_value=0)
+            f_int = griddata((xg, yg), f, (xs, ys), method="cubic", fill_value=0)
             vg = observations - f_int
             vo = observations - a_ @ x
-            tqdm.write('Station  inverse interpolation')
+            tqdm.write("Station  inverse interpolation")
             for i, stn in enumerate(stations):
-                tqdm.write(f' -- {stationID(stn)} {vo[i]*1000.:7.1f} {vg[i]*1000.:7.1f} mm')
+                tqdm.write(
+                    f" -- {stationID(stn)} {vo[i] * 1000.0:7.1f} {vg[i] * 1000.0:7.1f} mm"
+                )
 
         else:
             s = constraint.start_smoothing[comp]
             e = constraint.stop_smoothing[comp]
             w = s - (depth - np.min(depth)) * (s - e) / depth_range
             # create laplacian constraint
-            l = (constraint.laplacian.T @ np.diag(np.concatenate((w, w))) @ constraint.laplacian)
+            l = (
+                constraint.laplacian.T
+                @ np.diag(np.concatenate((w, w)))
+                @ constraint.laplacian
+            )
             # apply to normal equations
             n = neq + l
             # compute resolution matrix
@@ -1342,17 +1629,17 @@ class GridSystem:
                 # best resolved patch (r - np.min(r) = r_range) gets smallest smoothing
                 w = np.concatenate((w, s - (rn - np.min(rn)) * (s - e) / r_range))
 
-            l = (constraint.laplacian.T @ np.diag(w) @ constraint.laplacian)
+            l = constraint.laplacian.T @ np.diag(w) @ constraint.laplacian
             n = neq + l
             # solve system
             x = np.linalg.solve(n, ceq)
             # interpolate the residuals using spline
             f = p_ @ x
-            f_int = griddata((xg, yg), f, (xs, ys), method='cubic', fill_value=0)
+            f_int = griddata((xg, yg), f, (xs, ys), method="cubic", fill_value=0)
             vg = observations - f_int
 
         # interpolate the residuals on the grid using spline with tension and add them
-        tqdm.write('Interpolating coseismic residuals')
+        tqdm.write("Interpolating coseismic residuals")
         residual, _ = self._find_tension(xs, ys, xg, yg, f, vg, observations)
 
         return x, residual, rms
@@ -1367,15 +1654,23 @@ class GridSystem:
                 np.array([xs, ys]), xg, yg, tension
             )
             # compute the interpolation matrix
-            ar = self.compute_vertical_grid_interpolant(stations_response, grid_response)
+            ar = self.compute_vertical_grid_interpolant(
+                stations_response, grid_response
+            )
             # compute residuals of this interpolation
-            f_aux = griddata((xg, yg), f + ar @ vg, (xs, ys), method='cubic', fill_value=0)
-            rms_tension[i] = np.sqrt(np.sum((observations - f_aux) ** 2) / len(observations))
+            f_aux = griddata(
+                (xg, yg), f + ar @ vg, (xs, ys), method="cubic", fill_value=0
+            )
+            rms_tension[i] = np.sqrt(
+                np.sum((observations - f_aux) ** 2) / len(observations)
+            )
             i += 1
 
         # choose the lowest rms
-        tqdm.write(f'Lowest rms is {rms_tension[np.argmin(rms_tension)] * 1000.: 6.1f} mm '
-                   f'tension={tensions[np.argmin(rms_tension)]}')
+        tqdm.write(
+            f"Lowest rms is {rms_tension[np.argmin(rms_tension)] * 1000.0: 6.1f} mm "
+            f"tension={tensions[np.argmin(rms_tension)]}"
+        )
 
         grid_response, stations_response = self._compute_spline_responses(
             np.array([xs, ys]), xg, yg, tensions[np.argmin(rms_tension)]
@@ -1388,8 +1683,12 @@ class GridSystem:
 class BaseConstraint(ABC):
     """Base class for all constraint types"""
 
-    def __init__(self, constraint_type: ConstraintType,
-                 h_sigma: float = 0.001, v_sigma: float = 0.003):
+    def __init__(
+        self,
+        constraint_type: ConstraintType,
+        h_sigma: float = 0.001,
+        v_sigma: float = 0.003,
+    ):
         self.constraint_type = constraint_type
         self.event: Earthquake = None
         self.h_sigma = h_sigma
@@ -1398,28 +1697,38 @@ class BaseConstraint(ABC):
         self._is_collected = False
 
     @abstractmethod
-    def select_stations(self, all_stations: List[Station],
-                        **kwargs) -> Tuple[List[Station], List[Station]]:
+    def select_stations(
+        self, all_stations: List[Station], **kwargs
+    ) -> Tuple[List[Station], List[Station]]:
         """
         Returns (constraining_stations, stations_to_constrain)
         Constraining stations have data, stations_to_constrain need constraints
         """
         pass
 
-    def collect_constraints(self,
-                            all_stations: List[Station],
-                            total_parameters: int,
-                            grids: GridSystem, **kwargs):
+    def collect_constraints(
+        self,
+        all_stations: List[Station],
+        total_parameters: int,
+        grids: GridSystem,
+        **kwargs,
+    ):
         """Collects constraints for all applicable stations"""
 
         constraining, to_constrain = self.select_stations(all_stations, **kwargs)
 
         if len(constraining) > 1:
-            for station in tqdm(to_constrain, ncols=120, desc=f'Collecting {self.short_description()}'):
+            for station in tqdm(
+                to_constrain, ncols=120, desc=f"Collecting {self.short_description()}"
+            ):
                 constraint_params = ConstraintEquation(
                     station=station,
-                    constraint_design=self._build_k_matrix(station, constraining, grids, total_parameters),
-                    constraint_sigma=np.array([self.h_sigma, self.h_sigma, self.v_sigma])
+                    constraint_design=self._build_k_matrix(
+                        station, constraining, grids, total_parameters
+                    ),
+                    constraint_sigma=np.array(
+                        [self.h_sigma, self.h_sigma, self.v_sigma]
+                    ),
                 )
 
                 self.equations.append(constraint_params)
@@ -1427,13 +1736,19 @@ class BaseConstraint(ABC):
             # couple parameters of nearby stations (d < 5 km)
             self.constrain_nearby_stations(all_stations, total_parameters)
         else:
-            tqdm.write(f'Constraint {self.short_description()} has a single o no constraining stations. '
-                        f'Consider removing it to avoid biases in station velocities')
+            tqdm.write(
+                f"Constraint {self.short_description()} has a single o no constraining stations. "
+                f"Consider removing it to avoid biases in station velocities"
+            )
 
             if len(to_constrain) > 0:
-                tqdm.write(f'Adding zero-tie to avoid parameter excursion')
+                tqdm.write("Adding zero-tie to avoid parameter excursion")
                 # add a zero with a lot of weight
-                for station in tqdm(to_constrain, ncols=120, desc=f'Collecting {self.short_description()}'):
+                for station in tqdm(
+                    to_constrain,
+                    ncols=120,
+                    desc=f"Collecting {self.short_description()}",
+                ):
                     ke = np.zeros((1, total_parameters * 3))
                     kn = np.zeros((1, total_parameters * 3))
                     ku = np.zeros((1, total_parameters * 3))
@@ -1447,30 +1762,34 @@ class BaseConstraint(ABC):
                     constraint_params = ConstraintEquation(
                         station=station,
                         constraint_design=(ke, kn, ku),
-                        constraint_sigma=np.array([1e-6, 1e-6, 1e-6])
+                        constraint_sigma=np.array([1e-6, 1e-6, 1e-6]),
                     )
 
                     self.equations.append(constraint_params)
 
         self._is_collected = True
 
-    def constrain_nearby_stations(self, all_stations: List[Station], total_parameters: int):
+    def constrain_nearby_stations(
+        self, all_stations: List[Station], total_parameters: int
+    ):
         # couple parameters of nearby stations (d < 5 km)
         x, y = np.array([stn.projected_coords for stn in all_stations]).T
-        r, _, _ = get_radius(np.column_stack([x, y]),
-                             np.column_stack([x, y]))
+        r, _, _ = get_radius(np.column_stack([x, y]), np.column_stack([x, y]))
 
         # get pairs with distance < 5 km
         i, j = np.where(np.triu(r < 5, k=1))
         # Print the pairs
         for idx_i, idx_j in zip(i, j):
-
-            target_idx, idx = self._get_target_cols(all_stations[idx_i], [all_stations[idx_j]])
+            target_idx, idx = self._get_target_cols(
+                all_stations[idx_i], [all_stations[idx_j]]
+            )
 
             if target_idx is not None and idx[0] is not None:
-                tqdm.write(f"Stations {stationID(all_stations[idx_i])} and "
-                           f"{stationID(all_stations[idx_j])} are only {r[idx_i, idx_j]:.3f} km from one another: "
-                           f"linking their {self.short_description()} parameters")
+                tqdm.write(
+                    f"Stations {stationID(all_stations[idx_i])} and "
+                    f"{stationID(all_stations[idx_j])} are only {r[idx_i, idx_j]:.3f} km from one another: "
+                    f"linking their {self.short_description()} parameters"
+                )
 
                 ke = np.zeros((1, total_parameters * 3))
                 kn = np.zeros((1, total_parameters * 3))
@@ -1488,7 +1807,7 @@ class BaseConstraint(ABC):
                 constraint_params = ConstraintEquation(
                     station=all_stations[idx_i],
                     constraint_design=(ke, kn, ku),
-                    constraint_sigma=np.array([1e-4, 1e-4, 1e-4])
+                    constraint_sigma=np.array([1e-4, 1e-4, 1e-4]),
                 )
 
                 self.equations.append(constraint_params)
@@ -1513,7 +1832,9 @@ class BaseConstraint(ABC):
                 ke, kn, ku = equation.constraint_design
                 se, sn, su = equation.constraint_sigma
                 # do not square! will get squared when doing k.T @ k
-                k[idx:idx+3, :] = np.vstack((ke * (1/se), kn * (1/sn), ku * (1/su)))
+                k[idx : idx + 3, :] = np.vstack(
+                    (ke * (1 / se), kn * (1 / sn), ku * (1 / su))
+                )
                 idx += 3
 
         # return contribution
@@ -1523,9 +1844,11 @@ class BaseConstraint(ABC):
         """Update constraint weights (for refinement iterations)"""
         # @todo: implement a method to modify sigmas for single station
 
-        tqdm.write(f'Updating weight for {self.short_description()} '
-                   f'current: {self.h_sigma:.6f} {self.v_sigma:.6f} '
-                   f'new: {new_h_sigma:.6f} {new_v_sigma:.6f}')
+        tqdm.write(
+            f"Updating weight for {self.short_description()} "
+            f"current: {self.h_sigma:.6f} {self.v_sigma:.6f} "
+            f"new: {new_h_sigma:.6f} {new_v_sigma:.6f}"
+        )
 
         if new_h_sigma is not None:
             self.h_sigma = new_h_sigma
@@ -1534,7 +1857,9 @@ class BaseConstraint(ABC):
 
         # Update all parameter sigmas
         for param in self.equations:
-            param.constraint_sigma = np.array([self.h_sigma, self.h_sigma, self.v_sigma])
+            param.constraint_sigma = np.array(
+                [self.h_sigma, self.h_sigma, self.v_sigma]
+            )
 
     @abstractmethod
     def _get_target_cols(self, station: Station, constraining: List[Station]):
@@ -1544,9 +1869,12 @@ class BaseConstraint(ABC):
         """
         pass
 
-    def compute_constraint_coefficients(self, target_station: Station,
-                                        constraining_stations: List[Station],
-                                        grids: GridSystem) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def compute_constraint_coefficients(
+        self,
+        target_station: Station,
+        constraining_stations: List[Station],
+        grids: GridSystem,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Use Sandwell-Wessel for horizontal, elastic loads for vertical"""
 
         # Horizontal interpolation (Sandwell-Wessel 2016)
@@ -1555,23 +1883,27 @@ class BaseConstraint(ABC):
         lat = np.array([stn.lat for stn in constraining_stations])
         lon = np.array([stn.lon for stn in constraining_stations])
 
-        x, y = azimuthal_equidistant(np.array([target_station.lon]),
-                                     np.array([target_station.lat]), lon, lat)
+        x, y = azimuthal_equidistant(
+            np.array([target_station.lon]), np.array([target_station.lat]), lon, lat
+        )
 
         ke, kn = grids.compute_horizontal_interpolant_at_point(0, 0, x, y)
 
         # Vertical interpolation (elastic loads)
         ku = grids.compute_vertical_interpolant_at_point(
             target_station.vertical_response,
-            [stn.vertical_response for stn in constraining_stations]
+            [stn.vertical_response for stn in constraining_stations],
         )
 
         return ke, kn, ku
 
-    def _build_k_matrix(self, station: Station,
-                        constraining: List[Station],
-                        grids: GridSystem,
-                        total_parameters: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _build_k_matrix(
+        self,
+        station: Station,
+        constraining: List[Station],
+        grids: GridSystem,
+        total_parameters: int,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Build the K matrix for a single constraint"""
         _ke, _kn, _ku = self.compute_constraint_coefficients(
             station, constraining, grids
@@ -1604,8 +1936,9 @@ class InterseismicConstraint(BaseConstraint):
     def __init__(self, h_sigma: float = 0.0001, v_sigma: float = 0.0003):
         super().__init__(ConstraintType.INTERSEISMIC, h_sigma, v_sigma)
 
-    def select_stations(self, all_stations: List[Station],
-                        **kwargs) -> Tuple[List[Station], List[Station]]:
+    def select_stations(
+        self, all_stations: List[Station], **kwargs
+    ) -> Tuple[List[Station], List[Station]]:
         """
         Constraining: stations with interseismic component (no early earthquakes)
         To constrain: stations without interseismic component
@@ -1626,14 +1959,17 @@ class InterseismicConstraint(BaseConstraint):
         return target_idx, idx
 
     def short_description(self):
-        return f"InterseismicConstraint()"
+        return "InterseismicConstraint()"
 
     def __str__(self) -> str:
         """String representation for debugging"""
-        out_str = [f"eq count: {len(self.equations) * 3}",
-                   f"h_sig: {self.h_sigma:.6f}", f"v_sig: {self.v_sigma:.6f}"]
+        out_str = [
+            f"eq count: {len(self.equations) * 3}",
+            f"h_sig: {self.h_sigma:.6f}",
+            f"v_sig: {self.v_sigma:.6f}",
+        ]
 
-        return '; '.join(out_str)
+        return "; ".join(out_str)
 
     def __repr__(self) -> str:
         return f"InterseismicConstraint({str(self)})"
@@ -1642,25 +1978,35 @@ class InterseismicConstraint(BaseConstraint):
 class CoseismicConstraint(BaseConstraint):
     """Constraints for coseismic displacements"""
 
-    def __init__(self, event: Earthquake, stations: List[Station],
-                 h_sigma: float = 0.007, v_sigma: float = 0.01,
-                 smoothing: float = 1e-9,
-                 search_start_smoothing: float = 1e-6,
-                 search_stop_smoothing: float = 1e-12):
-
+    def __init__(
+        self,
+        event: Earthquake,
+        stations: List[Station],
+        h_sigma: float = 0.007,
+        v_sigma: float = 0.01,
+        smoothing: float = 1e-9,
+        search_start_smoothing: float = 1e-6,
+        search_stop_smoothing: float = 1e-12,
+    ):
         super().__init__(ConstraintType.COSEISMIC, h_sigma, v_sigma)
 
         self.event = event
-        self.along_strike = 10. ** (-3.22 + 0.69 * event.magnitude) * 1.2 # from Wells & Coppersmith [km] (inflate 20%)
-        self.down_dip = (10. ** (-1.01 + 0.32 * event.magnitude)) * 1.6 # from Wells & Coppersmith [km] (inflate 60%)
+        self.along_strike = (
+            10.0 ** (-3.22 + 0.69 * event.magnitude) * 1.2
+        )  # from Wells & Coppersmith [km] (inflate 20%)
+        self.down_dip = (
+            10.0 ** (-1.01 + 0.32 * event.magnitude)
+        ) * 1.6  # from Wells & Coppersmith [km] (inflate 60%)
         self._smoothing: float = smoothing
         self.search_start_smoothing: float = search_start_smoothing
         self.search_stop_smoothing: float = search_stop_smoothing
         self.start_smoothing: list = [None, None, None]
         self.stop_smoothing: list = [None, None, None]
-        self.plane = None # will store which plane to use
+        self.plane = None  # will store which plane to use
         self.dislocation_model = None  # Will store computed dislocation matrices
-        self.station_list = None       # Will store the station names as arranged in the dislocation matrices
+        self.station_list = (
+            None  # Will store the station names as arranged in the dislocation matrices
+        )
         # to save the dislocation plane patch array
         self._compute_dislocation_plane_grid(stations)
         self._constraint_coefficients: Dict = {}
@@ -1695,8 +2041,10 @@ class CoseismicConstraint(BaseConstraint):
         # Therefore: L×W / 4r² = N => r = sqrt(L×W / 4*N)
         self.radius = np.sqrt(self.along_strike * self.down_dip / (4 * n_patches))
 
-        tqdm.write(f'Event {self.event.id} has {n_patches} patches with a radius of {self.radius:.1f} km -> '
-                   f'AS: {self.along_strike:.1f} km DD: {self.down_dip:.1f} km')
+        tqdm.write(
+            f"Event {self.event.id} has {n_patches} patches with a radius of {self.radius:.1f} km -> "
+            f"AS: {self.along_strike:.1f} km DD: {self.down_dip:.1f} km"
+        )
 
         # using the L1/2 W1/W2 coordinate system, build the points using disk code
         # X is the downdip direction, Y the strike direction
@@ -1709,18 +2057,74 @@ class CoseismicConstraint(BaseConstraint):
         # visualize_disks(x, y, hx, hy, grid_dd3, grid_ss3, self.radius)
         grid_dd = np.concatenate((grid_dd1, grid_dd2, grid_dd3))
         grid_ss = np.concatenate((grid_ss1, grid_ss2, grid_ss3))
-        tqdm.write(f'Number on fault plane 1 {grid_dd1.size} plane 2 {grid_dd2.size} plane 3 {grid_dd3.size}')
+        tqdm.write(
+            f"Number on fault plane 1 {grid_dd1.size} plane 2 {grid_dd2.size} plane 3 {grid_dd3.size}"
+        )
 
         ss1 = self._compute_laplacian(grid_dd1, grid_ss1, 2 * self.radius)
         ss2 = self._compute_laplacian(grid_dd2, grid_ss2, 2 * self.radius)
         ss3 = self._compute_laplacian(grid_dd3, grid_ss3, 2 * self.radius)
 
-        s1 = np.hstack((ss1, np.zeros_like(ss2), np.zeros_like(ss3), np.zeros_like(ss1), np.zeros_like(ss2), np.zeros_like(ss3)))
-        s2 = np.hstack((np.zeros_like(ss1), ss2, np.zeros_like(ss3), np.zeros_like(ss1), np.zeros_like(ss2), np.zeros_like(ss3)))
-        s3 = np.hstack((np.zeros_like(ss1), np.zeros_like(ss2), ss3, np.zeros_like(ss1), np.zeros_like(ss2), np.zeros_like(ss3)))
-        d1 = np.hstack((np.zeros_like(ss1), np.zeros_like(ss2), np.zeros_like(ss3), ss1, np.zeros_like(ss2), np.zeros_like(ss3)))
-        d2 = np.hstack((np.zeros_like(ss1), np.zeros_like(ss2), np.zeros_like(ss3), np.zeros_like(ss1), ss2, np.zeros_like(ss3)))
-        d3 = np.hstack((np.zeros_like(ss1), np.zeros_like(ss2), np.zeros_like(ss3), np.zeros_like(ss1), np.zeros_like(ss2), ss3))
+        s1 = np.hstack(
+            (
+                ss1,
+                np.zeros_like(ss2),
+                np.zeros_like(ss3),
+                np.zeros_like(ss1),
+                np.zeros_like(ss2),
+                np.zeros_like(ss3),
+            )
+        )
+        s2 = np.hstack(
+            (
+                np.zeros_like(ss1),
+                ss2,
+                np.zeros_like(ss3),
+                np.zeros_like(ss1),
+                np.zeros_like(ss2),
+                np.zeros_like(ss3),
+            )
+        )
+        s3 = np.hstack(
+            (
+                np.zeros_like(ss1),
+                np.zeros_like(ss2),
+                ss3,
+                np.zeros_like(ss1),
+                np.zeros_like(ss2),
+                np.zeros_like(ss3),
+            )
+        )
+        d1 = np.hstack(
+            (
+                np.zeros_like(ss1),
+                np.zeros_like(ss2),
+                np.zeros_like(ss3),
+                ss1,
+                np.zeros_like(ss2),
+                np.zeros_like(ss3),
+            )
+        )
+        d2 = np.hstack(
+            (
+                np.zeros_like(ss1),
+                np.zeros_like(ss2),
+                np.zeros_like(ss3),
+                np.zeros_like(ss1),
+                ss2,
+                np.zeros_like(ss3),
+            )
+        )
+        d3 = np.hstack(
+            (
+                np.zeros_like(ss1),
+                np.zeros_like(ss2),
+                np.zeros_like(ss3),
+                np.zeros_like(ss1),
+                np.zeros_like(ss2),
+                ss3,
+            )
+        )
 
         self.laplacian = np.vstack((s1, s2, s3, d1, d2, d3))
 
@@ -1734,7 +2138,9 @@ class CoseismicConstraint(BaseConstraint):
                 # check that no patches stick out of the ground
                 if np.any(np.round(fault_dep) <= 0):
                     # do not let the lowest value be zero depth!
-                    fault_dep = fault_dep - (fault_dep.min() - self.radius * sind(dip + ddip[i]) - 1.)
+                    fault_dep = fault_dep - (
+                        fault_dep.min() - self.radius * sind(dip + ddip[i]) - 1.0
+                    )
 
                 # concatenate all
                 grid_patch_dep = np.concatenate((grid_patch_dep, fault_dep))
@@ -1743,8 +2149,9 @@ class CoseismicConstraint(BaseConstraint):
 
         self.dislocation_grid = (grid_dd, grid_ss, grid_dep)
 
-    def select_stations(self, all_stations: List[Station],
-                        **kwargs) -> Tuple[List[Station], List[Station]]:
+    def select_stations(
+        self, all_stations: List[Station], **kwargs
+    ) -> Tuple[List[Station], List[Station]]:
         """
         All stations with coseismic jump for this event constrain each other
         """
@@ -1756,22 +2163,32 @@ class CoseismicConstraint(BaseConstraint):
                 if jump.fit:
                     coseismic_stations.append(stn)
                 else:
-                    tqdm.write(f'WARNING: station {stationID(stn)} is flagged as affected by {self.event.id} '
-                               f'but the etm jump is not activated. This may induce a bias in the model '
-                               f'around the area of this station')
+                    tqdm.write(
+                        f"WARNING: station {stationID(stn)} is flagged as affected by {self.event.id} "
+                        f"but the etm jump is not activated. This may induce a bias in the model "
+                        f"around the area of this station"
+                    )
 
         return coseismic_stations, coseismic_stations
 
     def _get_target_cols(self, station: Station, constraining: List[Station]):
-
         target_idx = station.get_coseismic_column(self.event.id)
-        idx = np.array([stn.get_coseismic_column(self.event.id) for stn in constraining if stn != station])
+        idx = np.array(
+            [
+                stn.get_coseismic_column(self.event.id)
+                for stn in constraining
+                if stn != station
+            ]
+        )
 
         return target_idx, idx
 
-    def compute_constraint_coefficients(self, target_station: Station,
-                                        constraining_stations: List[Station],
-                                        grids: GridSystem) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def compute_constraint_coefficients(
+        self,
+        target_station: Station,
+        constraining_stations: List[Station],
+        grids: GridSystem,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         For coseismic, 'weights' are actually dislocation model predictions
         This is computed once for all stations together
@@ -1782,11 +2199,12 @@ class CoseismicConstraint(BaseConstraint):
             # get the coseismic mask to avoid computing the response everywhere on the grid
             mask = grids.earthquake_masks[self.event.id][0]
 
-            tqdm.write('Computing earthquake response for the interpolation grid')
+            tqdm.write("Computing earthquake response for the interpolation grid")
             # now that the plane is known, compute the response of the grid
             pe, pn, pu = self.compute_dislocation_model(
-                self.plane, grids.interpolation_geographic[0][mask],
-                grids.interpolation_geographic[1][mask]
+                self.plane,
+                grids.interpolation_geographic[0][mask],
+                grids.interpolation_geographic[1][mask],
             )
             grids.earthquake_responses[self.event.id] = (pe, pn, pu)
 
@@ -1831,12 +2249,14 @@ class CoseismicConstraint(BaseConstraint):
         return ke, kn, ku
 
     def _determine_dislocation_plane(self, constraining_stations: List[Station]):
-
         sites_lon = np.array([stn.lon for stn in constraining_stations])
         sites_lat = np.array([stn.lat for stn in constraining_stations])
 
         # now get the jumps for this event
-        jumps = [stn.etm.jump_manager.get_geophysical_jump(self.event.id) for stn in constraining_stations]
+        jumps = [
+            stn.etm.jump_manager.get_geophysical_jump(self.event.id)
+            for stn in constraining_stations
+        ]
 
         le = np.array([j.p.params[1][0] for j in jumps if j])
         ln = np.array([j.p.params[0][0] for j in jumps if j])
@@ -1844,14 +2264,17 @@ class CoseismicConstraint(BaseConstraint):
 
         # create a filter of jumps with sigma larger than 10 cm to avoid using unstable jumps
         sigmas = [np.array(j.p.sigmas) for j in jumps if j]
-        use = [np.sqrt(np.sum(s ** 2, axis=0))[0] < 0.15 for s in sigmas]
+        use = [np.sqrt(np.sum(s**2, axis=0))[0] < 0.15 for s in sigmas]
 
-        tqdm.write(f'Selected {len([u for u in use if u])} stations to test from a total of {len(use)}')
+        tqdm.write(
+            f"Selected {len([u for u in use if u])} stations to test from a total of {len(use)}"
+        )
 
-        sites_nam = [stationID(stn) for i, stn in enumerate(constraining_stations) if use[i]]
+        sites_nam = [
+            stationID(stn) for i, stn in enumerate(constraining_stations) if use[i]
+        ]
 
         if sites_lat.size >= 2:
-
             ae_ = [np.array([]), np.array([])]
             an_ = [np.array([]), np.array([])]
             au_ = [np.array([]), np.array([])]
@@ -1862,8 +2285,10 @@ class CoseismicConstraint(BaseConstraint):
 
             # test both possible faults
             for i in range(2):
-                tqdm.write(f'Determining fault plane for {self.event.id} '
-                            f'strike: {self.event.strike[i]} dip: {self.event.dip[i]}')
+                tqdm.write(
+                    f"Determining fault plane for {self.event.id} "
+                    f"strike: {self.event.strike[i]} dip: {self.event.dip[i]}"
+                )
 
                 ae_[i], an_[i], au_[i] = self.compute_dislocation_model(
                     i, sites_lon, sites_lat
@@ -1877,17 +2302,29 @@ class CoseismicConstraint(BaseConstraint):
                     x = np.linalg.solve(n, c)
                     v[i] = np.concatenate((v[i], obs[j][use] - a[j] @ x))
 
-            tqdm.write('ENU residuals [mm] for each station-plane')
+            tqdm.write("ENU residuals [mm] for each station-plane")
             for i in range(len(sites_nam)):
-                v0 = ' '.join([f'{val * 1000.:7.1f}' for val in v[0].reshape((3, len(sites_nam)))[:, i]])
-                v1 = ' '.join([f'{val * 1000.:7.1f}' for val in v[1].reshape((3, len(sites_nam)))[:, i]])
+                v0 = " ".join(
+                    [
+                        f"{val * 1000.0:7.1f}"
+                        for val in v[0].reshape((3, len(sites_nam)))[:, i]
+                    ]
+                )
+                v1 = " ".join(
+                    [
+                        f"{val * 1000.0:7.1f}"
+                        for val in v[1].reshape((3, len(sites_nam)))[:, i]
+                    ]
+                )
 
-                tqdm.write(f' -- {sites_nam[i]} {v0} | {v1}')
+                tqdm.write(f" -- {sites_nam[i]} {v0} | {v1}")
 
             self.plane = np.argmin(iqr(v, axis=1))
-            tqdm.write(f'iqr for each fault {iqr(v, axis=1)}: '
-                       f'selected strike: {self.event.strike[self.plane]} '
-                       f'dip: {self.event.dip[self.plane]}')
+            tqdm.write(
+                f"iqr for each fault {iqr(v, axis=1)}: "
+                f"selected strike: {self.event.strike[self.plane]} "
+                f"dip: {self.event.dip[self.plane]}"
+            )
 
             # grab the matrices
             self.dislocation_model = (ae_[self.plane], an_[self.plane], au_[self.plane])
@@ -1895,12 +2332,14 @@ class CoseismicConstraint(BaseConstraint):
 
             for i, station in enumerate(constraining_stations):
                 station.earthquake_responses[self.event.id] = (
-                    ae_[self.plane][i, :], an_[self.plane][i, :], au_[self.plane][i, :]
+                    ae_[self.plane][i, :],
+                    an_[self.plane][i, :],
+                    au_[self.plane][i, :],
                 )
 
-    def compute_dislocation_model(self, dislocation_plane: int,
-                                  points_lon: np.ndarray,
-                                  points_lat: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def compute_dislocation_model(
+        self, dislocation_plane: int, points_lon: np.ndarray, points_lat: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Compute Okada dislocation model for all stations"""
         # This would call the existing _compute_dislocations method
         # Returns weights/predictions for each station
@@ -1912,14 +2351,16 @@ class CoseismicConstraint(BaseConstraint):
         # patch count
         n = grid_dd.shape[0]
 
-        strike, dip = self.event.strike[dislocation_plane], self.event.dip[dislocation_plane]
+        strike, dip = (
+            self.event.strike[dislocation_plane],
+            self.event.dip[dislocation_plane],
+        )
 
         # get the depth component based on which plane was selected
         grid_patch_dep = grid_dep[dislocation_plane]
 
         # clockwise rotation
-        R = np.array([[ cosd(strike), sind(strike)],
-                      [-sind(strike), cosd(strike)]])
+        R = np.array([[cosd(strike), sind(strike)], [-sind(strike), cosd(strike)]])
 
         # compute the transformed patches coordinates. -R because we want to go from fault system to
         # the geographical system. Compress the dd coordinates to match the dipping of the fault
@@ -1928,13 +2369,21 @@ class CoseismicConstraint(BaseConstraint):
         ty = t[1, :]
 
         # convert the dd and ss grid to lon lat.
-        grid_patch_lon, grid_patch_lat = inverse_azimuthal(self.event.lon, self.event.lat, tx, ty)
+        grid_patch_lon, grid_patch_lat = inverse_azimuthal(
+            self.event.lon, self.event.lat, tx, ty
+        )
 
-        a = build_design_matrix(np.array([90 - grid_patch_lat, grid_patch_lon, grid_patch_dep]).T,
-                                np.array([90 - points_lat, points_lon]).T,
-                                np.array([np.ones(n) * strike,
-                                          np.ones(n) * dip,
-                                          np.ones(n) * (self.radius * 1000) ** 2]).T)
+        a = build_design_matrix(
+            np.array([90 - grid_patch_lat, grid_patch_lon, grid_patch_dep]).T,
+            np.array([90 - points_lat, points_lon]).T,
+            np.array(
+                [
+                    np.ones(n) * strike,
+                    np.ones(n) * dip,
+                    np.ones(n) * (self.radius * 1000) ** 2,
+                ]
+            ).T,
+        )
 
         ae, an, au = self._dislocation_parts(a)
 
@@ -1965,19 +2414,30 @@ class CoseismicConstraint(BaseConstraint):
 
         return l
 
-    def _compute_coseismic_sw_constraints(self, grids: GridSystem,
-                                          epi_lon, epi_lat,
-                                          stnlon: np.ndarray, stnlat: np.ndarray,
-                                          im_e: np.ndarray, im_n: np.ndarray,
-                                          im_ie: np.ndarray, im_in: np.ndarray,
-                                          patch_count: int):
-
+    def _compute_coseismic_sw_constraints(
+        self,
+        grids: GridSystem,
+        epi_lon,
+        epi_lat,
+        stnlon: np.ndarray,
+        stnlat: np.ndarray,
+        im_e: np.ndarray,
+        im_n: np.ndarray,
+        im_ie: np.ndarray,
+        im_in: np.ndarray,
+        patch_count: int,
+    ):
         # project epicenter
-        ex, ey = azimuthal_equidistant(np.array(grids.origin[0]), np.array(grids.origin[1]),
-                                       np.array([epi_lon]), np.array([epi_lat]))
+        ex, ey = azimuthal_equidistant(
+            np.array(grids.origin[0]),
+            np.array(grids.origin[1]),
+            np.array([epi_lon]),
+            np.array([epi_lat]),
+        )
 
-        x, y = azimuthal_equidistant(np.array(grids.origin[0]), np.array(grids.origin[1]),
-                                     stnlon, stnlat)
+        x, y = azimuthal_equidistant(
+            np.array(grids.origin[0]), np.array(grids.origin[1]), stnlon, stnlat
+        )
 
         s_score, _, _ = grids.earthquake_masks[self.event.id]
 
@@ -1985,13 +2445,15 @@ class CoseismicConstraint(BaseConstraint):
         ke, kn = grids.compute_horizontal_grid_interpolant(x, y, s_score)
 
         # select the points to be constrained based on distance to epicenter
-        epi_dist = np.hypot(grids.interpolation_grid[0] - ex[:, np.newaxis],
-                            grids.interpolation_grid[1] - ey[:, np.newaxis])
+        epi_dist = np.hypot(
+            grids.interpolation_grid[0] - ex[:, np.newaxis],
+            grids.interpolation_grid[1] - ey[:, np.newaxis],
+        )
 
         sorted_indices = np.argsort(epi_dist, axis=None)
 
         # determine how many constraints we need
-        ce = epi_dist.shape[1] #(2 * patch_count - 3 * stnlon.shape[0]) // 2 + 1
+        ce = epi_dist.shape[1]  # (2 * patch_count - 3 * stnlon.shape[0]) // 2 + 1
 
         constraints = np.zeros((0, patch_count * 2))
         im = np.vstack((im_e, im_n))
@@ -2031,21 +2493,28 @@ class CoseismicConstraint(BaseConstraint):
         Gx_col2 = a[2::3, 1::2]  # Shape: (m, n)
 
         # Compute for rake[0]
-        uz_ss = np.cos(rake_rad[0]) * Gz_col1 + np.sin(rake_rad[0]) * Gz_col2 # up
-        uy_ss = np.cos(rake_rad[0]) * Gy_col1 + np.sin(rake_rad[0]) * Gy_col2 # east
-        ux_ss = np.cos(rake_rad[0]) * Gx_col1 + np.sin(rake_rad[0]) * Gx_col2 # north
+        uz_ss = np.cos(rake_rad[0]) * Gz_col1 + np.sin(rake_rad[0]) * Gz_col2  # up
+        uy_ss = np.cos(rake_rad[0]) * Gy_col1 + np.sin(rake_rad[0]) * Gy_col2  # east
+        ux_ss = np.cos(rake_rad[0]) * Gx_col1 + np.sin(rake_rad[0]) * Gx_col2  # north
 
         # Compute for rake[1]
-        uz_dd = np.cos(rake_rad[1]) * Gz_col1 + np.sin(rake_rad[1]) * Gz_col2 # up
-        uy_dd = np.cos(rake_rad[1]) * Gy_col1 + np.sin(rake_rad[1]) * Gy_col2 # east
-        ux_dd = np.cos(rake_rad[1]) * Gx_col1 + np.sin(rake_rad[1]) * Gx_col2 # north
+        uz_dd = np.cos(rake_rad[1]) * Gz_col1 + np.sin(rake_rad[1]) * Gz_col2  # up
+        uy_dd = np.cos(rake_rad[1]) * Gy_col1 + np.sin(rake_rad[1]) * Gy_col2  # east
+        ux_dd = np.cos(rake_rad[1]) * Gx_col1 + np.sin(rake_rad[1]) * Gx_col2  # north
 
-        return np.hstack((ux_ss, ux_dd)), np.hstack((uy_ss, uy_dd)), np.hstack((uz_ss, uz_dd))
+        return (
+            np.hstack((ux_ss, ux_dd)),
+            np.hstack((uy_ss, uy_dd)),
+            np.hstack((uz_ss, uz_dd)),
+        )
 
-    def _build_k_matrix(self, station: Station,
-                        constraining: List[Station],
-                        grids: GridSystem,
-                        total_parameters: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _build_k_matrix(
+        self,
+        station: Station,
+        constraining: List[Station],
+        grids: GridSystem,
+        total_parameters: int,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Build the K matrix for a single constraint"""
         _ke, _kn, _ku = self.compute_constraint_coefficients(
             station, constraining, grids
@@ -2073,13 +2542,17 @@ class CoseismicConstraint(BaseConstraint):
 
     def __str__(self) -> str:
         """String representation for debugging"""
-        out_str = [f"{self.event.id}", f"smoothing: {self.smoothing:.2e}",
-                   f"search: {self.search_start_smoothing:.2e} to {self.search_stop_smoothing:.2e}",
-                   f"plane: {self.plane}",
-                   f"equation count: {len(self.equations) * 3}",
-                   f"h_sigma: {self.h_sigma:.6f}", f"v_sigma: {self.v_sigma:.6f}"]
+        out_str = [
+            f"{self.event.id}",
+            f"smoothing: {self.smoothing:.2e}",
+            f"search: {self.search_start_smoothing:.2e} to {self.search_stop_smoothing:.2e}",
+            f"plane: {self.plane}",
+            f"equation count: {len(self.equations) * 3}",
+            f"h_sigma: {self.h_sigma:.6f}",
+            f"v_sigma: {self.v_sigma:.6f}",
+        ]
 
-        return '; '.join(out_str)
+        return "; ".join(out_str)
 
     def __repr__(self) -> str:
         return f"CoseismicConstraint({str(self)})"
@@ -2088,14 +2561,20 @@ class CoseismicConstraint(BaseConstraint):
 class PostseismicConstraint(BaseConstraint):
     """Constraints for postseismic relaxation"""
 
-    def __init__(self, event: Earthquake, relaxation: float,
-                 h_sigma: float = 0.001, v_sigma: float = 0.003):
+    def __init__(
+        self,
+        event: Earthquake,
+        relaxation: float,
+        h_sigma: float = 0.001,
+        v_sigma: float = 0.003,
+    ):
         super().__init__(ConstraintType.POSTSEISMIC, h_sigma, v_sigma)
         self.event = event
         self.relaxation = relaxation
 
-    def select_stations(self, all_stations: List[Station],
-                        **kwargs) -> Tuple[List[Station], List[Station]]:
+    def select_stations(
+        self, all_stations: List[Station], **kwargs
+    ) -> Tuple[List[Station], List[Station]]:
         """
         Constraining: stations with data and this relaxation
         To constrain: stations with relaxation but insufficient data
@@ -2106,24 +2585,33 @@ class PostseismicConstraint(BaseConstraint):
         for stn in all_stations:
             jump = stn.etm.jump_manager.get_geophysical_jump(self.event.id)
 
-            if (jump and jump.p.jump_type != JumpType.COSEISMIC_ONLY and
-                    jump.get_relaxation_cols(self.relaxation)):
+            if (
+                jump
+                and jump.p.jump_type != JumpType.COSEISMIC_ONLY
+                and jump.get_relaxation_cols(self.relaxation)
+            ):
+                dates = np.array(
+                    [date.mjd for date in stn.etm.solution_data.coordinates.dates]
+                )
 
-                dates = np.array([date.mjd for date in stn.etm.solution_data.coordinates.dates])
-
-                if np.min(dates[dates >= jump.date.mjd] - jump.date.mjd) <= MISSING_DAYS_TOLERANCE:
+                if (
+                    np.min(dates[dates >= jump.date.mjd] - jump.date.mjd)
+                    <= MISSING_DAYS_TOLERANCE
+                ):
                     constraining.append(stn)
                 else:
                     to_constrain.append(stn)
 
-
         return constraining, to_constrain
 
     def _get_target_cols(self, station: Station, constraining: List[Station]):
-
         target_idx = station.get_postseismic_column(self.event.id, self.relaxation)
-        idx = np.array([stn.get_postseismic_column(self.event.id, self.relaxation)
-                        for stn in constraining]).flatten()
+        idx = np.array(
+            [
+                stn.get_postseismic_column(self.event.id, self.relaxation)
+                for stn in constraining
+            ]
+        ).flatten()
 
         return target_idx, idx
 
@@ -2132,11 +2620,15 @@ class PostseismicConstraint(BaseConstraint):
 
     def __str__(self) -> str:
         """String representation for debugging"""
-        out_str = [f"{self.event.id}", f"relax {self.relaxation:.3f}",
-                   f"equation count: {len(self.equations) * 3}",
-                   f"h_sigma: {self.h_sigma:.6f}", f"v_sigma: {self.v_sigma:.6f}"]
+        out_str = [
+            f"{self.event.id}",
+            f"relax {self.relaxation:.3f}",
+            f"equation count: {len(self.equations) * 3}",
+            f"h_sigma: {self.h_sigma:.6f}",
+            f"v_sigma: {self.v_sigma:.6f}",
+        ]
 
-        return '; '.join(out_str)
+        return "; ".join(out_str)
 
     def __repr__(self) -> str:
         return f"PostseismicConstraint({str(self)})"
@@ -2146,43 +2638,52 @@ class ConstraintRegistry:
     """Manages all constraints for the stacking problem"""
 
     def __init__(self):
-        self.constraints: Dict[str, List[Union[
-            CoseismicConstraint,
-            PostseismicConstraint,
-            InterseismicConstraint,
-            BaseConstraint
-        ]]] = {
-            'interseismic': [],
-            'coseismic': [],
-            'postseismic': []
-        }
-        self._application_order = ['interseismic', 'coseismic', 'postseismic']
+        self.constraints: Dict[
+            str,
+            List[
+                Union[
+                    CoseismicConstraint,
+                    PostseismicConstraint,
+                    InterseismicConstraint,
+                    BaseConstraint,
+                ]
+            ],
+        ] = {"interseismic": [], "coseismic": [], "postseismic": []}
+        self._application_order = ["interseismic", "coseismic", "postseismic"]
 
     def add_constraint(self, constraint: BaseConstraint):
         """Add a constraint to the registry"""
         key = constraint.constraint_type.value
         self.constraints[key].append(constraint)
 
-    def collect_all_constraints(self, stations: List[Station],
-                              total_parameters: int, grids: GridSystem, **kwargs):
+    def collect_all_constraints(
+        self,
+        stations: List[Station],
+        total_parameters: int,
+        grids: GridSystem,
+        **kwargs,
+    ):
         """Collect all registered constraints"""
         for constraint_type in self._application_order:
             tqdm.write(f"Collecting {constraint_type} constraints")
             for constraint in self.constraints[constraint_type]:
                 # reset equations before collecting
                 constraint.equations = []
-                constraint.collect_constraints(stations, total_parameters, grids, **kwargs)
+                constraint.collect_constraints(
+                    stations, total_parameters, grids, **kwargs
+                )
 
-    def add_all_constraints(self, neq: np.ndarray,
-                              total_parameters: int) -> int:
+    def add_all_constraints(self, neq: np.ndarray, total_parameters: int) -> int:
         """Add all constraints to normal equations"""
         total_constraints = 0
         for constraint_type in self._application_order:
             for constraint in self.constraints[constraint_type]:
-                tqdm.write(f'Adding {repr(constraint)} to the system')
+                tqdm.write(f"Adding {repr(constraint)} to the system")
                 neq += constraint.apply_to_normal_equations(total_parameters)
                 # count how many constraints per equation
-                total_constraints += sum(3 for const in constraint.equations if const.is_active)
+                total_constraints += sum(
+                    3 for const in constraint.equations if const.is_active
+                )
 
         return total_constraints
 
@@ -2191,12 +2692,11 @@ class ConstraintRegistry:
         summary = {}
         for ctype, constraints in self.constraints.items():
             summary[ctype] = {
-                'count': len(constraints),
-                'total_equations': sum(len(c.equations) for c in constraints),
-                'active_equations': sum(
-                    sum(p.is_active for p in c.equations)
-                    for c in constraints
-                )
+                "count": len(constraints),
+                "total_equations": sum(len(c.equations) for c in constraints),
+                "active_equations": sum(
+                    sum(p.is_active for p in c.equations) for c in constraints
+                ),
             }
         return summary
 
@@ -2205,7 +2705,6 @@ class EtmStacker:
     """Simplified main class focusing on orchestration"""
 
     def __init__(self, config: EtmStackerConfig = None):
-
         # Core data
         self.stations: List[Station] = []
         self.normal_equations: List[NormalEquations] = []
@@ -2227,7 +2726,7 @@ class EtmStacker:
         self.total_parameters: int = 0
         self.total_equations: int = 0
         self.total_constraints: int = 0
-        self.variance: float = 0.
+        self.variance: float = 0.0
 
         # Results
         self.solved: bool = False
@@ -2240,44 +2739,69 @@ class EtmStacker:
         # to save the command history applied to the stacker instance
         self.command_history: List[str] = []
         # to store the name of the current pickle (without extension)
-        self.filename: str = ''
+        self.filename: str = ""
 
         self.print_config()
 
     def print_config(self):
-        sr = ','.join(['%.3f' % r for r in self.config.relaxation])
-        cp = ','.join(['%s' % r for r in self.config.earthquakes_cherry_picked])
-        tqdm.write(f' -- Initialized EtmStacker with max cond number: {self.config.max_condition_number}; '
-                   f'relaxations: {sr}')
-        tqdm.write(f' -- Earthquake mag limit: {self.config.earthquake_magnitude_limit}; '
-                   f'Cherry picked earthquakes: {cp};')
+        sr = ",".join(["%.3f" % r for r in self.config.relaxation])
+        cp = ",".join(["%s" % r for r in self.config.earthquakes_cherry_picked])
+        tqdm.write(
+            f" -- Initialized EtmStacker with max cond number: {self.config.max_condition_number}; "
+            f"relaxations: {sr}"
+        )
+        tqdm.write(
+            f" -- Earthquake mag limit: {self.config.earthquake_magnitude_limit}; "
+            f"Cherry picked earthquakes: {cp};"
+        )
         if isinstance(self.config.post_seismic_back_lim, Date):
-            tqdm.write(f' -- Considering events starting from {self.config.post_seismic_back_lim.yyyyddd()}')
+            tqdm.write(
+                f" -- Considering events starting from {self.config.post_seismic_back_lim.yyyyddd()}"
+            )
         else:
-            tqdm.write(f' -- Considering events up to {self.config.post_seismic_back_lim / 365} '
-                       f'years back from station start')
+            tqdm.write(
+                f" -- Considering events up to {self.config.post_seismic_back_lim / 365} "
+                f"years back from station start"
+            )
 
-        tqdm.write(f" -- Interseismic sigmas: {self.config.interseismic_h_sigma * 1000.} mm/yr "
-                   f"{self.config.interseismic_v_sigma * 1000.} mm/yr")
-        tqdm.write(f" -- Coseismic sigmas: {self.config.coseismic_h_sigma * 1000.} mm "
-                   f"{self.config.coseismic_v_sigma * 1000.} mm")
-        tqdm.write(f" -- Postseismic sigmas: {self.config.postseismic_h_sigma * 1000.} mm "
-                   f"{self.config.postseismic_v_sigma * 1000.} mm")
-        tqdm.write(f" -- Station weight scale factor: {self.config.station_weight_scale}")
+        tqdm.write(
+            f" -- Interseismic sigmas: {self.config.interseismic_h_sigma * 1000.0} mm/yr "
+            f"{self.config.interseismic_v_sigma * 1000.0} mm/yr"
+        )
+        tqdm.write(
+            f" -- Coseismic sigmas: {self.config.coseismic_h_sigma * 1000.0} mm "
+            f"{self.config.coseismic_v_sigma * 1000.0} mm"
+        )
+        tqdm.write(
+            f" -- Postseismic sigmas: {self.config.postseismic_h_sigma * 1000.0} mm "
+            f"{self.config.postseismic_v_sigma * 1000.0} mm"
+        )
+        tqdm.write(
+            f" -- Station weight scale factor: {self.config.station_weight_scale}"
+        )
         tqdm.write(f" -- Vertical interpolation method: {self.config.vertical_method}")
-        if self.config.vertical_method != 'spline2d':
-            tqdm.write(f" -- Vertical load radius (for diskload or rectload): {self.config.vertical_load_radius} km")
+        if self.config.vertical_method != "spline2d":
+            tqdm.write(
+                f" -- Vertical load radius (for diskload or rectload): {self.config.vertical_load_radius} km"
+            )
         else:
             tqdm.write(f" -- Spline2d tension: {self.config.tension}")
 
         tqdm.write(f" -- ETM stacker model filename: {self.filename}")
 
-    def add_station(self, cnn: Cnn, network_code: str, station_code: str,
-                    json_folder: str = None,
-                    save_json_folder: str = None):
+    def add_station(
+        self,
+        cnn: Cnn,
+        network_code: str,
+        station_code: str,
+        json_folder: str = None,
+        save_json_folder: str = None,
+    ):
         """Add a station to the stack"""
         # Build ETM
-        etm = self._build_etm(cnn, network_code, station_code, json_folder, save_json_folder)
+        etm = self._build_etm(
+            cnn, network_code, station_code, json_folder, save_json_folder
+        )
         if etm is None:
             return
 
@@ -2309,26 +2833,41 @@ class EtmStacker:
         # they will contain a couple dead sites but they don't affect the calculations
         self.solved = False
 
-    def _build_etm(self, cnn: Cnn, network_code: str, station_code: str,
-                   json_folder: str = None, save_json_folder: str = None):
-
+    def _build_etm(
+        self,
+        cnn: Cnn,
+        network_code: str,
+        station_code: str,
+        json_folder: str = None,
+        save_json_folder: str = None,
+    ):
         etm = None
         loaded_from_json = False
 
         if json_folder is not None:
-            if os.path.isfile(os.path.join(json_folder, f'{network_code}.{station_code}_ppp.json')):
-                tqdm.write(f'Loading etm for {network_code}.{station_code} from json file')
-                config = EtmConfig(json_file=os.path.join(json_folder, f'{network_code}.{station_code}_ppp.json'))
+            if os.path.isfile(
+                os.path.join(json_folder, f"{network_code}.{station_code}_ppp.json")
+            ):
+                tqdm.write(
+                    f"Loading etm for {network_code}.{station_code} from json file"
+                )
+                config = EtmConfig(
+                    json_file=os.path.join(
+                        json_folder, f"{network_code}.{station_code}_ppp.json"
+                    )
+                )
                 # remove any prefit models from the json (should be applied when we did the model in the first place)
                 etm = EtmEngine(config)
                 loaded_from_json = True
             else:
-                tqdm.write(f'Could not find etm json for {network_code}.{station_code}, '
-                           f'will try to use the database')
+                tqdm.write(
+                    f"Could not find etm json for {network_code}.{station_code}, "
+                    f"will try to use the database"
+                )
 
         try:
             if etm is None:
-                tqdm.write(f'Estimating etm for {network_code}.{station_code}')
+                tqdm.write(f"Estimating etm for {network_code}.{station_code}")
                 config = EtmConfig(network_code, station_code, cnn=cnn)
                 config.solution.solution_type = SolutionType.PPP
 
@@ -2336,29 +2875,43 @@ class EtmStacker:
 
                 etm = EtmEngine(config, cnn=cnn, silent=True)
 
-            #if etm.solution_data.solutions < 100:
+            # if etm.solution_data.solutions < 100:
             #    tqdm.write(print_yellow(f'Station {network_code}.{station_code} has less than '
             #                             f'100 solutions, skipping'))
             #    return None
 
-            if etm.solution_data.time_vector[-1] - etm.solution_data.time_vector[0] <= 1.5:
-                tqdm.write(print_yellow(f' -- Station {network_code}.{station_code} has less than 1.5 '
-                                         f'years of data, skipping'))
+            if (
+                etm.solution_data.time_vector[-1] - etm.solution_data.time_vector[0]
+                <= 1.5
+            ):
+                tqdm.write(
+                    print_yellow(
+                        f" -- Station {network_code}.{station_code} has less than 1.5 "
+                        f"years of data, skipping"
+                    )
+                )
                 return None
-
 
             etm.run_adjustment(cnn=cnn)
         except (DesignMatrixException, numpy.linalg.linalg.LinAlgError):
-            tqdm.write(print_yellow(f' -- Unable to fit {network_code}.{station_code} -> system is rank deficient. '
-                                    f'Will redo ETM with only 10 years of postseismic events.'))
+            tqdm.write(
+                print_yellow(
+                    f" -- Unable to fit {network_code}.{station_code} -> system is rank deficient. "
+                    f"Will redo ETM with only 10 years of postseismic events."
+                )
+            )
             # default back to max condition number = 3
             config.validation.max_condition_number = 3
             etm = EtmEngine(config, cnn=cnn, silent=True)
             try:
                 etm.run_adjustment(cnn=cnn)
             except Exception:
-                tqdm.write(print_yellow(f' -- Unable to fit {network_code}.{station_code}. '
-                                        f'Station will not be added.'))
+                tqdm.write(
+                    print_yellow(
+                        f" -- Unable to fit {network_code}.{station_code}. "
+                        f"Station will not be added."
+                    )
+                )
                 return None
 
         except SolutionDataException as e:
@@ -2366,76 +2919,104 @@ class EtmStacker:
             return None
 
         if etm.config.modeling.status == etm.config.modeling.status.UNABLE_TO_FIT:
-            tqdm.write(print_yellow(f' -- Unable to fit station {network_code}.{station_code} (rank deficient?)'))
+            tqdm.write(
+                print_yellow(
+                    f" -- Unable to fit station {network_code}.{station_code} (rank deficient?)"
+                )
+            )
             return None
 
         if np.any([np.isnan(r.parameters) for r in etm.fit.results]):
-            tqdm.write(print_yellow(f' -- Station {network_code}.{station_code} combined with the list of earthquakes '
-                                    f'yielded a singular solution, station cannot be used'))
+            tqdm.write(
+                print_yellow(
+                    f" -- Station {network_code}.{station_code} combined with the list of earthquakes "
+                    f"yielded a singular solution, station cannot be used"
+                )
+            )
             return None
 
         # gather any mechanical jumps to remove
         mechanical = etm.jump_manager.get_active_mechanical_jumps()
         if len(mechanical):
-            if not self._correct_mechanical_jumps(network_code, station_code, etm, mechanical, cnn):
+            if not self._correct_mechanical_jumps(
+                network_code, station_code, etm, mechanical, cnn
+            ):
                 return None
 
         if save_json_folder is not None and not loaded_from_json:
             if not os.path.exists(save_json_folder):
                 os.makedirs(save_json_folder)
             # let the etm build the filename of the station
-            etm.save_etm(save_json_folder + '/', dump_functions=True, dump_observations=True,
-                         dump_raw_results=True, dump_design_matrix=True, dump_model=True)
+            etm.save_etm(
+                save_json_folder + "/",
+                dump_functions=True,
+                dump_observations=True,
+                dump_raw_results=True,
+                dump_design_matrix=True,
+                dump_model=True,
+            )
 
         return etm
 
     def _apply_config(self, config: EtmConfig, cnn: Cnn):
         config.validation.max_condition_number = self.config.max_condition_number
-        config.modeling.check_jump_collisions = False # turn off jump collision check. Add all jumps.
-        config.modeling.earthquake_magnitude_limit = self.config.earthquake_magnitude_limit
+        config.modeling.check_jump_collisions = (
+            False  # turn off jump collision check. Add all jumps.
+        )
+        config.modeling.earthquake_magnitude_limit = (
+            self.config.earthquake_magnitude_limit
+        )
         config.modeling.post_seismic_back_lim = self.config.post_seismic_back_lim
         config.modeling.relaxation = self.config.relaxation
-        config.modeling.earthquakes_cherry_picked = self.config.earthquakes_cherry_picked
+        config.modeling.earthquakes_cherry_picked = (
+            self.config.earthquakes_cherry_picked
+        )
         # @todo: change the parameters for minimum number of day between earthquakes
         config.refresh_config(cnn)
         return config
 
     @staticmethod
     def _create_station(etm: EtmEngine):
-
         station = Station(
             etm.config.network_code,
             etm.config.station_code,
             etm.config.metadata.lon[0],
             etm.config.metadata.lat[0],
             etm.solution_data.coordinates.dates[0],
-            etm
+            etm,
         )
 
         # figure out if station can participate on interseismic model
         jump = etm.jump_manager.get_first_geophysical()
         if jump is None or (jump is not None and jump.p.jump_date > station.first_obs):
             station.is_interseismic = True
-            tqdm.write(f' -- Station {stationID(station)} is interseismic')
+            tqdm.write(f" -- Station {stationID(station)} is interseismic")
 
         return station
 
-    def _correct_mechanical_jumps(self, network_code: str, station_code: str,
-                                  station_etm: EtmEngine,
-                                  mechanical: List[JumpFunction],
-                                  cnn: Cnn):
-
+    def _correct_mechanical_jumps(
+        self,
+        network_code: str,
+        station_code: str,
+        station_etm: EtmEngine,
+        mechanical: List[JumpFunction],
+        cnn: Cnn,
+    ):
         # need to rerun the model but without letting it be unconstrained
         # create a deep copy of the etm
         config = EtmConfig(network_code, station_code, cnn=cnn)
         config.modeling.relaxation = np.array([np.max(self.config.relaxation)])
 
-        if not os.path.exists('./production'):
-            os.makedirs('./production')
+        if not os.path.exists("./production"):
+            os.makedirs("./production")
 
         etm = EtmEngine(config, cnn=cnn)
-        etm.run_adjustment(try_loading_db=False, force_computation=True, try_save_to_db=False)
-        etm.config.plotting_config.filename = f'./production/{network_code}.{station_code}_before_correction'
+        etm.run_adjustment(
+            try_loading_db=False, force_computation=True, try_save_to_db=False
+        )
+        etm.config.plotting_config.filename = (
+            f"./production/{network_code}.{station_code}_before_correction"
+        )
         etm.plot()
 
         prefit: List[JumpFunction] = []
@@ -2450,38 +3031,48 @@ class EtmStacker:
             j.fit = False
         # rerun adjustment without the mechanical jumps
         try:
-            station_etm.run_adjustment(try_loading_db=False, force_computation=True, try_save_to_db=False)
-            tqdm.write(f' -- Found and corrected {len(mechanical)} mechanical jumps in {network_code}.{station_code}')
-            station_etm.config.plotting_config.filename = f'./production/{network_code}.{station_code}_corrected'
+            station_etm.run_adjustment(
+                try_loading_db=False, force_computation=True, try_save_to_db=False
+            )
+            tqdm.write(
+                f" -- Found and corrected {len(mechanical)} mechanical jumps in {network_code}.{station_code}"
+            )
+            station_etm.config.plotting_config.filename = (
+                f"./production/{network_code}.{station_code}_corrected"
+            )
             station_etm.plot()
         except (DesignMatrixException, numpy.linalg.linalg.LinAlgError):
-            tqdm.write(print_yellow(f' -- Unable to fit {network_code}.{station_code} -> system is rank deficient.'))
+            tqdm.write(
+                print_yellow(
+                    f" -- Unable to fit {network_code}.{station_code} -> system is rank deficient."
+                )
+            )
 
             # not working, check why  Traceback (most recent call last):
-            #File "/home/demian/miniconda3/envs/pgamit/bin/EtmStacker.py", line 700, in <module>
+            # File "/home/demian/miniconda3/envs/pgamit/bin/EtmStacker.py", line 700, in <module>
             #  main()
-            #File "/home/demian/miniconda3/envs/pgamit/bin/EtmStacker.py", line 672, in main
+            # File "/home/demian/miniconda3/envs/pgamit/bin/EtmStacker.py", line 672, in main
             #  etm_stacker.add_station(cnn, stn['NetworkCode'], stn['StationCode'],
-            #File "/home/demian/Dropbox/OSU/Projects/Parallel.GAMIT/Parallel.GAMIT/geode/etm/core/etm_stacker.py", line 2226, in add_station
+            # File "/home/demian/Dropbox/OSU/Projects/Parallel.GAMIT/Parallel.GAMIT/geode/etm/core/etm_stacker.py", line 2226, in add_station
             #  etm = self._build_etm(cnn, network_code, station_code, json_folder, save_json_folder)
-            #File "/home/demian/Dropbox/OSU/Projects/Parallel.GAMIT/Parallel.GAMIT/geode/etm/core/etm_stacker.py", line 2333, in _build_etm
+            # File "/home/demian/Dropbox/OSU/Projects/Parallel.GAMIT/Parallel.GAMIT/geode/etm/core/etm_stacker.py", line 2333, in _build_etm
             #  etm.save_etm(save_json_folder + '/', dump_functions=True, dump_observations=True,
-            #File "/home/demian/Dropbox/OSU/Projects/Parallel.GAMIT/Parallel.GAMIT/geode/etm/core/etm_engine.py", line 302, in save_etm
+            # File "/home/demian/Dropbox/OSU/Projects/Parallel.GAMIT/Parallel.GAMIT/geode/etm/core/etm_engine.py", line 302, in save_etm
             #  model_values = self.fit.get_time_continuous_model(self.solution_data.time_vector_cont)
-            #File "/home/demian/Dropbox/OSU/Projects/Parallel.GAMIT/Parallel.GAMIT/geode/etm/least_squares/least_squares.py", line 771, in get_time_continuous_model
+            # File "/home/demian/Dropbox/OSU/Projects/Parallel.GAMIT/Parallel.GAMIT/geode/etm/least_squares/least_squares.py", line 771, in get_time_continuous_model
             #  model[i] = self.design_matrix.alternate_time_vector(time_vector_cont) @ self.results[i].parameters
-            #ValueError: matmul: Input operand 1 has a mismatch in its core dimension 0, with gufunc signature (n?,k),(k,m?)->(n?,m?) (size 29 is different from 28)
+            # ValueError: matmul: Input operand 1 has a mismatch in its core dimension 0, with gufunc signature (n?,k),(k,m?)->(n?,m?) (size 29 is different from 28)
 
-            #station_etm.config.validation.max_condition_number = 3
-            #station_etm = EtmEngine(station_etm.config, cnn=cnn, silent=True)
+            # station_etm.config.validation.max_condition_number = 3
+            # station_etm = EtmEngine(station_etm.config, cnn=cnn, silent=True)
             # deactivate mechanical jumps again
-            #mechanical = station_etm.jump_manager.get_active_mechanical_jumps()
-            #for j in mechanical:
+            # mechanical = station_etm.jump_manager.get_active_mechanical_jumps()
+            # for j in mechanical:
             #    j.fit = False
 
-            #try:
+            # try:
             #    station_etm.run_adjustment(try_loading_db=False, force_computation=True, try_save_to_db=False)
-            #except Exception:
+            # except Exception:
             #    tqdm.write(print_yellow(f' -- Unable to fit {network_code}.{station_code}. '
             #                            f'Station will not be added.'))
             return False
@@ -2499,8 +3090,10 @@ class EtmStacker:
         c = []
 
         if station.etm.solution_data.solutions < 100:
-            tqdm.write(f' -- Upweighting {stationID(station)} because observations count is < 100')
-            weight_scale = self.config.station_weight_scale * 100.
+            tqdm.write(
+                f" -- Upweighting {stationID(station)} because observations count is < 100"
+            )
+            weight_scale = self.config.station_weight_scale * 100.0
         else:
             weight_scale = self.config.station_weight_scale
 
@@ -2518,17 +3111,19 @@ class EtmStacker:
 
         neq = NormalEquations(
             station=stationID(station),
-            neq=n, ceq=c,
+            neq=n,
+            ceq=c,
             design_matrix=a,
             observation_vector=[l[1], l[0], l[2]],
             weighted_observations=lpl,
             observation_weights=observation_weights,
-            weight_scale=weight_scale, dof=a.shape[0] - a.shape[1],
+            weight_scale=weight_scale,
+            dof=a.shape[0] - a.shape[1],
             parameter_count=a.shape[1],
             equation_count=a.shape[0],
             parameter_start_idx=self.total_parameters,
             parameter_range=np.arange(a.shape[1]) + self.total_parameters,
-            prior_wrms=prior_wrms
+            prior_wrms=prior_wrms,
         )
         # save both vectors to the station
         station.normal_equations = neq
@@ -2541,34 +3136,39 @@ class EtmStacker:
     def build_system(self):
         """Build the complete stacking system"""
         # 1. Create grids
-        self.grids = GridSystem.create_from_stations(self.stations,
-                                                     grid_spacing=self.config.grid_spacing,
-                                                     grid_load_radius=self.config.vertical_load_radius,
-                                                     method=self.config.vertical_method,
-                                                     tension=self.config.tension)
+        self.grids = GridSystem.create_from_stations(
+            self.stations,
+            grid_spacing=self.config.grid_spacing,
+            grid_load_radius=self.config.vertical_load_radius,
+            method=self.config.vertical_method,
+            tension=self.config.tension,
+        )
 
         # 3. Register all constraints
         self._register_constraints()
 
     def change_station_weight(self, station_id: str, new_weight: float, silent=False):
-
         found = False
         for neq in self.normal_equations:
             if neq.station == station_id:
                 if not silent:
-                    tqdm.write(f'Found {station_id} with weight {neq.weight_scale}, '
-                               f'updating to {new_weight}')
+                    tqdm.write(
+                        f"Found {station_id} with weight {neq.weight_scale}, "
+                        f"updating to {new_weight}"
+                    )
                 for i in range(3):
                     neq.ceq[i] = neq.ceq[i] / neq.weight_scale * new_weight
                     neq.neq[i] = neq.neq[i] / neq.weight_scale * new_weight
-                    neq.weighted_observations[i] = neq.weighted_observations[i] / neq.weight_scale * new_weight
+                    neq.weighted_observations[i] = (
+                        neq.weighted_observations[i] / neq.weight_scale * new_weight
+                    )
 
                 neq.weight_scale = new_weight
 
                 found = True
 
         if found and not silent:
-            tqdm.write('Do not forget to invoke solve again!')
+            tqdm.write("Do not forget to invoke solve again!")
 
     def solve(self, interpolate_fields=True) -> Tuple[List, List]:
         """
@@ -2579,8 +3179,10 @@ class EtmStacker:
 
         # collect constraints. Changes to smoothing and weight will be applied here
         self.constraint_registry.collect_all_constraints(
-            self.stations, self.total_parameters, self.grids,
-            earthquakes=self.earthquakes
+            self.stations,
+            self.total_parameters,
+            self.grids,
+            earthquakes=self.earthquakes,
         )
 
         # Solve: Apply constraints to system and do not modify original NEQs
@@ -2588,7 +3190,7 @@ class EtmStacker:
             system_neq, self.total_parameters
         )
 
-        tqdm.write('Solving system...')
+        tqdm.write("Solving system...")
 
         x = np.linalg.solve(system_neq, system_ceq)
         self.solution = np.reshape(x, (3, self.total_parameters))
@@ -2596,11 +3198,18 @@ class EtmStacker:
         self.covariance = np.linalg.inv(system_neq)
 
         # compute the variance of unit weight
-        lpl = sum(stn.normal_equations.weighted_observations[0] +
-                  stn.normal_equations.weighted_observations[1] +
-                  stn.normal_equations.weighted_observations[2] for stn in self.stations)
+        lpl = sum(
+            stn.normal_equations.weighted_observations[0]
+            + stn.normal_equations.weighted_observations[1]
+            + stn.normal_equations.weighted_observations[2]
+            for stn in self.stations
+        )
 
-        dof = self.total_equations * 3 + self.total_constraints - (self.total_parameters * 3)
+        dof = (
+            self.total_equations * 3
+            + self.total_constraints
+            - (self.total_parameters * 3)
+        )
         c_vpv = self._sum_constraint_weighted_residuals()
         o_vpv = lpl - system_ceq.T @ x
 
@@ -2612,8 +3221,9 @@ class EtmStacker:
         increment = []
         for stn in self.stations:
             # add constraints to each station
-            stn.extract_etm_constraints(self.earthquakes, self.config.relaxation,
-                                        self.solution, self.covariance)
+            stn.extract_etm_constraints(
+                self.earthquakes, self.config.relaxation, self.solution, self.covariance
+            )
             # access normal equations
             neq = stn.normal_equations
             stn.posterior_wrms = []
@@ -2622,37 +3232,45 @@ class EtmStacker:
                 # compute residuals for station
                 x = self.solution[i, stn.normal_equations.parameter_range]
                 v = neq.observation_vector[i] - neq.design_matrix @ x
-                wrms_increment.append(np.sqrt(
-                    v.T @ np.diag(neq.observation_weights[i]) @ v / stn.normal_equations.dof)
+                wrms_increment.append(
+                    np.sqrt(
+                        v.T
+                        @ np.diag(neq.observation_weights[i])
+                        @ v
+                        / stn.normal_equations.dof
+                    )
                 )
-                stn.posterior_wrms.append(
-                    neq.prior_wrms[i] * wrms_increment[i]
-                )
+                stn.posterior_wrms.append(neq.prior_wrms[i] * wrms_increment[i])
             wrms_increment = np.array(wrms_increment)
 
             increment.append([stationID(stn), np.mean(wrms_increment), wrms_increment])
 
         from operator import itemgetter
-        tqdm.write('WRMS increment for each station:')
-        for stn, wrmsi, wrms in increment:
-            tqdm.write(f'{stn} WRMS increment: (total={wrmsi:.2f}) {wrms[0]:.2f} {wrms[1]:.2f} {wrms[2]:.2f}')
 
-        tqdm.write('First five largest WRMS increments:')
+        tqdm.write("WRMS increment for each station:")
+        for stn, wrmsi, wrms in increment:
+            tqdm.write(
+                f"{stn} WRMS increment: (total={wrmsi:.2f}) {wrms[0]:.2f} {wrms[1]:.2f} {wrms[2]:.2f}"
+            )
+
+        tqdm.write("First five largest WRMS increments:")
         c = 0
         for stn, wrmsi, wrms in sorted(increment, key=itemgetter(1), reverse=True):
             if c == 6:
                 break
-            tqdm.write(f'{stn} WRMS increment: (total={wrmsi:.2f}) {wrms[0]:.2f} {wrms[1]:.2f} {wrms[2]:.2f}')
+            tqdm.write(
+                f"{stn} WRMS increment: (total={wrmsi:.2f}) {wrms[0]:.2f} {wrms[1]:.2f} {wrms[2]:.2f}"
+            )
             c += 1
 
-        tqdm.write(f'Equations: {self.total_equations * 3}')
-        tqdm.write(f'Constraints: {self.total_constraints}')
-        tqdm.write(f'Parameters: {self.total_parameters * 3}')
-        tqdm.write(f'Sum of squared residuals (obs): {o_vpv:.3f}')
-        tqdm.write(f'Sum of squared residuals (con): {c_vpv:.3f}')
-        tqdm.write(f'Model redundancy: {dof}')
-        tqdm.write(f'SQRT(var) for the stacked system: {np.sqrt(self.variance):.3f} ')
-        tqdm.write(f'1/var for the stacked system: {1/self.variance:.4f} ')
+        tqdm.write(f"Equations: {self.total_equations * 3}")
+        tqdm.write(f"Constraints: {self.total_constraints}")
+        tqdm.write(f"Parameters: {self.total_parameters * 3}")
+        tqdm.write(f"Sum of squared residuals (obs): {o_vpv:.3f}")
+        tqdm.write(f"Sum of squared residuals (con): {c_vpv:.3f}")
+        tqdm.write(f"Model redundancy: {dof}")
+        tqdm.write(f"SQRT(var) for the stacked system: {np.sqrt(self.variance):.3f} ")
+        tqdm.write(f"1/var for the stacked system: {1 / self.variance:.4f} ")
 
         self.solved = True
 
@@ -2663,7 +3281,6 @@ class EtmStacker:
         return self._extract_results()
 
     def _sum_constraint_weighted_residuals(self):
-
         # Count active equations first
         n_active = self.total_constraints
         # Pre-allocate
@@ -2677,7 +3294,9 @@ class EtmStacker:
                     ke, kn, ku = eq.constraint_design
                     se, sn, su = eq.constraint_sigma
                     # do not square! will get squared when doing v.T @ v
-                    k[idx:idx + 3, :] = np.vstack((ke * (1 / se), kn * (1 / sn), ku * (1 / su)))
+                    k[idx : idx + 3, :] = np.vstack(
+                        (ke * (1 / se), kn * (1 / sn), ku * (1 / su))
+                    )
                     idx += 3
         # the - comes from z0 − K ξ̂ but in this case, z0 = 0 (see Snow 6.38)
         v = -k @ self.solution.flatten()
@@ -2706,8 +3325,14 @@ class EtmStacker:
                 n = len(const.equations)
                 # compute the wrms residuals
                 if n > 0:
-                    wrms.append([const, n, np.sqrt((v.T @ v) / (n - 1)),
-                                 sorted(v_eq, key=itemgetter(2), reverse=True)])
+                    wrms.append(
+                        [
+                            const,
+                            n,
+                            np.sqrt((v.T @ v) / (n - 1)),
+                            sorted(v_eq, key=itemgetter(2), reverse=True),
+                        ]
+                    )
 
         return sorted(wrms, key=itemgetter(2), reverse=True)
 
@@ -2716,8 +3341,7 @@ class EtmStacker:
         # Interseismic
         self.constraint_registry.add_constraint(
             InterseismicConstraint(
-                self.config.interseismic_h_sigma,
-                self.config.interseismic_v_sigma
+                self.config.interseismic_h_sigma, self.config.interseismic_v_sigma
             )
         )
 
@@ -2728,63 +3352,78 @@ class EtmStacker:
         for event in self.earthquakes:
             # Coseismic
             # @todo: do not add to registry directly. Check that there are constraining stations before adding
-            stations = [stn for stn in self.stations if stn.get_coseismic_column(event.id) is not None]
+            stations = [
+                stn
+                for stn in self.stations
+                if stn.get_coseismic_column(event.id) is not None
+            ]
             if len(stations):
                 self.constraint_registry.add_constraint(
                     CoseismicConstraint(
-                        event, stations,
+                        event,
+                        stations,
                         self.config.coseismic_h_sigma,
-                        self.config.coseismic_v_sigma
+                        self.config.coseismic_v_sigma,
                     )
                 )
             else:
-                tqdm.write(f'No stations observed coseismic event {event.id}. '
-                           f'A coseismic constraint for this event will not be added.')
+                tqdm.write(
+                    f"No stations observed coseismic event {event.id}. "
+                    f"A coseismic constraint for this event will not be added."
+                )
 
             # Postseismic for each relaxation
             for relax in self.config.relaxation:
                 self.constraint_registry.add_constraint(
                     PostseismicConstraint(
-                        event, relax,
+                        event,
+                        relax,
                         self.config.postseismic_h_sigma,
-                        self.config.postseismic_v_sigma
+                        self.config.postseismic_v_sigma,
                     )
                 )
 
     def _record_earthquakes(self):
-
         for stn in self.stations:
-            for jump in [jump for jump in stn.etm.jump_manager.jumps
-                         if jump.is_geophysical() and jump.fit]:
-
+            for jump in [
+                jump
+                for jump in stn.etm.jump_manager.jumps
+                if jump.is_geophysical() and jump.fit
+            ]:
                 if jump.earthquake is None:
-                    tqdm.write(f'Could not identify earthquake ID for station '
-                                f'{stationID(stn)} for jump date {jump.date}')
+                    tqdm.write(
+                        f"Could not identify earthquake ID for station "
+                        f"{stationID(stn)} for jump date {jump.date}"
+                    )
                     continue
 
                 if jump.earthquake not in self.earthquakes:
-                    tqdm.write('Recording event ' + repr(jump))
+                    tqdm.write("Recording event " + repr(jump))
                     self.earthquakes.append(jump.earthquake)
                     self.earthquakes.sort()
 
                     # open connection to database
-                    cnn = Cnn('gnss_data.cfg')
+                    cnn = Cnn("gnss_data.cfg")
                     lon, lat = self.grids.interpolation_geographic
 
                     # save a mask for the event
                     mask = Mask(cnn, jump.earthquake.id)
                     s_score, p_score = mask.score(lat, lon)
 
-                    tqdm.write(f'Getting mask for event {jump.earthquake.id}')
+                    tqdm.write(f"Getting mask for event {jump.earthquake.id}")
                     s_score = s_score > 0
                     p_score = p_score > 0
                     # save the actual object to query it
-                    self.grids.earthquake_masks[jump.earthquake.id] = (s_score, p_score, mask)
+                    self.grids.earthquake_masks[jump.earthquake.id] = (
+                        s_score,
+                        p_score,
+                        mask,
+                    )
 
     def _build_base_normal_equations(self) -> Tuple[np.ndarray, np.ndarray]:
         """Build the base NEQ from individual stations"""
 
-        tqdm.write('Building station system of normal equations')
+        tqdm.write("Building station system of normal equations")
 
         tp = self.total_parameters
 
@@ -2800,11 +3439,11 @@ class EtmStacker:
                 ceq_comp = neq.ceq[i]
 
                 system_neq[
-                    i * tp + offset:i * tp + offset + n_params,
-                    i * tp + offset:i * tp + offset + n_params] = neq_comp
+                    i * tp + offset : i * tp + offset + n_params,
+                    i * tp + offset : i * tp + offset + n_params,
+                ] = neq_comp
 
-                system_ceq[
-                    i * tp + offset:i * tp + offset + n_params] = ceq_comp
+                system_ceq[i * tp + offset : i * tp + offset + n_params] = ceq_comp
 
             offset += n_params
 
@@ -2812,29 +3451,31 @@ class EtmStacker:
 
         return system_neq, system_ceq
 
-    def add_earthquake(self, event: Earthquake, json_folder: str = None, save_json_folder: str = None):
+    def add_earthquake(
+        self, event: Earthquake, json_folder: str = None, save_json_folder: str = None
+    ):
         """Add event to the list of modeled earthquakes"""
 
         # check the event is not already in the list
         if event in self.earthquakes:
-            tqdm.write(f'Event {event.id} is already in the list of modeled events')
+            tqdm.write(f"Event {event.id} is already in the list of modeled events")
             return
 
-        tqdm.write('Adding event ' + str(event))
+        tqdm.write("Adding event " + str(event))
         self.earthquakes.append(event)
-        self.config.earthquakes_cherry_picked.append(f'{event.id}')
+        self.config.earthquakes_cherry_picked.append(f"{event.id}")
         self.earthquakes.sort()
 
         # get the mask
         # open connection to database
-        cnn = Cnn('gnss_data.cfg')
+        cnn = Cnn("gnss_data.cfg")
         lon, lat = self.grids.interpolation_geographic
 
         # save a mask for the event
         mask = Mask(cnn, event.id)
         s_score, p_score = mask.score(lat, lon)
 
-        tqdm.write(f'Getting mask for event {event.id}')
+        tqdm.write(f"Getting mask for event {event.id}")
         s_score = s_score > 0
         p_score = p_score > 0
         # save the actual object to query it
@@ -2844,9 +3485,15 @@ class EtmStacker:
         for i, stn in enumerate(self.stations):
             s_score, p_score = mask.score(stn.lat, stn.lon)
             if p_score > 0 or s_score > 0:
-                tqdm.write(f'Recomputing etm for {stationID(stn)}')
+                tqdm.write(f"Recomputing etm for {stationID(stn)}")
                 # replace old etm
-                stn.etm = self._build_etm(cnn, stn.network_code, stn.station_code, json_folder, save_json_folder)
+                stn.etm = self._build_etm(
+                    cnn,
+                    stn.network_code,
+                    stn.station_code,
+                    json_folder,
+                    save_json_folder,
+                )
                 # get dimensions of neq
                 new_par_count = stn.etm.design_matrix.matrix.shape[1]
                 # assume number of unknowns will change, so update the rest of the stations down from current
@@ -2858,53 +3505,71 @@ class EtmStacker:
                 for station in self.stations:
                     if stationID(station) == stationID(stn):
                         # add the number of new parameters to remove_from_index
-                        remove_from_index = station.normal_equations.parameter_count - new_par_count
+                        remove_from_index = (
+                            station.normal_equations.parameter_count - new_par_count
+                        )
                         # create a new normal equations object and replace current
                         self.normal_equations[i] = self._create_normal_equations(stn)
                     else:
                         # remove from the parameter range the station that has been removed
                         # this is applied to any stations that come after the removed site
                         station.normal_equations.parameter_range -= remove_from_index
-                        station.normal_equations.parameter_start_idx -= remove_from_index
-                        self.total_parameters += station.normal_equations.parameter_count
+                        station.normal_equations.parameter_start_idx -= (
+                            remove_from_index
+                        )
+                        self.total_parameters += (
+                            station.normal_equations.parameter_count
+                        )
                         self.total_equations += station.normal_equations.equation_count
 
         # now add the constraint
-        stations = [stn for stn in self.stations if stn.get_coseismic_column(event.id) is not None]
+        stations = [
+            stn
+            for stn in self.stations
+            if stn.get_coseismic_column(event.id) is not None
+        ]
         if len(stations):
             self.constraint_registry.add_constraint(
                 CoseismicConstraint(
-                    event, stations,
+                    event,
+                    stations,
                     self.config.coseismic_h_sigma,
-                    self.config.coseismic_v_sigma
+                    self.config.coseismic_v_sigma,
                 )
             )
         else:
-            tqdm.write(f'No stations observed coseismic event {event.id}. '
-                       f'A coseismic constraint for this event will not be added.')
+            tqdm.write(
+                f"No stations observed coseismic event {event.id}. "
+                f"A coseismic constraint for this event will not be added."
+            )
 
         # Postseismic for each relaxation
         for relax in self.config.relaxation:
             self.constraint_registry.add_constraint(
                 PostseismicConstraint(
-                    event, relax,
+                    event,
+                    relax,
                     self.config.postseismic_h_sigma,
-                    self.config.postseismic_v_sigma
+                    self.config.postseismic_v_sigma,
                 )
             )
 
-    def remove_earthquake(self, event: Earthquake, json_folder: str = None, save_json_folder: str = None):
+    def remove_earthquake(
+        self, event: Earthquake, json_folder: str = None, save_json_folder: str = None
+    ):
         """Add event to the list of modeled earthquakes"""
 
         # check the event is not already in the list
         if event in self.earthquakes:
-            tqdm.write('Removing event ' + str(event))
+            tqdm.write("Removing event " + str(event))
 
             self.earthquakes.pop(self.earthquakes.index(event))
-            self.config.earthquakes_cherry_picked.pop(self.config.earthquakes_cherry_picked.index(f'{event.id}'))
+            self.config.earthquakes_cherry_picked.pop(
+                self.config.earthquakes_cherry_picked.index(f"{event.id}")
+            )
             self.earthquakes.sort()
 
-            cnn = Cnn('gnss_data.cfg')
+            cnn = Cnn("gnss_data.cfg")
 
             # remove mask
             _, _, mask = self.grids.earthquake_masks[event.id]
@@ -2915,7 +3580,13 @@ class EtmStacker:
                 s_score, p_score = mask.score(stn.lat, stn.lon)
                 if p_score > 0 or s_score > 0:
                     # replace old etm
-                    stn.etm = self._build_etm(cnn, stn.network_code, stn.station_code, json_folder, save_json_folder)
+                    stn.etm = self._build_etm(
+                        cnn,
+                        stn.network_code,
+                        stn.station_code,
+                        json_folder,
+                        save_json_folder,
+                    )
                     # get dimensions of neq
                     new_par_count = stn.etm.design_matrix.matrix.shape[1]
                     # assume number of unknowns will change, so update the rest of the stations down from current
@@ -2927,60 +3598,89 @@ class EtmStacker:
                     for station in self.stations:
                         if stationID(station) == stationID(stn):
                             # add the number of new parameters to remove_from_index
-                            remove_from_index = station.normal_equations.parameter_count - new_par_count
+                            remove_from_index = (
+                                station.normal_equations.parameter_count - new_par_count
+                            )
                             # create a new normal equations object and replace current
-                            self.normal_equations[i] = self._create_normal_equations(stn)
+                            self.normal_equations[i] = self._create_normal_equations(
+                                stn
+                            )
                         else:
                             # remove from the parameter range the station that has been removed
                             # this is applied to any stations that come after the removed site
-                            station.normal_equations.parameter_range -= remove_from_index
-                            station.normal_equations.parameter_start_idx -= remove_from_index
-                            self.total_parameters += station.normal_equations.parameter_count
-                            self.total_equations += station.normal_equations.equation_count
+                            station.normal_equations.parameter_range -= (
+                                remove_from_index
+                            )
+                            station.normal_equations.parameter_start_idx -= (
+                                remove_from_index
+                            )
+                            self.total_parameters += (
+                                station.normal_equations.parameter_count
+                            )
+                            self.total_equations += (
+                                station.normal_equations.equation_count
+                            )
 
             # now remove the constraints
-            for i, constraint in enumerate(self.constraint_registry.constraints['coseismic']):
+            for i, constraint in enumerate(
+                self.constraint_registry.constraints["coseismic"]
+            ):
                 if constraint.event.id == event.id:
-                    tqdm.write(f'Removed {constraint}')
-                    self.constraint_registry.constraints['coseismic'].pop(i)
+                    tqdm.write(f"Removed {constraint}")
+                    self.constraint_registry.constraints["coseismic"].pop(i)
                     break
 
             # remove the as many postseismic constraints as we have
-            while event.id in [c.event.id for c in self.constraint_registry.constraints['postseismic']]:
-                for i, constraint in enumerate(self.constraint_registry.constraints['postseismic']):
+            while event.id in [
+                c.event.id for c in self.constraint_registry.constraints["postseismic"]
+            ]:
+                for i, constraint in enumerate(
+                    self.constraint_registry.constraints["postseismic"]
+                ):
                     if constraint.event.id == event.id:
-                        tqdm.write(f'Removed {constraint}')
-                        self.constraint_registry.constraints['postseismic'].pop(i)
+                        tqdm.write(f"Removed {constraint}")
+                        self.constraint_registry.constraints["postseismic"].pop(i)
                         break
 
         else:
-            tqdm.write(f'Event {event.id} is not in the list of modeled events')
+            tqdm.write(f"Event {event.id} is not in the list of modeled events")
 
     def get_constraint_summary(self) -> Dict:
         """Get summary of constraint system"""
         return self.constraint_registry.get_constraint_summary()
 
     def update_smoothing(self, event_id: str, new_smoothing: float):
-        for const in self.constraint_registry.constraints['coseismic']:
+        for const in self.constraint_registry.constraints["coseismic"]:
             if const.event.id == event_id:
-                tqdm.write(f'Found event {event_id} with current smoothing {const.smoothing:.3e}')
+                tqdm.write(
+                    f"Found event {event_id} with current smoothing {const.smoothing:.3e}"
+                )
                 const.smoothing = new_smoothing
                 self.solved = False
 
-    def update_smoothing_start_stop(self, event_id: str, new_smoothing_start: float,
-                                    new_smoothing_stop: float):
-        for const in self.constraint_registry.constraints['coseismic']:
+    def update_smoothing_start_stop(
+        self, event_id: str, new_smoothing_start: float, new_smoothing_stop: float
+    ):
+        for const in self.constraint_registry.constraints["coseismic"]:
             if const.event.id == event_id:
-                tqdm.write(f'Found event {event_id} with current smoothing start {const.search_start_smoothing:.3e} '
-                           f'stop {const.search_stop_smoothing:.3e}')
+                tqdm.write(
+                    f"Found event {event_id} with current smoothing start {const.search_start_smoothing:.3e} "
+                    f"stop {const.search_stop_smoothing:.3e}"
+                )
                 const.search_start_smoothing = new_smoothing_start
                 const.search_stop_smoothing = new_smoothing_stop
                 # reset fields
                 const.start_smoothing = [None, None, None]
                 const.stop_smoothing = [None, None, None]
 
-    def update_weights(self, event_id: str = None, relax: float = None, constraint_type: str = None,
-                       h_sigma: float = None, v_sigma: float = None):
+    def update_weights(
+        self,
+        event_id: str = None,
+        relax: float = None,
+        constraint_type: str = None,
+        h_sigma: float = None,
+        v_sigma: float = None,
+    ):
         """
         Update weights for specific constraint type or all constraints
         """
@@ -2992,24 +3692,35 @@ class EtmStacker:
         elif constraint_type and event_id and relax:
             # constraint type, event and relax
             for constraint in self.constraint_registry.constraints[constraint_type]:
-                if constraint.constraint_type in (ConstraintType.COSEISMIC, ConstraintType.POSTSEISMIC):
-                    if constraint.event.id == event_id and constraint.relaxation == relax:
+                if constraint.constraint_type in (
+                    ConstraintType.COSEISMIC,
+                    ConstraintType.POSTSEISMIC,
+                ):
+                    if (
+                        constraint.event.id == event_id
+                        and constraint.relaxation == relax
+                    ):
                         apply_to += [constraint]
         elif constraint_type and event_id and not relax:
             # no relax
             for constraint in self.constraint_registry.constraints[constraint_type]:
-                if constraint.constraint_type in (ConstraintType.COSEISMIC, ConstraintType.POSTSEISMIC):
+                if constraint.constraint_type in (
+                    ConstraintType.COSEISMIC,
+                    ConstraintType.POSTSEISMIC,
+                ):
                     if constraint.event.id == event_id:
                         apply_to += [constraint]
         elif event_id and relax and not constraint_type:
             # event and relax but no constraint type (but implicitly is postseismic)
-            for constraint in self.constraint_registry.constraints['postseismic']:
+            for constraint in self.constraint_registry.constraints["postseismic"]:
                 if constraint.event.id == event_id and constraint.relaxation == relax:
                     apply_to += [constraint]
         elif event_id and not constraint_type and not relax:
             # only event id
-            for constraint in (self.constraint_registry.constraints['coseismic'] +
-                               self.constraint_registry.constraints['postseismic']):
+            for constraint in (
+                self.constraint_registry.constraints["coseismic"]
+                + self.constraint_registry.constraints["postseismic"]
+            ):
                 if constraint.event.id == event_id:
                     apply_to += [constraint]
         else:
@@ -3023,12 +3734,18 @@ class EtmStacker:
         self.solved = False
 
     def plot_grid_result(self, sigmas=False):
-
         input_names = [stationID(stn) for stn in self.stations]
         input_lon = [stn.lon for stn in self.stations]
         input_lat = [stn.lat for stn in self.stations]
 
-        available_fields, station_data, grid_lon, grid_lat, fields, fcovar = [], [], [], [], [], []
+        available_fields, station_data, grid_lon, grid_lat, fields, fcovar = (
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+        )
 
         postseismic = []
         for ifield in self.fields:
@@ -3050,51 +3767,75 @@ class EtmStacker:
             else:
                 if ifield.base_type == ConstraintType.POSTSEISMIC:
                     r_field = 0
-                    for f in [ff for ff in self.fields if ff.base_type == ConstraintType.POSTSEISMIC]:
+                    for f in [
+                        ff
+                        for ff in self.fields
+                        if ff.base_type == ConstraintType.POSTSEISMIC
+                    ]:
                         if ifield.event == f.event:
-                            idx = np.isin(np.array([stationID(stn) for stn in self.stations]),
-                                          np.array([stationID(stn) for stn in f.constrain_stations]))
+                            idx = np.isin(
+                                np.array([stationID(stn) for stn in self.stations]),
+                                np.array(
+                                    [stationID(stn) for stn in f.constrain_stations]
+                                ),
+                            )
                             # pick the max relaxation and use it a dt
-                            r_field += f.enu_field * np.log10(1 + self.config.relaxation.max()/f.relaxation)
+                            r_field += f.enu_field * np.log10(
+                                1 + self.config.relaxation.max() / f.relaxation
+                            )
                             # assign values to where they belong
-                            parameters[:, idx] += (f.constrained_parameters *
-                                                   np.log10(1 + self.config.relaxation.max()/f.relaxation))
+                            parameters[:, idx] += f.constrained_parameters * np.log10(
+                                1 + self.config.relaxation.max() / f.relaxation
+                            )
                     # append postseismic field to keep track of which earthquakes were processed already
                     postseismic.append(ifield.event.id)
                     fields.append(r_field)
                 else:
-                    idx = np.isin(np.array([stationID(stn) for stn in self.stations]),
-                                  np.array([stationID(stn) for stn in ifield.constrain_stations]))
+                    idx = np.isin(
+                        np.array([stationID(stn) for stn in self.stations]),
+                        np.array([stationID(stn) for stn in ifield.constrain_stations]),
+                    )
                     # assign values to where they belong
                     parameters[:, idx] = ifield.constrained_parameters
                     fields.append(ifield.enu_field)
 
         # do the thing
-        return plot_velocity_field(grid_lon, grid_lat, fields,
-                                   np.array(input_lon), np.array(input_lat), station_data, input_names,
-                                   self.plot_constrained_etm, available_fields, plot_sigmas=sigmas,
-                                   covar=fcovar)
+        return plot_velocity_field(
+            grid_lon,
+            grid_lat,
+            fields,
+            np.array(input_lon),
+            np.array(input_lat),
+            station_data,
+            input_names,
+            self.plot_constrained_etm,
+            available_fields,
+            plot_sigmas=sigmas,
+            covar=fcovar,
+        )
 
     def plot_constrained_etm(self, station_index, folder=None):
-        cnn = Cnn('gnss_data.cfg')
+        cnn = Cnn("gnss_data.cfg")
 
         stn = self.stations[station_index]
 
-        tqdm.write(f'Estimating constrained etm for {stationID(stn)}')
+        tqdm.write(f"Estimating constrained etm for {stationID(stn)}")
 
         config = EtmConfig(stn.network_code, stn.station_code, cnn=cnn)
         config = self._apply_config(config, cnn)
         config.solution.solution_type = SolutionType.PPP
         config.modeling.least_squares_strategy.constraints = stn.etm_constraints
         # add the prefit models that got removed from the ETM when we did the stack
-        config.modeling.prefit_models = copy.deepcopy(stn.etm.config.modeling.prefit_models)
+        config.modeling.prefit_models = copy.deepcopy(
+            stn.etm.config.modeling.prefit_models
+        )
 
         for const in config.modeling.least_squares_strategy.constraints:
-            par = ''
+            par = ""
             for p in const.p.params:
-                par += '[' + ' '.join([f'{a * 1000.:.2f}' for a in p.tolist()]) + '] '
+                par += "[" + " ".join([f"{a * 1000.0:.2f}" for a in p.tolist()]) + "] "
 
-            tqdm.write(f' -- Etm constrain: {const} {par}')
+            tqdm.write(f" -- Etm constrain: {const} {par}")
 
         if folder is None:
             config.plotting_config.interactive = True
@@ -3112,85 +3853,96 @@ class EtmStacker:
 
         etm.run_adjustment(cnn=cnn, try_save_to_db=False, try_loading_db=False)
         etm.plot()
-        print('(EtmStacker) > ', end='', flush=True)
+        print("(EtmStacker) > ", end="", flush=True)
 
     def _extract_results(self) -> Tuple[List, List]:
-
         interseismic = []
         earthquakes = []
         for stn in self.stations:
             ap = stn.etm.design_matrix.get_polynomial().p.params
             idx = stn.get_velocity_column()
-            interseismic.append({
-                'station': stationID(stn),
-                'lon': stn.lon,
-                'lat': stn.lat,
-                'a_priori': [ap[1][1], ap[0][1], ap[2][1]],
-                'constrained': self.solution[:, idx].tolist(),
-                'is_interseismic': stn.is_interseismic
-            })
+            interseismic.append(
+                {
+                    "station": stationID(stn),
+                    "lon": stn.lon,
+                    "lat": stn.lat,
+                    "a_priori": [ap[1][1], ap[0][1], ap[2][1]],
+                    "constrained": self.solution[:, idx].tolist(),
+                    "is_interseismic": stn.is_interseismic,
+                }
+            )
             for event in self.earthquakes:
                 idx = stn.get_coseismic_column(event.id)
                 if idx:
                     ap = stn.etm.jump_manager.get_geophysical_jump(event.id).p.params
-                    earthquakes.append({
-                        'station': stationID(stn),
-                        'lon': stn.lon,
-                        'lat': stn.lat,
-                        'event_id': event.id,
-                        'relax': 0.0,
-                        'a_priori': [ap[1], ap[0], ap[2]],
-                        'constrained': self.solution[:, idx].tolist(),
-                    })
+                    earthquakes.append(
+                        {
+                            "station": stationID(stn),
+                            "lon": stn.lon,
+                            "lat": stn.lat,
+                            "event_id": event.id,
+                            "relax": 0.0,
+                            "a_priori": [ap[1], ap[0], ap[2]],
+                            "constrained": self.solution[:, idx].tolist(),
+                        }
+                    )
                 for relax in self.config.relaxation:
                     idx = stn.get_postseismic_column(event.id, relax)
                     if idx:
                         jump = stn.etm.jump_manager.get_geophysical_jump(event.id)
                         ap = jump.p.params
                         col = jump.get_relaxation_cols(relax, False)
-                        earthquakes.append({
-                            'station': stationID(stn),
-                            'lon': stn.lon,
-                            'lat': stn.lat,
-                            'event_id': event.id,
-                            'relax': relax,
-                            'a_priori': [ap[1][col], ap[0][col], ap[2][col]],
-                            'constrained': self.solution[:, idx].tolist(),
-                        })
+                        earthquakes.append(
+                            {
+                                "station": stationID(stn),
+                                "lon": stn.lon,
+                                "lat": stn.lat,
+                                "event_id": event.id,
+                                "relax": relax,
+                                "a_priori": [ap[1][col], ap[0][col], ap[2][col]],
+                                "constrained": self.solution[:, idx].tolist(),
+                            }
+                        )
 
         return interseismic, earthquakes
 
     def interpolate_fields_to_grid(self):
-
         if self.solved:
             # clean any previous runs
             self.fields = []
 
             self.fields.append(
                 EtmStackerField.create_field(
-                    self.stations, self.solution, self.covariance, self.grids)
+                    self.stations, self.solution, self.covariance, self.grids
+                )
             )
 
             for event in self.earthquakes:
                 # find the constraint for this event
                 coseismic_constraint = None
-                for const in self.constraint_registry.constraints['coseismic']:
+                for const in self.constraint_registry.constraints["coseismic"]:
                     if const.event == event:
                         coseismic_constraint = const
                         break
 
                 if coseismic_constraint is None:
-                    tqdm.write(f'Could not find coseismic constraint for {event.id}')
+                    tqdm.write(f"Could not find coseismic constraint for {event.id}")
                     continue
 
                 fields = EtmStackerField.create_field(
-                    self.stations, self.solution, self.covariance, self.grids, event,
-                    self.config.relaxation, coseismic_constraint)
+                    self.stations,
+                    self.solution,
+                    self.covariance,
+                    self.grids,
+                    event,
+                    self.config.relaxation,
+                    coseismic_constraint,
+                )
 
                 self.fields += fields
 
         else:
-            tqdm.write('System has not been solved! Invoke solve first')
+            tqdm.write("System has not been solved! Invoke solve first")
 
     def get_trajectory_functions_at_point(self, lon: float, lat: float, etm: EtmEngine):
         pass

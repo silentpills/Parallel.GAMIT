@@ -3,34 +3,43 @@ Project: Geodesy Database Engine (GeoDE)
 Date: 09/12/2025 09:20 AM
 Author: Demian D. Gomez
 """
-from typing import Dict, List, Optional, Any, Union
-import numpy as np
+
 import logging
+from typing import Any, Dict, List, Optional, Union
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
 # app
+from ...dbConnection import Cnn
 from ...pyDate import Date
 from ...Utils import load_json
-from ...dbConnection import Cnn
-from ..core.type_declarations import PeriodicStatus, JumpType, EtmException
+from ..core.data_classes import (
+    JumpParameters,
+    ModelingParameters,
+    SolutionOptions,
+    StationMetadata,
+    ValidationRules,
+)
 from ..core.logging_config import setup_etm_logging
-from ..core.data_classes import (SolutionOptions, ModelingParameters,
-                                 ValidationRules, StationMetadata, JumpParameters)
+from ..core.type_declarations import EtmException, JumpType, PeriodicStatus
 from ..visualization.data_classes import PlotOutputConfig
 
 
 class EtmConfig:
     """Central configuration manager for ETM operations"""
 
-    def __init__(self,
-                 network_code: str = '',
-                 station_code: str = '',
-                 custom_config: Optional[Dict[str, Any]] = None,
-                 cnn: Cnn = None,
-                 solution_options: SolutionOptions = None,
-                 json_file: Union[str, dict] = None,
-                 silent: bool = False):
+    def __init__(
+        self,
+        network_code: str = "",
+        station_code: str = "",
+        custom_config: Optional[Dict[str, Any]] = None,
+        cnn: Cnn = None,
+        solution_options: SolutionOptions = None,
+        json_file: Union[str, dict] = None,
+        silent: bool = False,
+    ):
         """
         Initialize ETM configuration
 
@@ -58,9 +67,9 @@ class EtmConfig:
             self.load_from_json(json_file)
 
         # Language support
-        self.language = 'eng'
+        self.language = "eng"
         self._language_dict = {
-            'eng': {
+            "eng": {
                 "station": "Station",
                 "north": "North",
                 "east": "East",
@@ -86,9 +95,9 @@ class EtmConfig:
                 "seasonal": "Seasonal",
                 "stochastic": "Stochastic",
                 "removed": "Removed",
-                "prefit": "Prefit"
+                "prefit": "Prefit",
             },
-            'spa': {
+            "spa": {
                 "station": "Estación",
                 "north": "Norte",
                 "east": "Este",
@@ -114,9 +123,9 @@ class EtmConfig:
                 "seasonal": "Estacionales",
                 "stochastic": "Estocástico",
                 "removed": "Removido(s)",
-                "prefit": "Pre-ajuste"
+                "prefit": "Pre-ajuste",
             },
-            'fra': {
+            "fra": {
                 "station": "Station",
                 "north": "Nord",
                 "east": "Est",
@@ -142,8 +151,8 @@ class EtmConfig:
                 "seasonal": "Saisonnier",
                 "stochastic": "Stochastique",
                 "removed": "Supprimé",
-                "prefit": "Prefit"
-            }
+                "prefit": "Prefit",
+            },
         }
         if solution_options:
             self.solution = solution_options
@@ -171,27 +180,32 @@ class EtmConfig:
             self._load_periodic_config(cnn)
             self._load_jump_config(cnn)
 
-            logger.info(f"Loaded configuration from database for {self.network_code}.{self.station_code}")
+            logger.info(
+                f"Loaded configuration from database for {self.network_code}.{self.station_code}"
+            )
 
         except EtmException as e:
-            logger.warning(f"Failed to load database config for {self.network_code}.{self.station_code}: {e}")
+            logger.warning(
+                f"Failed to load database config for {self.network_code}.{self.station_code}: {e}"
+            )
             logger.info("Using default configuration")
 
     def _load_station_metadata(self, cnn):
         """Load station metadata from database"""
-        query = '''
+        query = """
                 SELECT * FROM stations 
                 WHERE "NetworkCode" = '%s' AND "StationCode" = '%s'
-            ''' % (self.network_code, self.station_code)
+            """ % (self.network_code, self.station_code)
 
         stn = cnn.query_float(query, as_dict=True)
 
-        if not stn or stn[0]['lat'] is None:
+        if not stn or stn[0]["lat"] is None:
             raise ValueError(f"No valid metadata for station {self.get_station_id()}")
 
-        if stn[0]['DateStart'] is None:
+        if stn[0]["DateStart"] is None:
             # a few old stations with no DateStart, update table
-            cnn.query('''
+            cnn.query(
+                """
             UPDATE stations 
                 SET "DateStart" = r.min_date,
                     "DateEnd" = r.max_date
@@ -202,29 +216,39 @@ class EtmConfig:
                     WHERE "NetworkCode" = '%s' AND "StationCode" = '%s'
                 ) r
                 WHERE "NetworkCode" = '%s' AND "StationCode" = '%s'
-            ''' % (self.network_code, self.station_code, self.network_code, self.station_code))
+            """
+                % (
+                    self.network_code,
+                    self.station_code,
+                    self.network_code,
+                    self.station_code,
+                )
+            )
             # run query again to get updated data
             stn = cnn.query_float(query, as_dict=True)
 
         """Load station reference coordinates and metadata"""
-        self.metadata.name = stn[0]['StationName']
-        self.metadata.country_code = stn[0]['country_code']
-        self.metadata.lat = np.array([float(stn[0]['lat'])])
-        self.metadata.lon = np.array([float(stn[0]['lon'])])
-        self.metadata.height = np.array([float(stn[0]['height'])])
-        self.metadata.auto_x = np.array([float(stn[0]['auto_x'])])
-        self.metadata.auto_y = np.array([float(stn[0]['auto_y'])])
-        self.metadata.auto_z = np.array([float(stn[0]['auto_z'])])
-        if stn[0]['DateStart'] is not None:
-            self.metadata.first_obs = Date(fyear=stn[0]['DateStart'])
-        if stn[0]['DateEnd'] is not None:
-            self.metadata.last_obs = Date(fyear=stn[0]['DateEnd'])
-        self.metadata.max_dist = 20.0 if not stn[0]['max_dist'] else stn[0]['max_dist']
+        self.metadata.name = stn[0]["StationName"]
+        self.metadata.country_code = stn[0]["country_code"]
+        self.metadata.lat = np.array([float(stn[0]["lat"])])
+        self.metadata.lon = np.array([float(stn[0]["lon"])])
+        self.metadata.height = np.array([float(stn[0]["height"])])
+        self.metadata.auto_x = np.array([float(stn[0]["auto_x"])])
+        self.metadata.auto_y = np.array([float(stn[0]["auto_y"])])
+        self.metadata.auto_z = np.array([float(stn[0]["auto_z"])])
+        if stn[0]["DateStart"] is not None:
+            self.metadata.first_obs = Date(fyear=stn[0]["DateStart"])
+        if stn[0]["DateEnd"] is not None:
+            self.metadata.last_obs = Date(fyear=stn[0]["DateEnd"])
+        self.metadata.max_dist = 20.0 if not stn[0]["max_dist"] else stn[0]["max_dist"]
 
         # as part of the metadata, load the station info
         from ...metadata.station_info import StationInfo, StationInfoException
+
         try:
-            station_info = StationInfo(cnn, self.network_code, self.station_code, allow_empty=True)
+            station_info = StationInfo(
+                cnn, self.network_code, self.station_code, allow_empty=True
+            )
 
             self.metadata.station_information = station_info.records
         except StationInfoException:
@@ -232,25 +256,26 @@ class EtmConfig:
 
     def _load_polynomial_config(self, cnn) -> None:
         """Load polynomial configuration from etm_params table"""
-        query = '''
+        query = """
             SELECT "terms", "Year", "DOY" FROM etm_params 
             WHERE "NetworkCode" = '%s' AND "StationCode" = '%s' 
             AND "object" = 'polynomial' AND "soln" = '%s'
             LIMIT 1
-        ''' % (self.network_code, self.station_code,  self.solution.solution_type.code)
+        """ % (self.network_code, self.station_code, self.solution.solution_type.code)
 
         try:
             result = cnn.query_float(query, as_dict=True)
 
             if result:
                 row = result[0]
-                if row.get('terms'):
-                    self.modeling.poly_terms = int(row['terms'])
+                if row.get("terms"):
+                    self.modeling.poly_terms = int(row["terms"])
 
                 # Set reference epoch if specified
-                if row.get('Year') and row.get('DOY'):
+                if row.get("Year") and row.get("DOY"):
                     from geode import pyDate
-                    ref_date = pyDate.Date(year=int(row['Year']), doy=int(row['DOY']))
+
+                    ref_date = pyDate.Date(year=int(row["Year"]), doy=int(row["DOY"]))
                     self.modeling.reference_epoch = ref_date.fyear
 
         except EtmException as e:
@@ -258,19 +283,19 @@ class EtmConfig:
 
     def _load_periodic_config(self, cnn) -> None:
         """Load periodic configuration from etm_params table"""
-        query = '''
+        query = """
             SELECT "frequencies" FROM etm_params 
             WHERE "NetworkCode" = '%s' AND "StationCode" = '%s' 
             AND "object" = 'periodic' AND "soln" = '%s'
             LIMIT 1
-        ''' % (self.network_code, self.station_code,  self.solution.solution_type.code)
+        """ % (self.network_code, self.station_code, self.solution.solution_type.code)
 
         try:
             result = cnn.query_float(query, as_dict=True)
 
-            if result and result[0].get('frequencies'):
+            if result and result[0].get("frequencies"):
                 # Assuming frequencies are stored as array in database
-                freqs = result[0]['frequencies']
+                freqs = result[0]["frequencies"]
                 if isinstance(freqs, (list, tuple)):
                     self.modeling.frequencies = np.array(freqs)
                     self.modeling.periodic_status = PeriodicStatus.ADDED_BY_USER
@@ -283,12 +308,12 @@ class EtmConfig:
         from ..core.s_score import ScoreTable
 
         # @todo: analyze if "soln" = 'gamit' always or should also allow 'ppp'
-        query = '''
+        query = """
             SELECT "Year", "DOY", "action", "jump_type", "relaxation", "soln"
             FROM etm_params 
             WHERE "NetworkCode" = '%s' AND "StationCode" = '%s' 
             AND "object" = 'jump' AND "soln" = '%s' ORDER BY ("Year", "DOY")
-        ''' % (self.network_code, self.station_code, self.solution.solution_type.code)
+        """ % (self.network_code, self.station_code, self.solution.solution_type.code)
 
         try:
             result = cnn.query_float(query, as_dict=True)
@@ -297,18 +322,19 @@ class EtmConfig:
                 self.modeling.user_jumps = []
                 # Store jump configuration for later use
                 for jump in result:
-                    if jump['jump_type'] == 1:
+                    if jump["jump_type"] == 1:
                         jump_type = JumpType.COSEISMIC_JUMP_DECAY
-                    elif jump['jump_type'] == 2:
+                    elif jump["jump_type"] == 2:
                         jump_type = JumpType.POSTSEISMIC_ONLY
                     else:
                         jump_type = JumpType.MECHANICAL_MANUAL
 
                     jump_params = JumpParameters(
                         jump_type=jump_type,
-                        relaxation=jump['relaxation'],
-                        date=Date(year=int(jump['Year']), doy=int(jump['DOY'])),
-                        action=jump['action'])
+                        relaxation=jump["relaxation"],
+                        date=Date(year=int(jump["Year"]), doy=int(jump["DOY"])),
+                        action=jump["action"],
+                    )
 
                     self.modeling.user_jumps.append(jump_params)
             else:
@@ -320,11 +346,17 @@ class EtmConfig:
                 sdate = self.metadata.first_obs - self.modeling.post_seismic_back_lim
             # now earthquakes
             # no information yet of data dates, load everything that is possible
-            score = ScoreTable(cnn, self.network_code, self.station_code,
-                               self.metadata.lat[0], self.metadata.lon[0],
-                               sdate, self.metadata.last_obs,
-                               magnitude_limit=self.modeling.earthquake_magnitude_limit,
-                               force_events=self.modeling.earthquakes_cherry_picked)
+            score = ScoreTable(
+                cnn,
+                self.network_code,
+                self.station_code,
+                self.metadata.lat[0],
+                self.metadata.lon[0],
+                sdate,
+                self.metadata.last_obs,
+                magnitude_limit=self.modeling.earthquake_magnitude_limit,
+                force_events=self.modeling.earthquakes_cherry_picked,
+            )
 
             self.modeling.earthquake_jumps = score.table
 
@@ -367,11 +399,10 @@ class EtmConfig:
         # load basic fields from json file
         data = load_json(_json)
 
-        self.network_code = data['network_code']
-        self.station_code = data['station_code']
-        self.solution = SolutionOptions(**data['solution_options'])
-        self.modeling = ModelingParameters(**data['modeling_params'])
+        self.network_code = data["network_code"]
+        self.station_code = data["station_code"]
+        self.solution = SolutionOptions(**data["solution_options"])
+        self.modeling = ModelingParameters(**data["modeling_params"])
         self.plotting_config = PlotOutputConfig()
         self.validation = ValidationRules()
-        self.metadata = StationMetadata(**data['station_meta'])
-
+        self.metadata = StationMetadata(**data["station_meta"])

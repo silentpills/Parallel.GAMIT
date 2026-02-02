@@ -1,17 +1,17 @@
 import logging
-from logging import StreamHandler, Formatter
+from logging import Formatter, StreamHandler
 
 
-def setup_etm_logging(level=logging.INFO, format_string=' -- %(name)s: %(message)s'):
+def setup_etm_logging(level=logging.INFO, format_string=" -- %(name)s: %(message)s"):
     """Setup logging for the entire ETM package"""
     # Configure the parent 'etm' logger
-    etm_logger = logging.getLogger('geode.etm')
+    etm_logger = logging.getLogger("geode.etm")
 
     # Avoid duplicate handlers
     if not etm_logger.handlers:
         handler = StreamHandler()
         if level == logging.INFO:
-            handler.setFormatter(Formatter(' -- %(message)s'))
+            handler.setFormatter(Formatter(" -- %(message)s"))
         else:
             handler.setFormatter(Formatter(format_string))
         etm_logger.addHandler(handler)

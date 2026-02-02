@@ -4,16 +4,19 @@ Date: 9/22/25 8:53 AM
 Author: Demian D. Gomez
 """
 
-import numpy as np
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Any, Tuple
 from io import BytesIO
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
 
 from ..core.data_classes import BaseDataClass
+
 
 @dataclass
 class ComponentData:
     """Data for one coordinate component"""
+
     observations: np.ndarray
     observations_fit: np.ndarray
     observations_not_fit: np.ndarray
@@ -31,6 +34,7 @@ class ComponentData:
 @dataclass
 class TimeSeriesPlotData:
     """Container for time series plot data"""
+
     station_id: str
     solution_type: str
     stack_name: str
@@ -65,6 +69,7 @@ class TimeSeriesPlotData:
 @dataclass
 class HistogramPlotData:
     """Container for histogram plot data"""
+
     station_id: str
     solution_type: str
     completion: float
@@ -87,9 +92,10 @@ class HistogramPlotData:
 @dataclass
 class PlotOutputConfig(BaseDataClass):
     """Configuration for plot output"""
+
     filename: Optional[str] = None
     file_io: Optional[BytesIO] = None
-    format: str = 'png'
+    format: str = "png"
     save_kwargs: Dict[str, Any] = None
 
     # Plot configuration

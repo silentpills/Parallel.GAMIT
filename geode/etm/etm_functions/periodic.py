@@ -1,24 +1,26 @@
-import numpy as np
-from typing import Dict, Any, Tuple, Union, List
 import logging
+from typing import Any, Dict, List, Tuple, Union
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
 # app
 from ...Utils import crc32
-from ..etm_functions.etm_function import EtmFunction
 from ..core.etm_config import EtmConfig
+from ..etm_functions.etm_function import EtmFunction
 
 
 class PeriodicFunction(EtmFunction):
     """Enhanced periodic function with improved frequency management"""
+
     def __init__(self, config: EtmConfig, **kwargs):
         self.dt_max = np.inf
         super().__init__(config, **kwargs)
 
     def initialize(self, time_vector: np.ndarray = np.array([]), **kwargs) -> None:
         """Initialize periodic-specific parameters"""
-        self.p.object = 'periodic'
+        self.p.object = "periodic"
         self._time_vector = time_vector
 
         # Load frequencies from configuration or database
@@ -30,16 +32,23 @@ class PeriodicFunction(EtmFunction):
             self.fit = False
             self.p.frequencies = np.array([])
 
-        logger.info(f'Periodic -> Frequency count: {len(self.p.frequencies)}; FitPeriodic: {self.fit}')
+        logger.info(
+            f"Periodic -> Frequency count: {len(self.p.frequencies)}; FitPeriodic: {self.fit}"
+        )
 
         self.design = self.get_design_ts(time_vector)
 
-        self.p.metadata = f'periodic:{len(self.p.frequencies)}'
+        self.p.metadata = f"periodic:{len(self.p.frequencies)}"
 
-        params = (','.join([f's{i}' for i in range(int(self.param_count/2))]) + ',' +
-                  ','.join([f'c{i}' for i in range(int(self.param_count/2))]))
+        params = (
+            ",".join([f"s{i}" for i in range(int(self.param_count / 2))])
+            + ","
+            + ",".join([f"c{i}" for i in range(int(self.param_count / 2))])
+        )
 
-        self.p.param_metadata = f'periodic:[n:[{params}]],[e:[{params}]],[u:[{params}]]]'
+        self.p.param_metadata = (
+            f"periodic:[n:[{params}]],[e:[{params}]],[u:[{params}]]]"
+        )
 
     def _analyze_data_gaps(self, time_vector: np.ndarray) -> None:
         """Analyze data gaps to determine fittable frequencies"""
@@ -63,7 +72,7 @@ class PeriodicFunction(EtmFunction):
     def _filter_fittable_frequencies(self, new_freqs: np.ndarray) -> None:
         """Filter frequencies based on data availability"""
         # get the 50 % of Nyquist for each component (and convert to average fyear)
-        nyquist_limits = ((1 / new_freqs) / 2.) * 0.5 * 1 / 365.25
+        nyquist_limits = ((1 / new_freqs) / 2.0) * 0.5 * 1 / 365.25
         fittable_mask = self.dt_max <= nyquist_limits
 
         self.param_count = int(np.sum(fittable_mask)) * 2
@@ -93,8 +102,11 @@ class PeriodicFunction(EtmFunction):
 
         return np.column_stack((sin_components, cos_components))
 
-    def get_periodic_cols(self, frequency: Union[float, List, np.ndarray] = None,
-                          return_col_of_design_matrix: bool = True) -> List:
+    def get_periodic_cols(
+        self,
+        frequency: Union[float, List, np.ndarray] = None,
+        return_col_of_design_matrix: bool = True,
+    ) -> List:
         """
         method to retrieve the column of a given frequency (or all if None)
         if return_col_of_design_matrix then the returned index if that of the ETM design matrix
@@ -119,40 +131,39 @@ class PeriodicFunction(EtmFunction):
         return sin_cols
 
     def print_parameters(self) -> Tuple[list, list, list]:
-
         periods = (1 / (self.p.frequencies * 365.25)).tolist()
-        periods_str = ' '.join('%.1f yr' % i for i in periods)
+        periods_str = " ".join("%.1f yr" % i for i in periods)
 
-        self.format_str = (self.config.get_label('periodic') + f' ({periods_str})')
+        self.format_str = self.config.get_label("periodic") + f" ({periods_str})"
         if self.p.params:
-            params = np.array(self.p.params) * 1000.
+            params = np.array(self.p.params) * 1000.0
 
             freq = int(self.param_count / 2)
             amplitude = np.zeros((3, freq))
             for i in range(freq):
                 amplitude[:, i] = np.sqrt(np.sum(np.square(params[:, i::freq]), axis=1))
 
-            Na = ' '.join([f'{amp:.2f}' for amp in amplitude[0]])
-            Ea = ' '.join([f'{amp:.2f}' for amp in amplitude[1]])
-            Ua = ' '.join([f'{amp:.2f}' for amp in amplitude[2]])
+            Na = " ".join([f"{amp:.2f}" for amp in amplitude[0]])
+            Ea = " ".join([f"{amp:.2f}" for amp in amplitude[1]])
+            Ua = " ".join([f"{amp:.2f}" for amp in amplitude[2]])
         else:
             Na = Ea = Ua = 0
 
-        self.format_str += f' N: ({Na}) E: ({Ea}) U: ({Ua}) [mm]'
+        self.format_str += f" N: ({Na}) E: ({Ea}) U: ({Ua}) [mm]"
 
         return [self.format_str], [], []
 
     def rehash(self) -> None:
         """Recompute hash for change detection"""
-        freq_str = ','.join(f'{f:.6f}' for f in self.p.frequencies)
+        freq_str = ",".join(f"{f:.6f}" for f in self.p.frequencies)
         self.p.hash = crc32(freq_str)
 
     def configure_behavior(self, behavior_config: Dict[str, Any]) -> None:
         """Configure periodic-specific behavior"""
         super().configure_behavior(behavior_config)
 
-        if 'custom_frequencies' in behavior_config:
-            new_freqs = np.array(behavior_config['custom_frequencies'])
+        if "custom_frequencies" in behavior_config:
+            new_freqs = np.array(behavior_config["custom_frequencies"])
             if len(new_freqs) != len(self.p.frequencies):
                 self._filter_fittable_frequencies(new_freqs)
                 self.param_count = self.p.frequencies.size * 2
@@ -164,20 +175,20 @@ class PeriodicFunction(EtmFunction):
         name = []
         if self.p.frequencies is not None:
             for i in range(self.p.frequencies.size):
-                name.append(f'{"FREQ " + f"S{i:d}":>10}')
+                name.append(f"{'FREQ ' + f'S{i:d}':>10}")
             for i in range(self.p.frequencies.size):
-                name.append(f'{"FREQ " + f"C{i:d}":>10}')
+                name.append(f"{'FREQ ' + f'C{i:d}':>10}")
 
-        return ' '.join(name)
+        return " ".join(name)
 
     def __str__(self) -> str:
         """String representation for debugging"""
         out_str = [f"param count: {self.param_count}"]
         if self.p.frequencies is not None:
             for f in self.p.frequencies:
-                out_str.append(f'period: {1/f:7.3f} days')
+                out_str.append(f"period: {1 / f:7.3f} days")
 
-        return '; '.join(out_str)
+        return "; ".join(out_str)
 
     def __repr__(self) -> str:
         return f"Periodic({str(self)})"

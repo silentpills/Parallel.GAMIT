@@ -1,23 +1,28 @@
-from typing import List, Tuple
-import numpy as np
 import logging
+from typing import List, Tuple
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
 # app
-from ...Utils import crc32
 from ...pyDate import Date
-from ..etm_functions.etm_function import EtmFunction
-from ..core.etm_config import EtmConfig
+from ...Utils import crc32
 from ..core.data_classes import AdjustmentResults
+from ..core.etm_config import EtmConfig
+from ..etm_functions.etm_function import EtmFunction
 
 
 class StochasticSignal(EtmFunction):
     """Special EtmFunction to store stochastic signal values"""
-    def __init__(self, config: EtmConfig,
-                 time_vector_cont_mjd: np.ndarray = np.array([0]),
-                 stochastic_signal: List[np.ndarray] = np.array([0]), **kwargs):
 
+    def __init__(
+        self,
+        config: EtmConfig,
+        time_vector_cont_mjd: np.ndarray = np.array([0]),
+        stochastic_signal: List[np.ndarray] = np.array([0]),
+        **kwargs,
+    ):
         super().__init__(config, **kwargs)
 
         self.p.params = stochastic_signal
@@ -27,18 +32,20 @@ class StochasticSignal(EtmFunction):
         self.rehash()
 
     def initialize(self, **kwargs) -> None:
-        self.p.object = 'stochastic'
-        self.p.sigmas = [np.array([0.])] * 3
+        self.p.object = "stochastic"
+        self.p.sigmas = [np.array([0.0])] * 3
 
     def rehash(self) -> None:
         """Recompute hash value for change detection"""
-        if hasattr(self, '_time_vector_cont_mjd'):
-            self.p.hash = crc32(f'stochastic_signal'
-                                f'{self._time_vector_cont_mjd.min()}'
-                                f'{self._time_vector_cont_mjd.min()}'
-                                f'{self.config.modeling.least_squares_strategy.covariance_function.description}')
+        if hasattr(self, "_time_vector_cont_mjd"):
+            self.p.hash = crc32(
+                f"stochastic_signal"
+                f"{self._time_vector_cont_mjd.min()}"
+                f"{self._time_vector_cont_mjd.min()}"
+                f"{self.config.modeling.least_squares_strategy.covariance_function.description}"
+            )
         else:
-            self.p.hash = crc32(f'stochastic_signal')
+            self.p.hash = crc32("stochastic_signal")
 
     def get_design_ts(self, ts: np.ndarray) -> np.ndarray:
         """Generate design matrix for given time series"""
@@ -50,10 +57,12 @@ class StochasticSignal(EtmFunction):
 
         return self.p.params[:][mask]
 
-    def eval(self, component: int,
-             override_time_vector: np.ndarray = None,
-             override_params: np.ndarray = None):
-
+    def eval(
+        self,
+        component: int,
+        override_time_vector: np.ndarray = None,
+        override_params: np.ndarray = None,
+    ):
         mask = np.isin(self._time_vector_cont_mjd, override_time_vector)
 
         return self.p.params[component][mask]
@@ -66,11 +75,11 @@ class StochasticSignal(EtmFunction):
         pass
 
     def short_name(self) -> str:
-        return 'STOCHASTIC'
+        return "STOCHASTIC"
 
     def __str__(self) -> str:
         """String representation for debugging"""
-        return f'length: {self._time_vector_cont_mjd.size}'
+        return f"length: {self._time_vector_cont_mjd.size}"
 
     def __repr__(self) -> str:
         return f"StochasticSignal({str(self)})"

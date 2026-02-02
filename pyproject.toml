@@ -120,6 +120,7 @@ ignore = [
     # Security (intentional patterns in GNSS/scientific computing)
     "S101",   # Assert statements (invariant checking)
     "S105",   # Hardcoded password string
+    "S301",   # Pickle usage (session save/restore)
     "S108",   # Hardcoded temp file paths
     "S110",   # Try-except-pass
     "S307",   # Suspicious eval usage

@@ -4,16 +4,24 @@ Date: 9/21/25 4:58 PM
 Author: Demian D. Gomez
 """
 
-import numpy as np
 from dataclasses import dataclass, field
-from typing import List, Optional, Any, Union, Callable
 from datetime import datetime
+from typing import Any, List, Optional, Union
+
+import numpy as np
+
+from geode.etm.core.type_declarations import (
+    AdjustmentModels,
+    CovarianceFunction,
+    FitStatus,
+    JumpType,
+    PeriodicStatus,
+    SolutionType,
+)
+from geode.metadata.station_info import StationInfoRecord
 
 # app
 from geode.pyDate import Date
-from geode.metadata.station_info import StationInfoRecord
-from geode.etm.core.type_declarations import (JumpType, PeriodicStatus, FitStatus,
-                                               AdjustmentModels, CovarianceFunction, SolutionType)
 
 
 @dataclass
@@ -21,12 +29,16 @@ class BaseDataClass:
     """
     base class for data manipulated by user preventing adding non-existent elements to the class
     """
+
     def __post_init__(self):
         # after initialization
-        self._allowed_attributes = {item for item in dir(self) if item[0] != '_'}
+        self._allowed_attributes = {item for item in dir(self) if item[0] != "_"}
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if hasattr(self, '_allowed_attributes') and name not in self._allowed_attributes:
+        if (
+            hasattr(self, "_allowed_attributes")
+            and name not in self._allowed_attributes
+        ):
             raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'. ")
         super().__setattr__(name, value)
 
@@ -34,7 +46,8 @@ class BaseDataClass:
 @dataclass
 class AdjustmentResults(BaseDataClass):
     """Results from least squares adjustment"""
-    origin: str = ''
+
+    origin: str = ""
     parameters: np.ndarray = field(default_factory=lambda: np.array([]))
     parameter_sigmas: np.ndarray = field(default_factory=lambda: np.array([]))
     residuals: np.ndarray = field(default_factory=lambda: np.array([]))
@@ -55,9 +68,17 @@ class AdjustmentResults(BaseDataClass):
         super().__post_init__()
 
         # Convert lists to numpy arrays if needed
-        array_fields = ['parameters', 'parameter_sigmas', 'residuals', 'empirical_covariance',
-                        'covariance_function_params', 'stochastic_signal', 'obs_sigmas', 'covariance_matrix',
-                        'outlier_flags']
+        array_fields = [
+            "parameters",
+            "parameter_sigmas",
+            "residuals",
+            "empirical_covariance",
+            "covariance_function_params",
+            "stochastic_signal",
+            "obs_sigmas",
+            "covariance_matrix",
+            "outlier_flags",
+        ]
         for field_name in array_fields:
             value = getattr(self, field_name)
             if isinstance(value, list):
@@ -69,11 +90,17 @@ class EtmFunctionParameterVector(BaseDataClass):
     # Parameter storage
     frequencies: np.ndarray = field(default_factory=lambda: np.array([]))
     relaxation: np.ndarray = field(default_factory=lambda: np.array([]))
-    params: List[np.ndarray] = field(default_factory=lambda: [np.array([]), np.array([]), np.array([])])
-    sigmas: List[np.ndarray] = field(default_factory=lambda: [np.array([]), np.array([]), np.array([])])
-    covar: List[np.ndarray] = field(default_factory=lambda: [np.array([]), np.array([]), np.array([])])
+    params: List[np.ndarray] = field(
+        default_factory=lambda: [np.array([]), np.array([]), np.array([])]
+    )
+    sigmas: List[np.ndarray] = field(
+        default_factory=lambda: [np.array([]), np.array([]), np.array([])]
+    )
+    covar: List[np.ndarray] = field(
+        default_factory=lambda: [np.array([]), np.array([]), np.array([])]
+    )
 
-    object: str = ''
+    object: str = ""
     metadata: Optional[str] = None
     param_metadata: Optional[str] = None
     hash: int = 0
@@ -86,13 +113,13 @@ class EtmFunctionParameterVector(BaseDataClass):
 
         # Convert dict to custom objects
         if isinstance(self.jump_type, dict):
-            self.jump_type = JumpType(self.jump_type['value'])
+            self.jump_type = JumpType(self.jump_type["value"])
 
         if isinstance(self.jump_date, dict):
             self.jump_date = Date(**self.jump_date).datetime()
 
         # Convert lists to numpy arrays if needed
-        array_fields = ['relaxation', 'frequencies']
+        array_fields = ["relaxation", "frequencies"]
         for field_name in array_fields:
             value = getattr(self, field_name)
             if isinstance(value, list):
@@ -131,16 +158,19 @@ class Earthquake(BaseDataClass):
 
         # Convert dict to custom objects
         if isinstance(self.jump_type, dict):
-            self.jump_type = JumpType(self.jump_type['value'])
+            self.jump_type = JumpType(self.jump_type["value"])
 
         if isinstance(self.date, dict):
             self.date = Date(**self.date)
 
     def build_metadata(self) -> str:
-        link = ('<a href="https://earthquake.usgs.gov/earthquakes/eventpage/%s" '
-                'target="_blank">%s</a>'
-                % (self.id, self.id))
-        return f'{link}: M{self.magnitude:.1f} {self.location} -> {self.distance:.0f} km'
+        link = (
+            '<a href="https://earthquake.usgs.gov/earthquakes/eventpage/%s" '
+            'target="_blank">%s</a>' % (self.id, self.id)
+        )
+        return (
+            f"{link}: M{self.magnitude:.1f} {self.location} -> {self.distance:.0f} km"
+        )
 
     def __eq__(self, other):
         """Compare earthquakes based on event_date"""
@@ -160,7 +190,8 @@ class Earthquake(BaseDataClass):
 
     def __str__(self):
         """return a human-readable string"""
-        return f'{self.id} {self.date.yyyyddd()} Mw {self.magnitude}'
+        return f"{self.id} {self.date.yyyyddd()} Mw {self.magnitude}"
+
 
 @dataclass
 class JumpParameters(BaseDataClass):
@@ -174,7 +205,7 @@ class JumpParameters(BaseDataClass):
 
         # Convert dict to custom objects
         if isinstance(self.jump_type, dict):
-            self.jump_type = JumpType(self.jump_type['value'])
+            self.jump_type = JumpType(self.jump_type["value"])
 
         if isinstance(self.date, dict):
             self.date = Date(**self.date)
@@ -182,6 +213,7 @@ class JumpParameters(BaseDataClass):
         # Convert lists to numpy arrays if needed
         if isinstance(self.relaxation, list):
             self.relaxation = np.array(self.relaxation)
+
 
 @dataclass
 class LeastSquares(BaseDataClass):
@@ -199,19 +231,20 @@ class LeastSquares(BaseDataClass):
 
         # Convert dict to custom objects
         if isinstance(self.covariance_function, dict):
-            self.covariance_function = CovarianceFunction(self.covariance_function['value'])
+            self.covariance_function = CovarianceFunction(
+                self.covariance_function["value"]
+            )
 
         if isinstance(self.adjustment_model, dict):
-            self.adjustment_model = AdjustmentModels(self.adjustment_model['value'])
+            self.adjustment_model = AdjustmentModels(self.adjustment_model["value"])
 
 
 @dataclass
 class ModelingParameters(BaseDataClass):
     """Configuration for modeling parameters"""
+
     # default configuration for running the EtmEngine
-    relaxation: np.ndarray = field(
-        default_factory=lambda: np.array([0.05, 1])
-    )
+    relaxation: np.ndarray = field(default_factory=lambda: np.array([0.05, 1]))
     poly_terms: int = 2
     reference_epoch: float = 0
     frequencies: np.ndarray = field(
@@ -252,17 +285,17 @@ class ModelingParameters(BaseDataClass):
     fit_generic_jumps: bool = True
     fit_metadata_jumps: bool = True
     fit_auto_detected_jumps: bool = False
-    fit_auto_detected_jumps_method: str = 'dbscan'
+    fit_auto_detected_jumps_method: str = "dbscan"
 
     def __post_init__(self):
         super().__post_init__()
 
         # Convert dict to custom objects
         if isinstance(self.periodic_status, dict):
-            self.periodic_status = PeriodicStatus(self.periodic_status['value'])
+            self.periodic_status = PeriodicStatus(self.periodic_status["value"])
 
         if isinstance(self.status, dict):
-            self.status = FitStatus(self.status['value'])
+            self.status = FitStatus(self.status["value"])
 
         if isinstance(self.least_squares_strategy, dict):
             self.least_squares_strategy = LeastSquares(**self.least_squares_strategy)
@@ -271,7 +304,7 @@ class ModelingParameters(BaseDataClass):
             self.post_seismic_back_lim = Date(**self.post_seismic_back_lim)
 
         # Convert lists to numpy arrays if needed
-        array_fields = ['relaxation', 'frequencies']
+        array_fields = ["relaxation", "frequencies"]
         for field_name in array_fields:
             value = getattr(self, field_name)
             if isinstance(value, list):
@@ -296,9 +329,9 @@ class ModelingParameters(BaseDataClass):
 
         return mask
 
-    def get_user_jump(self,
-                      date: Union[Date, datetime],
-                      jump_type: JumpType) -> Union[JumpParameters, None]:
+    def get_user_jump(
+        self, date: Union[Date, datetime], jump_type: JumpType
+    ) -> Union[JumpParameters, None]:
         """obtain a jump from the database jump config using date and type"""
 
         for jump_params in self.user_jumps:
@@ -307,8 +340,10 @@ class ModelingParameters(BaseDataClass):
                 if jump_params.jump_type == jump_type:
                     # types match exactly, so it is the jump being looked for
                     return jump_params
-                elif (jump_params.jump_type >= JumpType.COSEISMIC_JUMP_DECAY
-                      and jump_type >= JumpType.COSEISMIC_JUMP_DECAY):
+                elif (
+                    jump_params.jump_type >= JumpType.COSEISMIC_JUMP_DECAY
+                    and jump_type >= JumpType.COSEISMIC_JUMP_DECAY
+                ):
                     # a geophysical jump with a change in behavior, return it to the caller
                     return jump_params
         return None
@@ -317,12 +352,12 @@ class ModelingParameters(BaseDataClass):
 @dataclass
 class StationMetadata(BaseDataClass):
     # @ todo: add station monument and station type to the metadata
-    name: str = ''
-    country_code: str = ''
+    name: str = ""
+    country_code: str = ""
     lat: np.ndarray = field(default_factory=lambda: np.array([0]))
     lon: np.ndarray = field(default_factory=lambda: np.array([0]))
     height: np.ndarray = field(default_factory=lambda: np.array([0]))
-    auto_x: np.ndarray = field(default_factory=lambda: np.array([6378137.]))
+    auto_x: np.ndarray = field(default_factory=lambda: np.array([6378137.0]))
     auto_y: np.ndarray = field(default_factory=lambda: np.array([0]))
     auto_z: np.ndarray = field(default_factory=lambda: np.array([0]))
     first_obs: Date = Date(year=1980, doy=1)
@@ -342,10 +377,12 @@ class StationMetadata(BaseDataClass):
 
         if isinstance(self.station_information, list):
             for i, stn in enumerate(self.station_information):
-                self.station_information[i] = StationInfoRecord(stn['NetworkCode'], stn['StationCode'], _record=stn)
+                self.station_information[i] = StationInfoRecord(
+                    stn["NetworkCode"], stn["StationCode"], _record=stn
+                )
 
         # Convert lists to numpy arrays if needed
-        array_fields = ['lat', 'lon', 'height', 'auto_x', 'auto_y', 'auto_z']
+        array_fields = ["lat", "lon", "height", "auto_x", "auto_y", "auto_z"]
         for field_name in array_fields:
             value = getattr(self, field_name)
             if isinstance(value, list) or isinstance(value, tuple):
@@ -355,25 +392,27 @@ class StationMetadata(BaseDataClass):
 @dataclass
 class SolutionOptions(BaseDataClass):
     solution_type: SolutionType = SolutionType.PPP
-    stack_name: str = 'ppp'
-    project: str = '' # to store the project name for GAMIT solutions
-    filename: str = '' # to store the filename location if SolutionType is NGL
-    format: str = ('fyear', 'x', 'y', 'z') # default format reader for the filename
+    stack_name: str = "ppp"
+    project: str = ""  # to store the project name for GAMIT solutions
+    filename: str = ""  # to store the filename location if SolutionType is NGL
+    format: str = ("fyear", "x", "y", "z")  # default format reader for the filename
 
     def __post_init__(self):
         super().__post_init__()
 
         # Convert dict to custom objects
         if isinstance(self.solution_type, dict):
-            self.solution_type = SolutionType(self.solution_type['value'])
+            self.solution_type = SolutionType(self.solution_type["value"])
+
 
 # @ todo: analyze if this class belongs inside of modeling
 @dataclass
 class ValidationRules(BaseDataClass):
     """Configuration for validation rules"""
-    max_relaxation_amplitude: float = 100.0  # meters (inflated after tests from 4 to 100)
+
+    max_relaxation_amplitude: float = (
+        100.0  # meters (inflated after tests from 4 to 100)
+    )
     min_solutions_for_etm: int = 4
     min_data_for_jump: int = 50  # data points
-    max_condition_number: float = 3.5 # log10 of the condition number
-
-
+    max_condition_number: float = 3.5  # log10 of the condition number
