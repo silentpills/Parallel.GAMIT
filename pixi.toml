@@ -5,13 +5,16 @@ platforms = ["osx-arm64", "linux-64"]
 [dependencies]
 python = ">=3.10"
 basemap = "*"
+geopandas = "*"
 geopy = "*"
 h5py = "*"
 matplotlib = "*"
+netifaces = "*"
 networkx = "*"
 numpy = ">=1.19.5"
 pandas = "*"
 paramiko = "*"
+psutil = "*"
 psycopg2-binary = "*"
 scandir = ">=1.6"
 scikit-learn = ">=1.1"
@@ -46,8 +49,14 @@ commitizen = "*"
 
 [pypi-dependencies]
 country-converter = "*"
+dirsync = "*"
 dispy = "*"
+earthscope-cli = "*"
+earthscope-sdk = "*"
 hdf5storage = "*"
+munch = "*"
+pycos = "*"
+pysftp = "*"
 simplekml = "*"
 usgs-libcomcat = "*"
 
@@ -67,16 +76,16 @@ pymdown-extensions = "*"
 # Testing
 test = { cmd = "pytest" }
 "test:verbose" = { cmd = "pytest -v" }
-"test:cov" = { cmd = "pytest --cov=pgamit --cov-report=term-missing" }
+"test:cov" = { cmd = "pytest --cov=geode --cov-report=term-missing" }
 
 # Linting and formatting
-lint = { cmd = "ruff check pgamit com" }
-"lint:fix" = { cmd = "ruff check --fix pgamit com" }
-format = { cmd = "ruff format pgamit com" }
-"format:check" = { cmd = "ruff format --check pgamit com" }
+lint = { cmd = "ruff check geode com" }
+"lint:fix" = { cmd = "ruff check --fix geode com" }
+format = { cmd = "ruff format geode com" }
+"format:check" = { cmd = "ruff format --check geode com" }
 
 # Type checking
-typecheck = { cmd = "ty check --output-format github pgamit com" }
+typecheck = { cmd = "ty check --output-format github geode com" }
 
 # Documentation
 "docs:serve" = { cmd = "mkdocs serve", depends-on = ["docs"] }
@@ -87,7 +96,7 @@ typecheck = { cmd = "ty check --output-format github pgamit com" }
 "precommit:run" = { cmd = "pre-commit run --all-files", depends-on = ["dev"] }
 
 # All checks (useful for CI)
-check = { cmd = "ruff check pgamit com && ruff format --check pgamit com && ty check pgamit com && pytest" }
+check = { cmd = "ruff check geode com && ruff format --check geode com && ty check geode com && pytest" }
 # Utilities
 # check-external = "which gfzrnx && which crx2rnx && which gpspace && which sh_gamit"
 # pgamit = "pgamit --help"

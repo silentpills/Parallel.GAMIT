@@ -42,5 +42,5 @@ schedule==1.2.2
 gunicorn>=20.1,<21.0
 celery==5.4.0
 redis==5.0.8
-pgamit
+geode-gnss
 country_converter==1.3
