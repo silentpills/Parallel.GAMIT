@@ -3,11 +3,11 @@ requires = ["setuptools>=64", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pgamit"
-description = "A Python wrapper to parallelize GAMIT executions"
-readme = "README.md"
-license = { file = "LICENSE" }
+name = "geode-gnss"
 dynamic = ["version"]
+description = "A Python wrapper to parallelize GAMIT executions"
+license = { file = "LICENSE" }
+readme = "README.md"
 authors = [
   { name = "Demián D. Gómez", email = "demiang@gmail.com"},
 ]
@@ -15,12 +15,12 @@ maintainers = [
   { name = "Demián D. Gómez", email = "demiang@gmail.com"},
   { name = "Shane Grigsby (espg)", email = "refuge@rocktalus.com" },
 ]
+keywords = ["GNSS", "GAMIT", "geodesy", "GPS", "parallel processing"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-keywords = ["GAMIT", "GNSS", "geodesy", "parallel"]
 
 requires-python = ">=3.10"
 dependencies = [
@@ -31,6 +31,7 @@ dependencies = [
     "psycopg2-binary==2.9.9",
     "pycos",
     "country-converter",
+    "charset-normalizer==3.4.4",
     "earthscope-cli==0.8.2",
     "earthscope-sdk==0.2.0",
     "basemap==1.4.0",
@@ -55,15 +56,16 @@ dependencies = [
     "xmltodict==0.13.0",
     "scikit-image",
     "shapely",
-    "obspy"
+    "obspy",
+    "geopandas"
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/demiangomez/Parallel.GAMIT"
-"Bug Tracker" = "https://github.com/demiangomez/Parallel.GAMIT/issues"
+"Homepage" = "https://github.com/demiangomez/geode"
+"Bug Tracker" = "https://github.com/demiangomez/geode/issues"
 
 [tool.setuptools]
-packages = ["pgamit"]
+packages = ["geode"]
 
 [tool.setuptools_scm]
 
@@ -71,7 +73,7 @@ packages = ["pgamit"]
 minversion = "6.0"
 addopts = "-ra -q --ignore=web --ignore=docs_legacy --ignore=archive"
 testpaths = [
-    "pgamit/tests",
+    "geode/tests",
 ]
 
 [tool.commitizen]
@@ -137,7 +139,7 @@ ignore = [
 quote-style = "double"
 
 [tool.ty.src]
-include = ["pgamit", "com"]
+include = ["geode", "com"]
 exclude = [
   "archive",
   "web",
