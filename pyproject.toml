@@ -27,7 +27,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "numpy==1.26.4",
     "pandas",
-    "tqdm==4.66.5",
+    "tqdm==4.67.1",
     "dispy",
     "psycopg2-binary==2.9.9",
     "pycos",
