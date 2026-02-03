@@ -31,10 +31,9 @@ jobs:
         run: pixi run lint
 
   typecheck:
-    name: Typecheck
+    name: Typecheck (Informational)
     runs-on: ubuntu-latest
     needs: lint
-    continue-on-error: true  # Informational until type annotations are cleaned up
     steps:
       - uses: actions/checkout@v4
 
@@ -46,7 +45,10 @@ jobs:
           locked: true
 
       - name: Type check with ty
-        run: pixi run typecheck
+        run: |
+          # Run typecheck but don't fail the job - this is informational only
+          # until type annotations are cleaned up across the codebase
+          pixi run typecheck || echo "::warning::Type checking found errors (see above). This is informational only."
 
   test:
     name: Test
