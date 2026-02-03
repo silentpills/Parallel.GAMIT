@@ -5,7 +5,7 @@
 ```bash
 # Clone and setup
 git clone <repo-url>
-cd pgamit
+cd geode
 pixi install              # Installs everything including dev dependencies
 pixi run precommit:install  # Setup git hooks (recommended!)
 ```
@@ -16,7 +16,7 @@ pixi run precommit:install  # Setup git hooks (recommended!)
 The **default** environment now includes the `dev` feature, so `pixi install` automatically installs:
 - ✅ All runtime dependencies
 - ✅ Type stubs (types-tqdm, types-requests, types-paramiko, types-psycopg2, types-setuptools)
-- ✅ Pyright (type checker by Astral)
+- ✅ ty (type checker by Astral)
 - ✅ Pre-commit (git hooks)
 - ✅ Commitizen (conventional commits)
 
@@ -46,9 +46,9 @@ pixi run format         # Format code
 pixi run format:check   # Check formatting without changes
 ```
 
-### Type Checking (Pyright by Astral)
+### Type Checking (ty by Astral)
 ```bash
-pixi run typecheck      # Check types in pgamit/ and com/
+pixi run typecheck      # Check types in geode/ and com/
 ```
 
 ### Pre-commit Hooks
@@ -134,15 +134,14 @@ git commit --no-verify
 
 ### Modified Files
 - `pixi.toml` - Added dev feature, tasks, and default environment
-- `pyproject.toml` - Added commitizen and pyright configuration
+- `pyproject.toml` - Added commitizen and ty configuration
 - `docs/development/contributing.md` - Updated with new dev workflow
 
 ## 🔧 Configuration Files
 
-### Pyright (`pyproject.toml`)
-- Checks: `pgamit/`, `com/`
+### ty (`pyproject.toml`)
+- Checks: `geode/`, `com/`
 - Excludes: `archive/`, `web/`, `node_modules`, etc.
-- Mode: `basic` (balanced strictness)
 
 ### Commitizen (`pyproject.toml`)
 - Standard: Conventional Commits
@@ -155,10 +154,9 @@ git commit --no-verify
 
 ## ❓ FAQ
 
-### Q: Why Pyright instead of mypy?
-**A:** Pyright (by Astral, makers of ruff and uv) is:
+### Q: Why ty instead of mypy?
+**A:** ty (by Astral, makers of ruff and uv) is:
 - Faster
-- Better IDE integration (it's what VS Code/Cursor uses)
 - Modern architecture
 - Part of the same ecosystem as ruff
 
@@ -179,7 +177,7 @@ git commit --no-verify
 - [Conventional Commits](https://www.conventionalcommits.org/)
 - [Pre-commit Documentation](https://pre-commit.com/)
 - [Ruff Documentation](https://docs.astral.sh/ruff/)
-- [Pyright Documentation](https://microsoft.github.io/pyright/)
+- [ty Documentation](https://docs.astral.sh/ty/)
 - [Pixi Documentation](https://pixi.sh/)
 - [Gitleaks Documentation](https://github.com/gitleaks/gitleaks)
 

@@ -1,1 +1,0 @@
-1. Migrate away from the gnss_data.cfg and the Django hardcoded config file, and instead embrace the modern best practices of reading directly from environment variables (.env). We will need to modify the Django settings file and docker-compose.yml file to achieve this, possibly others as well (including the documentation, which has not yet been consolidated/gone through).

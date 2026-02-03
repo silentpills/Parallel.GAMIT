@@ -1,10 +1,10 @@
 # Installation Overview
 
-Parallel.GAMIT (PGAMIT) requires Python 3.10 or later and several external dependencies.
+GeoDE requires Python 3.10 or later and several external dependencies.
 
 ## Prerequisites
 
-Before installing Parallel.GAMIT, ensure you have the following external dependencies. Some of these require licenses or specific academic access.
+Before installing GeoDE, ensure you have the following external dependencies. Some of these require licenses or specific academic access.
 
 | Dependency | Source | Notes |
 |------------|--------|-------|
@@ -27,7 +27,7 @@ Before installing Parallel.GAMIT, ensure you have the following external depende
 For time series analysis and library usage:
 
 ```bash
-pip install pgamit
+pip install geode-gnss
 ```
 
 This installs Python libraries and dependencies but does not set up database tools.
@@ -39,7 +39,7 @@ We recommend using [Pixi](https://prefix.dev/) to manage the Python environment 
 1. **Clone the repository:**
     ```bash
     git clone https://github.com/demiangomez/Parallel.GAMIT.git
-    cd Parallel.GAMIT
+    cd geode
     ```
 
 2. **Install dependencies:**
@@ -54,15 +54,15 @@ We recommend using [Pixi](https://prefix.dev/) to manage the Python environment 
 
 ## Complete Setup Order
 
-For a full PGAMIT installation with database and web interface:
+For a full GeoDE installation with database and web interface:
 
 1. **Install prerequisites** (GAMIT, GFZRNX, etc.)
 2. **Set up PostgreSQL database** - See [Database Setup](database-setup.md)
-3. **Configure PGAMIT** - See [CLI Tools](cli-tools.md)
+3. **Configure GeoDE** - See [CLI Tools](cli-tools.md)
 4. **Deploy web interface** (optional) - See [Web Interface](web-interface.md)
 
 ## Next Steps
 
-- [Database Setup](database-setup.md) - Set up PostgreSQL with the PGAMIT schema
+- [Database Setup](database-setup.md) - Set up PostgreSQL with the GeoDE schema
 - [CLI Tools](cli-tools.md) - Configure and run command-line tools
 - [Web Interface](web-interface.md) - Deploy the Django/React web interface

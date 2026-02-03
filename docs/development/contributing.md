@@ -1,13 +1,13 @@
-# Contributing to Parallel.GAMIT
+# Contributing to GeoDE
 
-Thank you for your interest in contributing to Parallel.GAMIT!
+Thank you for your interest in contributing to GeoDE!
 
 ## Development Setup
 
 1. **Clone the repository:**
     ```bash
     git clone https://github.com/demiangomez/Parallel.GAMIT.git
-    cd Parallel.GAMIT
+    cd geode
     ```
 
 2. **Install dependencies with Pixi:**
@@ -59,7 +59,7 @@ pixi run lint:fix
 
 ### Type Checking
 
-We use Pyright (by Astral, makers of Ruff and uv) for static type checking:
+We use ty (by Astral, makers of Ruff and uv) for static type checking:
 
 ```bash
 pixi run typecheck
@@ -203,7 +203,7 @@ Please report security vulnerabilities privately through GitHub Security Advisor
 
 Pixi supports multiple environments:
 
-- **default**: Main environment with dev dependencies (type stubs, pyright, pre-commit)
+- **default**: Main environment with dev dependencies (type stubs, ty, pre-commit)
 - **docs**: Documentation building environment with mkdocs
 
 Switch environments:

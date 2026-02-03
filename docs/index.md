@@ -1,8 +1,8 @@
-# Welcome to Parallel.GAMIT
+# Welcome to GeoDE
 
-**Parallel.GAMIT** (PGAMIT) is a powerful Python package designed to streamline and accelerate the processing of GNSS data for geodetic applications, using MIT's GAMIT/GLOBK software. This repository focuses on parallelizing the workflow, allowing for efficient utilization of computing resources and significantly reducing the time required for complex data analyses.
+**GeoDE** (Geodesy Database Engine) is a powerful Python package designed to streamline and accelerate the processing of GNSS data for geodetic applications, using MIT's GAMIT/GLOBK software. This repository focuses on parallelizing the workflow, allowing for efficient utilization of computing resources and significantly reducing the time required for complex data analyses.
 
-Developed by [Demian Gomez](https://github.com/demiangomez) and contributors, Parallel.GAMIT provides a framework to manage and run multiple GAMIT jobs in parallel, optimizing processing times and enabling researchers to handle large datasets with ease.
+Developed by [Demian Gomez](https://github.com/demiangomez) and contributors, GeoDE provides a framework to manage and run multiple GAMIT jobs in parallel, optimizing processing times and enabling researchers to handle large datasets with ease.
 
 ## Key Features
 
@@ -28,7 +28,7 @@ Developed by [Demian Gomez](https://github.com/demiangomez) and contributors, Pa
 
 ```bash
 git clone https://github.com/demiangomez/Parallel.GAMIT.git
-cd Parallel.GAMIT
+cd geode
 pixi install
 pixi shell
 ```
@@ -37,7 +37,7 @@ See the [Installation Guide](installation/index.md) for detailed setup instructi
 
 ## Components
 
-Parallel.GAMIT has two main components:
+GeoDE has two main components:
 
 1. **Command Line Interface (CLI)**: Execute parallel jobs for GNSS processing
 2. **Web Interface (web-ui)**: Visualize results and manage station metadata

@@ -1,6 +1,6 @@
 # Configuration Reference
 
-Parallel.GAMIT uses two configuration methods:
+GeoDE uses two configuration methods:
 
 - **CLI Tools**: Use `gnss_data.cfg` (copy from `gnss_data.cfg.example`)
 - **Web Interface**: Uses `.env` file only (copy from `.env.example`)
@@ -20,9 +20,9 @@ Database connection settings.
 ```ini
 [postgres]
 hostname = your-db-server.example.com
-username = pgamit
+username = geode
 password = your_secure_password
-database = pgamit
+database = geode
 format_scripts_path = /path/to/format_scripts
 ```
 
@@ -172,14 +172,14 @@ The web interface uses only environment variables and does not read `gnss_data.c
 
 ```bash
 # =============================================================================
-# Parallel.GAMIT Environment Configuration
+# GeoDE Environment Configuration
 # =============================================================================
 
 # PostgreSQL Database
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
-POSTGRES_DB=pgamit
-POSTGRES_USER=pgamit
+POSTGRES_DB=geode
+POSTGRES_USER=geode
 POSTGRES_PASSWORD=your_secure_password_here
 
 # Django Settings

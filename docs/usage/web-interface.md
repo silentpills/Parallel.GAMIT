@@ -1,6 +1,6 @@
 # Web Interface Guide
 
-The Parallel.GAMIT web interface provides an interactive way to monitor and manage your GNSS network.
+The GeoDE web interface provides an interactive way to monitor and manage your GNSS network.
 
 ## Login
 

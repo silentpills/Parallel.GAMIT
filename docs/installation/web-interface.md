@@ -1,6 +1,6 @@
 # Web Interface Setup
 
-The Parallel.GAMIT web interface provides a visual way to manage station metadata, view RINEX data, and monitor processing. It consists of a Django backend and React frontend, deployed via Docker Compose.
+The GeoDE web interface provides a visual way to manage station metadata, view RINEX data, and monitor processing. It consists of a Django backend and React frontend, deployed via Docker Compose.
 
 ## Prerequisites
 
@@ -26,8 +26,8 @@ Key settings to configure:
 # Use hostname/IP for remote database
 POSTGRES_HOST=host.docker.internal
 POSTGRES_PORT=5432
-POSTGRES_DB=pgamit
-POSTGRES_USER=pgamit
+POSTGRES_DB=geode
+POSTGRES_USER=geode
 POSTGRES_PASSWORD=your_secure_password
 
 # Django Settings - generate a secure secret key:
@@ -41,7 +41,7 @@ VITE_API_URL=http://localhost:8080
 
 # Directory on host for uploaded station images and files
 # This folder will be mounted into the container
-MEDIA_FOLDER_HOST_PATH=/home/username/pgamit-media
+MEDIA_FOLDER_HOST_PATH=/home/username/geode-media
 
 # File ownership (run 'id' to find your UID/GID)
 USER_ID_TO_SAVE_FILES=1000
@@ -51,12 +51,12 @@ GROUP_ID_TO_SAVE_FILES=1000
 Create the media directory:
 
 ```bash
-mkdir -p ~/pgamit-media
+mkdir -p ~/geode-media
 ```
 
 ### 2. CLI Configuration (Optional)
 
-The `gnss_data.cfg` file is used by the PGAMIT CLI tools for GNSS processing. The web interface uses only the `.env` file, so `gnss_data.cfg` is not required for Docker deployment.
+The `gnss_data.cfg` file is used by the GeoDE CLI tools for GNSS processing. The web interface uses only the `.env` file, so `gnss_data.cfg` is not required for Docker deployment.
 
 If you plan to use CLI tools alongside the web interface, copy and configure it:
 

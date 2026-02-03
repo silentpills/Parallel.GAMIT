@@ -147,8 +147,8 @@ AlterETM.py igs.pwro -fun j + 1 2024/02/15 30,60
 ## Documentation
 
 - [Installation Guide](INSTALL.md) - Detailed setup instructions
-- [Web Interface Guide](WebInterface.md) - Complete UI documentation
-- [CLI Reference](CLIinterface.md) - Command-line tool usage
+- [Web Interface Guide](GeoDE_User_Manual.md#6-web-interface-guide) - Complete UI documentation
+- [CLI Reference](GeoDE_User_Manual.md#5-command-line-tools-reference) - Command-line tool usage
 
 ## Citation
 

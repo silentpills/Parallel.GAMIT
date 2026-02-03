@@ -1,13 +1,13 @@
 # CLI Tools Setup
 
-This guide covers configuring and running Parallel.GAMIT command-line tools for GNSS processing.
+This guide covers configuring and running GeoDE command-line tools for GNSS processing.
 
 ## Installation
 
-Install PGAMIT in your Python environment:
+Install GeoDE in your Python environment:
 
 ```bash
-pip install pgamit
+pip install geode-gnss
 ```
 
 Or with Pixi (recommended for development):
@@ -26,7 +26,7 @@ cp gnss_data.cfg.example gnss_data.cfg
 # Edit gnss_data.cfg with your database credentials and paths
 ```
 
-PGAMIT commands look for `gnss_data.cfg` in the current working directory.
+GeoDE commands look for `gnss_data.cfg` in the current working directory.
 
 ### Configuration Sections
 
@@ -34,9 +34,9 @@ PGAMIT commands look for `gnss_data.cfg` in the current working directory.
 [postgres]
 # Database connection information
 hostname = your-db-server.example.com
-username = pgamit
+username = geode
 password = your_secure_password
-database = pgamit
+database = geode
 
 # Directory for format scripts (data download processing)
 format_scripts_path = /path/to/format_scripts
@@ -82,7 +82,7 @@ atx = /path/to/resources/atx/igs20_2335_plus.atx
 
 ## Running Commands
 
-Once configured, run PGAMIT from any folder containing the `.cfg` file:
+Once configured, run GeoDE from any folder containing the `.cfg` file:
 
 ```bash
 # Plot ETM for a station

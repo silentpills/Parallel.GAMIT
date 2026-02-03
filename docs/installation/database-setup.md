@@ -1,6 +1,6 @@
 # Database Setup
 
-PGAMIT relies heavily on a PostgreSQL database. Ideally, use two systems: one for the PostgreSQL database engine and another for running PGAMIT. While running both on the same computer is possible, it's not recommended for high-efficiency processing.
+GeoDE relies heavily on a PostgreSQL database. Ideally, use two systems: one for the PostgreSQL database engine and another for running GeoDE. While running both on the same computer is possible, it's not recommended for high-efficiency processing.
 
 ## Install PostgreSQL
 
@@ -60,7 +60,7 @@ Add this line to allow Docker containers to connect:
 
 ```
 # Docker networks (172.16.x.x - 172.31.x.x)
-host    all    pgamit    172.16.0.0/12    md5
+host    all    geode    172.16.0.0/12    md5
 ```
 
 !!! note
@@ -96,14 +96,14 @@ Edit `pg_hba.conf` to allow connections from your Tailscale network:
 
 ```
 # Allow Tailscale subnet
-host    all    pgamit    100.64.0.0/10    md5
+host    all    geode    100.64.0.0/10    md5
 ```
 
 ## Create User and Database
 
 ```sql
-CREATE USER pgamit WITH PASSWORD 'your_secure_password';
-CREATE DATABASE pgamit OWNER pgamit;
+CREATE USER geode WITH PASSWORD 'your_secure_password';
+CREATE DATABASE geode OWNER geode;
 ```
 
 ## Load Schema
@@ -111,7 +111,7 @@ CREATE DATABASE pgamit OWNER pgamit;
 Use the clean schema file provided in `database/schema.sql`:
 
 ```bash
-psql -U pgamit -d pgamit -f database/schema.sql
+psql -U geode -d geode -f database/schema.sql
 ```
 
 ## Load Seed Data
@@ -119,14 +119,14 @@ psql -U pgamit -d pgamit -f database/schema.sql
 Populate reference tables with initial data:
 
 ```bash
-psql -U pgamit -d pgamit -f database/seed.sql
+psql -U geode -d geode -f database/seed.sql
 ```
 
 The seed data includes:
 
 | Table | Description | Source |
 |-------|-------------|--------|
-| `keys` | Key names used in PGAMIT | `csv/keys.csv` |
+| `keys` | Key names used in GeoDE | `csv/keys.csv` |
 | `rinex_tank_struct` | RINEX archive structure | `csv/rinex_tank_struct.csv` |
 | `antennas` | IGS antenna codes | `csv/antennas.csv` |
 | `receivers` | IGS receiver codes | `csv/receivers.csv` |
@@ -136,12 +136,12 @@ The seed data includes:
 
 1. **Load schema** (creates core GNSS tables):
     ```bash
-    psql -U pgamit -d pgamit -f database/schema.sql
+    psql -U geode -d geode -f database/schema.sql
     ```
 
 2. **Load seed data** (populates reference tables):
     ```bash
-    psql -U pgamit -d pgamit -f database/seed.sql
+    psql -U geode -d geode -f database/seed.sql
     ```
 
 3. **Start the web interface** (migrations run automatically):
@@ -168,15 +168,15 @@ This organizes files as: `archive/network/year/doy/`
 
 ### Permission Issues
 
-Ensure the `pgamit` user has appropriate permissions:
+Ensure the `geode` user has appropriate permissions:
 
 ```sql
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO pgamit;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO pgamit;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO geode;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO geode;
 ```
 
 ### Connection Issues
 
 1. Check PostgreSQL is listening on the correct interface
 2. Verify `pg_hba.conf` allows your connection
-3. Test with: `psql -h hostname -U pgamit -d pgamit`
+3. Test with: `psql -h hostname -U geode -d geode`

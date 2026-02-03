@@ -1,6 +1,6 @@
 # CLI Reference
 
-This page documents the command-line interface tools available in Parallel.GAMIT.
+This page documents the command-line interface tools available in GeoDE.
 
 ## Station List Syntax
 

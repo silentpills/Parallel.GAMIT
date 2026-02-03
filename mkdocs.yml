@@ -1,5 +1,5 @@
-site_name: Parallel.GAMIT
-site_description: Python wrapper for parallel GNSS processing with GAMIT
+site_name: GeoDE
+site_description: Geodesy Database Engine - Python framework for automated GNSS data processing
 repo_url: https://github.com/demiangomez/Parallel.GAMIT
 
 theme:
