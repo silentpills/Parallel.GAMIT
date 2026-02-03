@@ -5,21 +5,41 @@
 # CLI tools (ScanArchive.py, ArchiveService.py, etc.) look for gnss_data.cfg
 # in the current working directory.
 #
-# For the web interface, use .env instead (see .env.example).
+# DATABASE CONFIGURATION NOTE:
+# ---------------------------
+# Database settings can be specified EITHER here OR in a .env file.
+# Environment variables (from .env) take precedence over this file.
+# This allows CLI tools and the web interface to share the same database config.
+#
+# If a .env file exists in the current directory (or parent directories),
+# the following environment variables will override the [postgres] section:
+#   POSTGRES_HOST     -> hostname
+#   POSTGRES_PORT     -> port
+#   POSTGRES_USER     -> username
+#   POSTGRES_PASSWORD -> password
+#   POSTGRES_DB       -> database
+#
+# For unified configuration, put database settings in .env (see .env.example)
+# and leave the [postgres] section with defaults or remove the values.
 
 # -----------------------------------------------------------------------------
 # Database Connection
 # -----------------------------------------------------------------------------
 [postgres]
 # PostgreSQL server hostname or IP address
+# (Can be overridden by POSTGRES_HOST environment variable)
 hostname = your-db-server.example.com
 # Database port (default: 5432)
+# (Can be overridden by POSTGRES_PORT environment variable)
 port = 5432
 # Database username
+# (Can be overridden by POSTGRES_USER environment variable)
 username = pgamit
 # Database password
+# (Can be overridden by POSTGRES_PASSWORD environment variable)
 password = your_secure_password
 # Database name
+# (Can be overridden by POSTGRES_DB environment variable)
 database = pgamit
 
 # Path to format scripts for data download processing (optional)

@@ -9,17 +9,29 @@ It also handles the error, info and warning messages
 
 import configparser
 import inspect
+import os
 import platform
 import re
 from decimal import Decimal
+from pathlib import Path
 
 import numpy as np
 import psycopg2
 import psycopg2.extensions
 import psycopg2.extras
+from dotenv import load_dotenv
 
 # app
 from .Utils import create_empty_cfg, file_append, file_read_all
+
+# Load .env file if it exists (searches current directory and parents)
+# This allows CLI tools to use the same .env file as the web interface
+_env_file = Path.cwd() / ".env"
+if _env_file.exists():
+    load_dotenv(_env_file)
+else:
+    # Try to find .env in parent directories (useful when running from subdirs)
+    load_dotenv()
 
 DB_HOST = "localhost"
 DB_USER = "postgres"
@@ -303,6 +315,7 @@ class Cnn(object):
             "username": DB_USER,
             "password": DB_PASS,
             "database": DB_NAME,
+            "port": "5432",
         }
 
         self.active_transaction = False
@@ -323,8 +336,21 @@ class Cnn(object):
                 exit(1)
             else:
                 raise
-        # get the database config
+        # get the database config from gnss_data.cfg
         options.update(dict(config.items("postgres")))
+
+        # Environment variables override gnss_data.cfg settings
+        # This allows CLI tools to use the same .env file as the web interface
+        if os.getenv("POSTGRES_HOST"):
+            options["hostname"] = os.getenv("POSTGRES_HOST")
+        if os.getenv("POSTGRES_PORT"):
+            options["port"] = os.getenv("POSTGRES_PORT")
+        if os.getenv("POSTGRES_USER"):
+            options["username"] = os.getenv("POSTGRES_USER")
+        if os.getenv("POSTGRES_PASSWORD"):
+            options["password"] = os.getenv("POSTGRES_PASSWORD")
+        if os.getenv("POSTGRES_DB"):
+            options["database"] = os.getenv("POSTGRES_DB")
 
         # register an adapter to convert decimal to float
         # see: https://www.psycopg.org/docs/faq.html#faq-float
@@ -355,6 +381,7 @@ class Cnn(object):
             try:
                 self.cnn = psycopg2.connect(
                     host=options["hostname"],
+                    port=options.get("port", "5432"),
                     user=options["username"],
                     password=options["password"],
                     dbname=options["database"],
