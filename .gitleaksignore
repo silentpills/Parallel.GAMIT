@@ -4,9 +4,6 @@
 # Example: 1234567890abcdef:path/to/file.py:42
 
 # Common false positives patterns
-# Archive files may contain test data
-archive/**
-
 # Lock files may contain hashes that look like secrets
 *.lock
 pixi.lock

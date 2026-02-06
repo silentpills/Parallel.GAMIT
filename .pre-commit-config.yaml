@@ -95,12 +95,10 @@ repos:
     hooks:
       - id: markdownlint
         args: [--fix]
-        exclude: ^archive/
 
 # Optional: Configure which files to include/exclude
 exclude: |
   (?x)^(
-    archive/.*|
     web/backend/modified_packages/.*|
     .*\.lock$|
     pixi\.lock$
