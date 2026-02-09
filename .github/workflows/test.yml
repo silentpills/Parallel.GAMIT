@@ -92,6 +92,6 @@ jobs:
           fetch-depth: 0
 
       - name: Check commits follow conventional format
-        uses: webiny/action-conventional-commits@v1.3.0
+        uses: webiny/action-conventional-commits@v1.3.1
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
