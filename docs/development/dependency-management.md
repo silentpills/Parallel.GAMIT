@@ -9,82 +9,50 @@ GeoDE has two dependency manifests that serve different consumers:
 | `pyproject.toml` | Library users (`pip install geode-gnss`) | `pip install geode-gnss` | Core scientific/GNSS deps only |
 | `web/backend/requirements.txt` | Web-app deployers | `pip install -r requirements.txt` | Django, DRF, Celery, Redis, Gunicorn, **plus** `geode-gnss` itself |
 
-The web backend *consumes* the library. `requirements.txt` line 45 (`geode-gnss`) pulls
-in every dependency declared in `pyproject.toml` transitively. Merging the two files
-would mean either:
+The web backend *consumes* the library. `requirements.txt` lists `geode-gnss`, which
+pulls in every dependency declared in `pyproject.toml` transitively. Merging the two
+files would mean either:
 
 - **(a)** every `pip install geode-gnss` user also installs Django, Celery, Redis, etc., or
 - **(b)** the web app loses its reproducible dependency manifest.
 
 Neither is acceptable. **The files must stay separate.**
 
-## The problem: double-pinned transitive deps
+## What changed
 
-Today four packages appear in **both** files with explicit pins:
+Four packages previously appeared in **both** files with explicit pins:
 
-| Package | `pyproject.toml` | `web/backend/requirements.txt` | Risk |
+| Package | Was in `pyproject.toml` | Was in `requirements.txt` | Risk |
 |---|---|---|---|
 | `numpy` | `==1.26.4` | `==1.26.4` | Version drift between files causes unresolvable installs |
 | `psycopg2-binary` | `==2.9.9` | `==2.9.9` | Same |
-| `python-dotenv` | `>=1.0.0` | `==1.0.1` | Web over-constrains; blocks library upgrades |
-| `country-converter` | (unpinned) | `==1.3` (as `country_converter`) | Naming mismatch; web pins tighter than library |
+| `python-dotenv` | `>=1.0.0` | `==1.0.1` | Web over-constrained; blocked library upgrades |
+| `country-converter` | (unpinned) | `==1.3` (as `country_converter`) | Naming mismatch; web pinned tighter than library |
 
-Because `requirements.txt` already depends on `geode-gnss`, pip will resolve the
-library's own deps automatically. The duplicate pins are redundant at best and
-conflicting at worst.
+Because `requirements.txt` already depends on `geode-gnss`, pip resolves the library's
+own deps automatically. The duplicate pins were redundant at best and conflicting at
+worst.
 
-## Refactoring plan
+### Changes made
 
-### Step 1 -- Remove double-pinned packages from `requirements.txt`
+1. **Removed** `numpy==1.26.4`, `psycopg2-binary==2.9.9`, `python-dotenv==1.0.1`, and
+   `country_converter==1.3` from `web/backend/requirements.txt`. These are now provided
+   transitively via `geode-gnss`.
 
-Delete these four lines from `web/backend/requirements.txt`:
+2. **Added** a comment header to `requirements.txt` explaining the boundary:
+   ```
+   # Web-backend dependencies only.
+   # Core scientific/GNSS deps come transitively via geode-gnss (see pyproject.toml).
+   # Do NOT duplicate pyproject.toml pins here.
+   ```
 
-```
-numpy==1.26.4          # line 26 -- provided by geode-gnss
-psycopg2-binary==2.9.9 # line 28 -- provided by geode-gnss
-python-dotenv==1.0.1   # line 32 -- provided by geode-gnss (>=1.0.0)
-country_converter==1.3  # line 46 -- provided by geode-gnss
-```
+3. **Pinned** `country-converter>=1.3` in `pyproject.toml` (was unpinned). The library
+   now owns the minimum version floor for this package.
 
-After removal, `requirements.txt` should contain **only** web-specific packages plus
-the single `geode-gnss` entry.
+4. **Left `geode-gnss` unpinned** in `requirements.txt`. The web app and library live in
+   the same repo and deploy together; a minimum version pin would be maintenance noise.
 
-### Step 2 -- Add a comment block explaining the boundary
-
-At the top of `requirements.txt`, add:
-
-```
-# Web-backend dependencies only.
-# Core scientific/GNSS deps come transitively via geode-gnss (see pyproject.toml).
-# Do NOT duplicate pyproject.toml pins here.
-```
-
-### Step 3 -- Pin `geode-gnss` to a minimum version (optional)
-
-If the web app requires a minimum library version, change line 45 to:
-
-```
-geode-gnss>=<version>
-```
-
-This makes the contract explicit without re-pinning individual transitive deps.
-
-### Step 4 -- Validate with a clean install
-
-Generate a fully resolved lockfile to confirm there are no conflicts:
-
-```bash
-# From web/backend/
-python -m venv .venv-test
-source .venv-test/bin/activate
-pip install -r requirements.txt
-pip check            # reports broken dependencies
-pip freeze > resolved.txt
-diff <(sort resolved.txt) <(sort requirements.txt)  # inspect transitive additions
-deactivate && rm -rf .venv-test
-```
-
-## How to evaluate the refactor
+## How to validate
 
 | Check | Command / Method | Pass criteria |
 |---|---|---|

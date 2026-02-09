@@ -31,7 +31,7 @@ dependencies = [
     "dispy",
     "psycopg2-binary==2.9.9",
     "pycos",
-    "country-converter",
+    "country-converter>=1.3",
     "charset-normalizer==3.4.4",
     "earthscope-cli==0.8.2",
     "earthscope-sdk==0.2.0",
