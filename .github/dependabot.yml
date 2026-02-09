@@ -23,6 +23,15 @@ updates:
       interval: weekly
     labels: ["dependencies"]
 
+  # Python dependencies (backend requirements.txt)
+  - package-ecosystem: pip
+    directory: "/web/backend"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "backend"]
+
   # Docker (backend)
   - package-ecosystem: docker
     directory: "/web/backend"
