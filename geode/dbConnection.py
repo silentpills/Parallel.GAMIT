@@ -366,9 +366,9 @@ class Cnn(object):
                 psycopg2.extensions.DECIMAL.values,
             ),  # This matches the type codes for DECIMAL
             "DECIMAL_ARRAY",  # Name of the type
-            lambda value, curs: [float(d) for d in value]
-            if value is not None
-            else None,
+            lambda value, curs: (
+                [float(d) for d in value] if value is not None else None
+            ),
         )
 
         psycopg2.extensions.register_type(DEC2FLOAT)

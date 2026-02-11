@@ -8,6 +8,8 @@ from datetime import datetime
 
 import pytest
 
+pytest.importorskip("numpy")
+
 from geode.metadata.station_info import (
     StationInfo,
     StationInfoRecord,
