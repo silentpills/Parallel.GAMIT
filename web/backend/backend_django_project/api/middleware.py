@@ -1,3 +1,5 @@
+import time
+
 from auditlog.context import set_actor
 from auditlog.middleware import AuditlogMiddleware as _AuditlogMiddleware
 from django.utils.functional import SimpleLazyObject
@@ -25,20 +27,31 @@ class CustomAuditlogMiddleware(_AuditlogMiddleware):
 
 class DatabaseHealthCheckMiddleware:
     """
-        The reason of this middleware is because DRF exception handler is unable
-        to catch OperationError by itself.
+    DRF exception handler cannot catch OperationalError by itself, so this
+    middleware probes the database before passing the request through.
+
+    To avoid running SELECT 1 on every single request, we cache the result
+    for a short period (default 5 seconds).  A failure clears the cache
+    immediately so the next request retries.
     """
+    _CACHE_TTL = 5  # seconds
 
     def __init__(self, get_response):
         self.get_response = get_response
+        self._last_check_time = 0.0
+        self._last_check_ok = False
 
     def __call__(self, request):
+        now = time.monotonic()
+        if self._last_check_ok and (now - self._last_check_time) < self._CACHE_TTL:
+            return self.get_response(request)
+
         db_conn = connections['default']
         try:
-            # Try executing a simple query
             with db_conn.cursor() as cursor:
                 cursor.execute("SELECT 1")
         except DatabaseOperationalError:
+            self._last_check_ok = False
             return JsonResponse(
                 {
                     "type": "database_error",
@@ -52,4 +65,6 @@ class DatabaseHealthCheckMiddleware:
                 status=500
             )
         else:
+            self._last_check_time = now
+            self._last_check_ok = True
             return self.get_response(request)

@@ -28,7 +28,6 @@ from rest_framework import status
 import base64
 from django.forms.models import model_to_dict
 from django.core.cache import cache
-import time
 from .tasks import update_gaps_status
 from django.core.files.storage import default_storage
 from geode.metadata import station_info as pyStationInfo
@@ -2244,10 +2243,7 @@ class StationinfoDetail(generics.RetrieveUpdateDestroyAPIView):
 
         custom_update(serializer)
 
-        if getattr(instance, '_prefetched_objects_cache', None):
-            # If 'prefetch_related' has been applied to a queryset, we need to
-            # forcibly invalidate the prefetch cache on the instance.
-            instance._prefetched_objects_cache = {}
+        instance.refresh_from_db()
 
         return Response(serializer.data)
 
@@ -2287,7 +2283,7 @@ class DeleteUpdateGapsStatusBlock(APIView):
 
     def post(self, request, format=None):
         cache.delete('update_gaps_status_lock')
-        return Response(status=status.HTTP_201_CREATED)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class DistinctStackNames(APIView):

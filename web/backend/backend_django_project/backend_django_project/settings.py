@@ -21,8 +21,15 @@ from datetime import timedelta
 # Celery Configuration
 # =============================================================================
 
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+_redis_password = os.getenv('REDIS_PASSWORD', '')
+_redis_url = (
+    f'redis://:{_redis_password}@localhost:6379/0'
+    if _redis_password
+    else 'redis://localhost:6379/0'
+)
+
+CELERY_BROKER_URL = _redis_url
+CELERY_RESULT_BACKEND = _redis_url
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_EXPIRES = 3600
@@ -37,7 +44,7 @@ CELERY_BEAT_SCHEDULE = {
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379",
+        "LOCATION": _redis_url,
     }
 }
 
@@ -46,9 +53,9 @@ CACHES = {
 # Upload Limits
 # =============================================================================
 
-DATA_UPLOAD_MAX_MEMORY_SIZE = 1000000000  # 1 GB
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000000
-DATA_UPLOAD_MAX_NUMBER_FILES = 1000000
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('DATA_UPLOAD_MAX_MEMORY_SIZE', str(200 * 1024 * 1024)))  # 200 MB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = int(os.getenv('DATA_UPLOAD_MAX_NUMBER_FIELDS', '10000'))
+DATA_UPLOAD_MAX_NUMBER_FILES = int(os.getenv('DATA_UPLOAD_MAX_NUMBER_FILES', '1000'))
 
 MAX_SIZE_IMAGE_MB = os.getenv('MAX_SIZE_IMAGE_MB', '75')
 MAX_SIZE_FILE_MB = os.getenv('MAX_SIZE_FILE_MB', '75')
@@ -56,6 +63,11 @@ RINEX_STATUS_DATE_SPAN_SECONDS = os.getenv('RINEX_STATUS_DATE_SPAN_SECONDS', '10
 
 USER_ID_TO_SAVE_FILES = os.getenv('USER_ID_TO_SAVE_FILES', '1000')
 GROUP_ID_TO_SAVE_FILES = os.getenv('GROUP_ID_TO_SAVE_FILES', '1000')
+
+# Path to the GNSS config file used by the geode package for DB connection info.
+# The geode.dbConnection.Cnn reads this file but POSTGRES_* env vars override its contents,
+# so even an empty/missing config file won't break DB connectivity in Docker deployments.
+CONFIG_FILE_ABSOLUTE_PATH = os.getenv('GNSS_CONFIG_FILE', '/etc/gnss_data.cfg')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -77,7 +89,7 @@ if os.getenv('DJANGO_HTTPS', 'False') == 'True':
     CSRF_COOKIE_SECURE = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = '/media/'
@@ -106,7 +118,12 @@ INSTALLED_APPS = [
 ]
 
 
-CORS_ALLOW_ALL_ORIGINS = True
+_cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', '')
+if _cors_origins:
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(',')]
+    CORS_ALLOW_ALL_ORIGINS = False
+else:
+    CORS_ALLOW_ALL_ORIGINS = DEBUG  # only allow all in debug mode
 
 AUTH_USER_MODEL = "api.User"
 

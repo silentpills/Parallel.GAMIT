@@ -27,7 +27,6 @@ from geode import Utils as pyUtils
 import dateutil.parser
 from django.http import Http404
 import matplotlib.pyplot as plt
-import time
 
 
 from django.db import transaction
@@ -257,7 +256,7 @@ class TimeSeriesConfigUtils:
                 else:
                     dates = pyUtils.process_date(time_window)
                     dates = (dates[0].fyear, dates[1].fyear)
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             raise exceptions.CustomValidationErrorExceptionHandler(
                 e.detail if hasattr(e, 'detail') else str(e))
 
@@ -337,6 +336,7 @@ class TimeSeriesConfigUtils:
                                    plot_polynomial_removed=params["remove_polynomial"])
 
         except Exception as e:
+            logger.warning("ETM initialization failed: %s", e, exc_info=True)
             raise exceptions.CustomValidationErrorExceptionHandler(
                 e.detail if hasattr(e, 'detail') else str(e))
 
@@ -364,7 +364,7 @@ class FilesUtils:
             FilesUtils._ensure_directory_ownership(
                 directory, user_id, group_id)
 
-        except Exception as e:
+        except OSError as e:
             # Log the error but don't prevent the save
             import logging
             logger = logging.getLogger(__name__)
@@ -386,9 +386,7 @@ class FilesUtils:
 
             try:
                 os.chown(current_dir, uid, gid)
-            except Exception as e:
-                import logging
-                logger = logging.getLogger(__name__)
+            except OSError as e:
                 logger.error(f"Failed to set directory ownership: {e}")
                 break
 
@@ -938,6 +936,7 @@ class UploadMultipleFilesUtils:
                 created_file_index += 1
 
         except Exception as e:
+            logger.warning("File upload failed, rolling back %d files: %s", len(created_file_instances), e)
             for created_file_instance in created_file_instances:
                 created_file_instance.delete()
 
@@ -1008,6 +1007,7 @@ class UploadMultipleFilesUtils:
                 current_image_index += 1
 
         except Exception as e:
+            logger.warning("Image upload failed, rolling back %d images: %s", len(created_image_instances), e)
             for created_image_instance in created_image_instances:
                 created_image_instance.delete()
 
