@@ -96,7 +96,7 @@ The Django migrations create a default admin user:
 
 ```bash
 # If using Docker:
-docker exec -it gnss-backend python /code/backend_django_project/manage.py createsuperuser
+docker exec -it gnss-backend python /code/manage.py createsuperuser
 ```
 
 You will be prompted for:
@@ -107,7 +107,7 @@ You will be prompted for:
 ### Changing the Default Admin Password
 
 ```bash
-docker exec -it gnss-backend python /code/backend_django_project/manage.py changepassword admin
+docker exec -it gnss-backend python /code/manage.py changepassword admin
 ```
 
 ## Django Migrations
@@ -126,7 +126,7 @@ Migrations complete.
 If the database is unavailable at startup, the container will log a warning and continue running. You can manually run migrations later:
 
 ```bash
-docker exec -it gnss-backend python /code/backend_django_project/manage.py migrate
+docker exec -it gnss-backend python /code/manage.py migrate
 ```
 
 ## API Documentation
@@ -154,7 +154,7 @@ Before running tests, create a test database:
 Run tests:
 
 ```bash
-cd web/backend/backend_django_project/
+cd web/backend/
 python manage.py test --keepdb
 ```
 

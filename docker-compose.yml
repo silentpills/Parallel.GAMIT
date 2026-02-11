@@ -45,8 +45,8 @@ services:
       - USER_ID_TO_SAVE_FILES=${USER_ID_TO_SAVE_FILES:-1000}
       - GROUP_ID_TO_SAVE_FILES=${GROUP_ID_TO_SAVE_FILES:-1000}
     volumes:
-      - ./web/backend/backend_django_project/logs:/code/backend_django_project/logs
-      - ${MEDIA_FOLDER_HOST_PATH}:/code/backend_django_project/media
+      - ./web/backend/logs:/code/logs
+      - ${MEDIA_FOLDER_HOST_PATH}:/code/media
     restart: always
     env_file:
       - .env
