@@ -12,7 +12,6 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from pathlib import Path
 
-import psycopg2.extensions
 import os
 
 from datetime import timedelta
@@ -266,7 +265,7 @@ DATABASES = {
         "PORT": _db_port,
         "ATOMIC_REQUESTS": True,
         "OPTIONS": {
-            "isolation_level": psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
+            "isolation_level": "read committed"
         },
         'TEST': {
             'NAME': 'test_' + _db_name

@@ -8,7 +8,7 @@ import logging
 import math
 
 import numpy as np
-from psycopg2.errors import ForeignKeyViolation
+from psycopg.errors import ForeignKeyViolation
 
 logger = logging.getLogger(__name__)
 

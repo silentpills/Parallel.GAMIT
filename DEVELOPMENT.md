@@ -15,7 +15,7 @@ pixi run precommit:install  # Setup git hooks (recommended!)
 ### Default Environment (Automatic)
 The **default** environment now includes the `dev` feature, so `pixi install` automatically installs:
 - ✅ All runtime dependencies
-- ✅ Type stubs (types-tqdm, types-requests, types-paramiko, types-psycopg2, types-setuptools)
+- ✅ Type stubs (types-tqdm, types-requests, types-paramiko, types-setuptools)
 - ✅ ty (type checker by Astral)
 - ✅ Pre-commit (git hooks)
 - ✅ Commitizen (conventional commits)

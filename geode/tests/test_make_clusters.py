@@ -1,8 +1,9 @@
 # Author: Shane Grigsby (espg) <refuge@rocktalus.com>
 # Created: September 2024
 
-import numpy as np
 import pytest
+
+np = pytest.importorskip("numpy")
 
 from ..cluster import BisectingQMeans, overcluster
 from .common import gen_variable_density_clusters

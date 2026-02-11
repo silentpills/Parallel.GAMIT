@@ -16,10 +16,10 @@ from decimal import Decimal
 from pathlib import Path
 
 import numpy as np
-import psycopg2
-import psycopg2.extensions
-import psycopg2.extras
+import psycopg
 from dotenv import load_dotenv
+from psycopg.adapt import Dumper, Loader
+from psycopg.rows import dict_row, tuple_row
 
 # app
 from .Utils import create_empty_cfg, file_append, file_read_all
@@ -79,14 +79,14 @@ def cast_array_to_float(recordset):
     return recordset
 
 
-# class to match the pygreSQl structure using psycopg2
+# class to match the pygreSQl structure using psycopg
 class query_obj(object):
     def __init__(self, cursor):
         self.rows = []
         # to maintain backwards compatibility
         try:
             self.rows = cast_array_to_float(cursor.fetchall())
-        except psycopg2.ProgrammingError as e:
+        except psycopg.ProgrammingError as e:
             if "no results to fetch" in str(e):
                 pass
             else:
@@ -284,11 +284,24 @@ def run_db_migrations(cnn: "Cnn"):
         cnn.commit_transac()
 
 
-def adapt_numpy_array(numpy_array):
-    return psycopg2.extensions.adapt(numpy_array.tolist())
+class FloatLoader(Loader):
+    """Load PostgreSQL numeric as Python float instead of Decimal."""
+
+    def load(self, data):
+        if isinstance(data, memoryview):
+            data = bytes(data)
+        return float(data)
 
 
-class dbErrInsert(psycopg2.errors.UniqueViolation):
+class NumpyArrayDumper(Dumper):
+    """Dump numpy arrays as PostgreSQL arrays via list conversion."""
+
+    def dump(self, obj):
+        dumper = self._tx.get_dumper(list, self.format)
+        return dumper.dump(obj.tolist())
+
+
+class dbErrInsert(psycopg.errors.UniqueViolation):
     pass
 
 
@@ -304,7 +317,7 @@ class dbErrDelete(Exception):
     pass
 
 
-class DatabaseError(psycopg2.DatabaseError):
+class DatabaseError(psycopg.DatabaseError):
     pass
 
 
@@ -352,52 +365,34 @@ class Cnn(object):
         if os.getenv("POSTGRES_DB"):
             options["database"] = os.getenv("POSTGRES_DB")
 
-        # register an adapter to convert decimal to float
-        # see: https://www.psycopg.org/docs/faq.html#faq-float
-        DEC2FLOAT = psycopg2.extensions.new_type(
-            psycopg2.extensions.DECIMAL.values,
-            "DEC2FLOAT",
-            lambda value, curs: float(value) if value is not None else None,
-        )
-
-        # Define the custom type for an array of decimals
-        DECIMAL_ARRAY_TYPE = psycopg2.extensions.new_type(
-            (
-                psycopg2.extensions.DECIMAL.values,
-            ),  # This matches the type codes for DECIMAL
-            "DECIMAL_ARRAY",  # Name of the type
-            lambda value, curs: [float(d) for d in value]
-            if value is not None
-            else None,
-        )
-
-        psycopg2.extensions.register_type(DEC2FLOAT)
-        psycopg2.extensions.register_type(DECIMAL_ARRAY_TYPE)
-        psycopg2.extensions.register_adapter(np.ndarray, adapt_numpy_array)
-
         # open connection to server
         err = None
         for i in range(3):
             try:
-                self.cnn = psycopg2.connect(
+                self.cnn = psycopg.connect(
                     host=options["hostname"],
                     port=options.get("port", "5432"),
                     user=options["username"],
                     password=options["password"],
                     dbname=options["database"],
                     connect_timeout=10,
+                    autocommit=True,
+                    row_factory=dict_row,
                 )
 
-                self.cnn.autocommit = True
-                self.cursor = self.cnn.cursor(
-                    cursor_factory=psycopg2.extras.RealDictCursor
-                )
+                # Register custom type adapters (connection-scoped)
+                # Convert PostgreSQL numeric -> Python float (instead of Decimal)
+                self.cnn.adapters.register_loader("numeric", FloatLoader)
+                # Allow numpy arrays to be passed as query parameters
+                self.cnn.adapters.register_dumper(np.ndarray, NumpyArrayDumper)
+
+                self.cursor = self.cnn.cursor()
 
                 debug("Database connection established")
 
                 run_db_migrations(self)
 
-            except psycopg2.Error as e:
+            except psycopg.Error as e:
                 raise e
             else:
                 break
@@ -416,10 +411,10 @@ class Cnn(object):
             raise DatabaseError(e)
 
     def query_float(self, command, as_dict=False):
-        # deprecated: using psycopg2 now solves the problem of returning float numbers
+        # deprecated: using psycopg now solves the problem of returning float numbers
         # still in to maintain backwards compatibility
         if not as_dict:
-            cursor = self.cnn.cursor()
+            cursor = self.cnn.cursor(row_factory=tuple_row)
             cursor.execute(command)
             recordset = cast_array_to_float(cursor.fetchall())
         else:
@@ -472,7 +467,7 @@ class Cnn(object):
             else:
                 raise DatabaseError("query returned no records: " + query)
 
-        except psycopg2.Error as e:
+        except psycopg.Error as e:
             raise e
 
     def get_columns(self, table):
@@ -516,7 +511,7 @@ class Cnn(object):
         try:
             self.cursor.execute(query, values)
             self.cnn.commit()
-        except psycopg2.errors.UniqueViolation as e:
+        except psycopg.errors.UniqueViolation as e:
             self.cnn.rollback()
             raise dbErrInsert(e)
 
@@ -557,7 +552,7 @@ class Cnn(object):
             self.cnn.commit()
             debug(f"UPDATE {table}: set={set_clause_dict}, where={kwargs}")
             debug(query)
-        except psycopg2.Error as e:
+        except psycopg.Error as e:
             self.cnn.rollback()
             raise dbErrUpdate(e)
 
@@ -587,7 +582,7 @@ class Cnn(object):
             self.cursor.execute(query, values)
             self.cnn.commit()
             debug(f"DELETE FROM {table}: kw={kw}")
-        except psycopg2.Error as e:
+        except psycopg.Error as e:
             self.cnn.rollback()
             raise dbErrDelete(e)
 
