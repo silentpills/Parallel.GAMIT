@@ -35,8 +35,7 @@ dependencies = [
     "charset-normalizer>=3.4.4",
     "earthscope-cli>=0.8.2",
     "earthscope-sdk>=0.2.0",
-    # TODO: migrate basemap to cartopy — basemap is officially deprecated
-    "basemap>=1.4.0",
+    "cartopy>=0.22.0",
     "cryptography>=44.0.1",
     "dirsync>=2.2.4",
     "geopy>=2.4.1",

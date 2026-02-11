@@ -4,7 +4,7 @@ platforms = ["osx-arm64", "linux-64"]
 
 [dependencies]
 python = ">=3.10"
-basemap = "*"
+cartopy = "*"
 geopandas = "*"
 geopy = "*"
 h5py = "*"

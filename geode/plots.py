@@ -5,10 +5,11 @@
 
 import time
 
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-from mpl_toolkits.basemap import Basemap
 from sklearn.neighbors import NearestNeighbors
 
 from geode.Utils import ecef2lla
@@ -67,14 +68,18 @@ def plot_global_network(central_points, OC, labels, points, output_path, lat_lon
     subs = [321, 322, 323, 324, 325, 326]
 
     # define projections, stack into list for iteration
-    ref_r = (6378137.00, 6356752.3142)
-    m1 = Basemap(projection="npstere", boundinglat=10, lon_0=270, resolution="l")
-    m2 = Basemap(projection="geos", lon_0=0, resolution="l", rsphere=ref_r)
-    m3 = Basemap(projection="geos", lon_0=90, resolution="l", rsphere=ref_r)
-    m4 = Basemap(projection="geos", lon_0=180, resolution="l", rsphere=ref_r)
-    m5 = Basemap(projection="geos", lon_0=-90, resolution="l", rsphere=ref_r)
-    m6 = Basemap(projection="spstere", boundinglat=-10, lon_0=270, resolution="l")
-    projs = [m1, m2, m3, m4, m5, m6]
+    globe = ccrs.Globe(
+        ellipse=None, semimajor_axis=6378137.00, semiminor_axis=6356752.3142
+    )
+    projs = [
+        ccrs.NorthPolarStereo(central_longitude=270),
+        ccrs.Geostationary(central_longitude=0, globe=globe),
+        ccrs.Geostationary(central_longitude=90, globe=globe),
+        ccrs.Geostationary(central_longitude=180, globe=globe),
+        ccrs.Geostationary(central_longitude=-90, globe=globe),
+        ccrs.SouthPolarStereo(central_longitude=270),
+    ]
+    geodetic = ccrs.PlateCarree()
 
     # for estimating start of plot run-time...
     t0 = time.time()
@@ -103,20 +108,30 @@ def plot_global_network(central_points, OC, labels, points, output_path, lat_lon
         nx.add_star(nodes[label], points)
         for position, proj in zip(positions, projs):
             mxy = np.zeros_like(LL[points])
-            mxy[:, 0], mxy[:, 1] = proj(LL[points, 0], LL[points, 1])
+            result = proj.transform_points(geodetic, LL[points, 0], LL[points, 1])
+            mxy[:, 0], mxy[:, 1] = result[:, 0], result[:, 1]
             position.append(dict(zip(nodes[label].nodes, mxy)))
 
     colors = [plt.cm.prism(each) for each in np.linspace(0, 1, len(nodes))]
     for position, proj, sub in zip(positions, projs, subs):
-        fig.add_subplot(sub)
-        proj.drawcoastlines()
-        proj.fillcontinents(color="grey", lake_color="aqua", alpha=0.3)
+        ax = fig.add_subplot(sub, projection=proj)
+        ax.coastlines(resolution="110m")
+        ax.add_feature(cfeature.LAND, facecolor="grey", alpha=0.3)
+        ax.add_feature(cfeature.OCEAN, facecolor="aqua", alpha=0.3)
+        # Set appropriate extent for polar vs geostationary projections
+        if isinstance(proj, ccrs.NorthPolarStereo):
+            ax.set_extent([-180, 180, 10, 90], crs=geodetic)
+        elif isinstance(proj, ccrs.SouthPolarStereo):
+            ax.set_extent([-180, 180, -90, -10], crs=geodetic)
+        else:
+            ax.set_global()
         for i, node in enumerate(nodes):
             # need reshape to squash warning
             r, g, b, a = colors[i]
             nx.draw(
                 node,
                 position[i],
+                ax=ax,
                 node_size=4,
                 alpha=0.95,
                 width=0.2,

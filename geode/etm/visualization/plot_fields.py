@@ -13,13 +13,48 @@ warnings.filterwarnings("ignore", message="Starting a Matplotlib GUI outside")
 
 from typing import Optional, Tuple
 
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 from matplotlib.patches import Ellipse
 from matplotlib.widgets import Button, Slider
-from mpl_toolkits.basemap import Basemap
 from scipy.interpolate import griddata
 from shapely.geometry import Point
+
+# Map basemap single-char resolution codes to Natural Earth scales
+_RESOLUTION_MAP = {
+    "c": "110m",
+    "l": "110m",
+    "i": "50m",
+    "h": "10m",
+    "f": "10m",
+}
+
+
+class ProjectionHelper:
+    """Wrapper providing basemap-compatible forward/inverse projection.
+
+    Allows calling code to continue using ``proj(lon, lat)`` and
+    ``proj(x, y, inverse=True)`` without modification.
+    """
+
+    def __init__(self, projection):
+        self.projection = projection
+        self._geodetic = ccrs.PlateCarree()
+
+    def __call__(self, lon, lat, inverse=False):
+        lon = np.atleast_1d(np.asarray(lon, dtype=float))
+        lat = np.atleast_1d(np.asarray(lat, dtype=float))
+        if inverse:
+            result = self._geodetic.transform_points(self.projection, lon, lat)
+        else:
+            result = self.projection.transform_points(self._geodetic, lon, lat)
+        x, y = result[..., 0], result[..., 1]
+        if x.size == 1:
+            return float(x), float(y)
+        return x, y
 
 
 def mask_ocean_points(lon, lat, buffer_distance=0.0):
@@ -132,7 +167,8 @@ def plot_velocity_field(
     output_file : str, optional
         If provided, save figure to this file
     coastline_resolution : str, default='i'
-        Basemap coastline resolution: 'c' (crude), 'l' (low), 'i' (intermediate), 'h' (high), 'f' (full)
+        Coastline resolution. Accepts basemap-style codes ('c', 'l', 'i', 'h', 'f')
+        or Natural Earth scales ('110m', '50m', '10m').
     colorbar_extend : str, default='both'
         Colorbar extension: 'neither', 'both', 'min', 'max'
 
@@ -156,8 +192,14 @@ def plot_velocity_field(
         "plot_sigmas": plot_sigmas,
     }
 
-    # Create figure
-    fig, axes = plt.subplots(1, 3, figsize=figsize, dpi=dpi, sharex="all", sharey="all")
+    # Create figure with Mercator projection on each subplot
+    fig, axes = plt.subplots(
+        1,
+        3,
+        figsize=figsize,
+        dpi=dpi,
+        subplot_kw={"projection": ccrs.Mercator()},
+    )
     fig.suptitle(title, fontsize=16, fontweight="bold")
 
     # Create basemaps for each subplot
@@ -495,34 +537,53 @@ def create_basemaps(axes, lon, lat, coastline_resolution):
     lon_pad = (lon_max - lon_min) * 0.1
     lat_pad = (lat_max - lat_min) * 0.1
 
+    # Accept both basemap-style ('c','l','i','h','f') and NE scales ('110m','50m','10m')
+    ne_resolution = _RESOLUTION_MAP.get(coastline_resolution, coastline_resolution)
+
+    states = cfeature.NaturalEarthFeature(
+        "cultural",
+        "admin_1_states_provinces_lines",
+        ne_resolution,
+        facecolor="none",
+    )
+
     basemaps = []
     for ax in axes:
-        m = Basemap(
-            projection="merc",
-            llcrnrlon=lon_min - lon_pad,
-            llcrnrlat=lat_min - lat_pad,
-            urcrnrlon=lon_max + lon_pad,
-            urcrnrlat=lat_max + lat_pad,
-            resolution=coastline_resolution,
-            ax=ax,
+        ax.set_extent(
+            [
+                lon_min - lon_pad,
+                lon_max + lon_pad,
+                lat_min - lat_pad,
+                lat_max + lat_pad,
+            ],
+            crs=ccrs.PlateCarree(),
         )
-        m.drawcoastlines(linewidth=0.5)
-        m.fillcontinents(color="wheat", lake_color="lightblue", alpha=0.3)
-        m.drawcountries(linewidth=0.5)
-        m.drawstates(linewidth=0.5)
-        m.drawparallels(
-            np.arange(lat_min, lat_max, (lat_max - lat_min) / 4),
-            labels=[1, 0, 0, 0],
-            fontsize=8,
+        ax.coastlines(resolution=ne_resolution, linewidth=0.5)
+        ax.add_feature(cfeature.LAND, facecolor="wheat", alpha=0.3)
+        ax.add_feature(cfeature.LAKES, facecolor="lightblue", alpha=0.3)
+        ax.add_feature(cfeature.BORDERS, linewidth=0.5)
+        ax.add_feature(states, edgecolor="black", linewidth=0.5)
+
+        gl = ax.gridlines(
+            crs=ccrs.PlateCarree(),
+            draw_labels=True,
             linewidth=0.3,
+            color="gray",
+            alpha=0.5,
+            linestyle="--",
         )
-        m.drawmeridians(
-            np.arange(lon_min, lon_max, (lon_max - lon_min) / 4),
-            labels=[0, 0, 0, 1],
-            fontsize=8,
-            linewidth=0.3,
+        gl.xlocator = mticker.FixedLocator(
+            np.arange(lon_min, lon_max, (lon_max - lon_min) / 4)
         )
-        basemaps.append(m)
+        gl.ylocator = mticker.FixedLocator(
+            np.arange(lat_min, lat_max, (lat_max - lat_min) / 4)
+        )
+        gl.top_labels = False
+        gl.right_labels = False
+        gl.xlabel_style = {"size": 8}
+        gl.ylabel_style = {"size": 8}
+
+        basemaps.append(ProjectionHelper(ax.projection))
 
     return basemaps
 
