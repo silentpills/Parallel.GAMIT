@@ -149,7 +149,7 @@ git commit --no-verify
 - Auto-update changelog on version bumps
 
 ### Pre-commit (`.pre-commit-config.yaml`)
-- Excludes: `archive/`, `web/backend/modified_packages/`, `*.lock`
+- Excludes: `archive/`, `*.lock`
 - Auto-fix enabled for ruff and file issues
 
 ## ❓ FAQ

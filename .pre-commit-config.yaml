@@ -99,7 +99,6 @@ repos:
 # Optional: Configure which files to include/exclude
 exclude: |
   (?x)^(
-    web/backend/modified_packages/.*|
     .*\.lock$|
     pixi\.lock$
   )$
