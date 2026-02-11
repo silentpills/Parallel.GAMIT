@@ -289,9 +289,6 @@ DATABASES = {
         "HOST": _db_host,
         "PORT": _db_port,
         "ATOMIC_REQUESTS": True,
-        "OPTIONS": {
-            "isolation_level": "read committed"
-        },
         'TEST': {
             'NAME': 'test_' + _db_name
         }

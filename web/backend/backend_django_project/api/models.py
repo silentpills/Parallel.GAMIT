@@ -46,7 +46,7 @@ class Antennas(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         ordering = ["antenna_code"]
         db_table = 'antennas'
 
@@ -78,7 +78,7 @@ class AprCoords(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'apr_coords'
         unique_together = (('network_code', 'station_code', 'year', 'doy'),)
 
@@ -91,15 +91,15 @@ class AwsSync(BaseModel):
     station_alias = models.CharField(db_column='StationAlias', max_length=4)
     # Field name made lowercase.
     year = models.DecimalField(
-        db_column='Year', max_digits=65535, decimal_places=65535)
+        db_column='Year', max_digits=20, decimal_places=10)
     # Field name made lowercase.
     doy = models.DecimalField(
-        db_column='DOY', max_digits=65535, decimal_places=65535)
+        db_column='DOY', max_digits=20, decimal_places=10)
     sync_date = models.DateTimeField(blank=True, null=True)
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'aws_sync'
         unique_together = (('network_code', 'station_code', 'year', 'doy'),)
 
@@ -108,7 +108,7 @@ class DataSource(BaseModel):
     network_code = models.CharField(db_column='NetworkCode', max_length=3)
     # Field name made lowercase.
     station_code = models.CharField(db_column='StationCode', max_length=4)
-    try_order = models.DecimalField(max_digits=65535, decimal_places=65535)
+    try_order = models.DecimalField(max_digits=20, decimal_places=10)
     protocol = models.CharField()
     fqdn = models.CharField()
     username = models.CharField(blank=True, null=True)
@@ -118,7 +118,7 @@ class DataSource(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'data_source'
         unique_together = (('network_code', 'station_code', 'try_order'),)
 
@@ -149,7 +149,7 @@ class Earthquakes(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'earthquakes'
         unique_together = (('date', 'lat', 'lon'),)
 
@@ -178,7 +178,7 @@ class EtmParams(BaseModel):
     uid = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'etm_params'
 
 
@@ -208,7 +208,7 @@ class Etms(BaseModel):
     stack = models.CharField(max_length=20, blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'etms'
 
 
@@ -239,7 +239,7 @@ class Events(BaseModel):
     node = models.TextField(blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'events'
         ordering = ["-event_date"]
         unique_together = (('event_id', 'event_date'),)
@@ -251,7 +251,7 @@ class Executions(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'executions'
 
 
@@ -268,7 +268,7 @@ class GamitHtc(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'gamit_htc'
         ordering = ["antenna_code", "height_code"]
         unique_together = (('antenna_code', 'height_code'),)
@@ -283,10 +283,10 @@ class GamitSoln(BaseModel):
     project = models.CharField(db_column='Project', max_length=20)
     # Field name made lowercase.
     year = models.DecimalField(
-        db_column='Year', max_digits=65535, decimal_places=65535)
+        db_column='Year', max_digits=20, decimal_places=10)
     # Field name made lowercase.
     doy = models.DecimalField(
-        db_column='DOY', max_digits=65535, decimal_places=65535)
+        db_column='DOY', max_digits=20, decimal_places=10)
     # Field name made lowercase.
     fyear = models.DecimalField(
         db_column='FYear', max_digits=150, decimal_places=50, blank=True, null=True)
@@ -317,7 +317,7 @@ class GamitSoln(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'gamit_soln'
         unique_together = (
             ('network_code', 'station_code', 'project', 'year', 'doy'),)
@@ -337,7 +337,7 @@ class GamitSolnExcl(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'gamit_soln_excl'
         unique_together = (
             ('network_code', 'station_code', 'project', 'year', 'doy'),)
@@ -347,13 +347,13 @@ class GamitStats(BaseModel):
     # Field name made lowercase. The composite primary key (Project, subnet, Year, DOY, system) found, that is not supported. The first column is selected.
     project = models.CharField(
         db_column='Project', max_length=20)
-    subnet = models.DecimalField(max_digits=65535, decimal_places=65535)
+    subnet = models.DecimalField(max_digits=20, decimal_places=10)
     # Field name made lowercase.
     year = models.DecimalField(
-        db_column='Year', max_digits=65535, decimal_places=65535)
+        db_column='Year', max_digits=20, decimal_places=10)
     # Field name made lowercase.
     doy = models.DecimalField(
-        db_column='DOY', max_digits=65535, decimal_places=65535)
+        db_column='DOY', max_digits=20, decimal_places=10)
     # Field name made lowercase.
     f_year = models.DecimalField(
         db_column='FYear', max_digits=150, decimal_places=50, blank=True, null=True)
@@ -376,7 +376,7 @@ class GamitStats(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'gamit_stats'
         unique_together = (('project', 'subnet', 'year', 'doy', 'system'),)
 
@@ -385,13 +385,13 @@ class GamitSubnets(BaseModel):
     # Field name made lowercase. The composite primary key (Project, subnet, Year, DOY) found, that is not supported. The first column is selected.
     project = models.CharField(
         db_column='Project', max_length=20)
-    subnet = models.DecimalField(max_digits=65535, decimal_places=65535)
+    subnet = models.DecimalField(max_digits=20, decimal_places=10)
     # Field name made lowercase.
     year = models.DecimalField(
-        db_column='Year', max_digits=65535, decimal_places=65535)
+        db_column='Year', max_digits=20, decimal_places=10)
     # Field name made lowercase.
     doy = models.DecimalField(
-        db_column='DOY', max_digits=65535, decimal_places=65535)
+        db_column='DOY', max_digits=20, decimal_places=10)
     centroid = ArrayField(models.DecimalField(
         max_digits=150, decimal_places=50, blank=True, null=True))
     stations = ArrayField(models.CharField())
@@ -400,7 +400,7 @@ class GamitSubnets(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'gamit_subnets'
         unique_together = (('project', 'subnet', 'year', 'doy'),)
 
@@ -414,13 +414,13 @@ class GamitZtd(BaseModel):
     project = models.CharField(db_column='Project', max_length=20)
     # Field name made lowercase.
     year = models.DecimalField(
-        db_column='Year', max_digits=65535, decimal_places=65535)
+        db_column='Year', max_digits=20, decimal_places=10)
     # Field name made lowercase.
     doy = models.DecimalField(
-        db_column='DOY', max_digits=65535, decimal_places=65535)
+        db_column='DOY', max_digits=20, decimal_places=10)
     # Field name made lowercase.
     ztd = models.DecimalField(
-        db_column='ZTD', max_digits=65535, decimal_places=65535)
+        db_column='ZTD', max_digits=20, decimal_places=10)
     model = models.DecimalField(
         max_digits=150, decimal_places=50, blank=True, null=True)
     sigma = models.DecimalField(
@@ -428,7 +428,7 @@ class GamitZtd(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'gamit_ztd'
         unique_together = (('network_code', 'station_code',
                            'date', 'project', 'year', 'doy'),)
@@ -447,7 +447,7 @@ class Keys(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'keys'
 
 
@@ -460,7 +460,7 @@ class Locks(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'locks'
 
 
@@ -473,7 +473,7 @@ class Networks(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'networks'
 
 
@@ -492,10 +492,10 @@ class PppSoln(BaseModel):
                             decimal_places=4, blank=True, null=True)
     # Field name made lowercase.
     year = models.DecimalField(
-        db_column='Year', max_digits=65535, decimal_places=65535)
+        db_column='Year', max_digits=20, decimal_places=10)
     # Field name made lowercase.
     doy = models.DecimalField(
-        db_column='DOY', max_digits=65535, decimal_places=65535)
+        db_column='DOY', max_digits=20, decimal_places=10)
     # Field name made lowercase.
     reference_frame = models.CharField(
         db_column='ReferenceFrame', max_length=20)
@@ -515,7 +515,7 @@ class PppSoln(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'ppp_soln'
         unique_together = (('network_code', 'station_code',
                            'year', 'doy', 'reference_frame'),)
@@ -527,14 +527,14 @@ class PppSolnExcl(BaseModel):
     station_code = models.CharField(db_column='StationCode', max_length=4)
     # Field name made lowercase.
     year = models.DecimalField(
-        db_column='Year', max_digits=65535, decimal_places=65535)
+        db_column='Year', max_digits=20, decimal_places=10)
     # Field name made lowercase.
     doy = models.DecimalField(
-        db_column='DOY', max_digits=65535, decimal_places=65535)
+        db_column='DOY', max_digits=20, decimal_places=10)
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'ppp_soln_excl'
         unique_together = (('network_code', 'station_code', 'year', 'doy'),)
 
@@ -549,7 +549,7 @@ class Receivers(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         ordering = ["receiver_code"]
         db_table = 'receivers'
 
@@ -612,7 +612,7 @@ class Rinex(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'rinex'
         ordering = ["observation_s_time"]
         unique_together = (('network_code', 'station_code', 'observation_year',
@@ -630,7 +630,7 @@ class RinexSourcesInfo(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'rinex_sources_info'
 
 
@@ -643,7 +643,7 @@ class RinexTankStruct(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'rinex_tank_struct'
 
 
@@ -652,7 +652,7 @@ class SourcesFormats(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'sources_formats'
 
 
@@ -667,7 +667,7 @@ class SourcesServers(BaseModel):
         SourcesFormats, models.DO_NOTHING, db_column='format', to_field='format')
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'sources_servers'
         ordering = ["fqdn"]
 
@@ -692,7 +692,7 @@ class SourcesStations(BaseModel):
         super().save(*args, **kwargs)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'sources_stations'
         unique_together = (('network_code', 'station_code', 'try_order'),)
 
@@ -706,10 +706,10 @@ class Stacks(BaseModel):
     project = models.CharField(db_column='Project', max_length=20)
     # Field name made lowercase.
     year = models.DecimalField(
-        db_column='Year', max_digits=65535, decimal_places=65535)
+        db_column='Year', max_digits=20, decimal_places=10)
     # Field name made lowercase.
     doy = models.DecimalField(
-        db_column='DOY', max_digits=65535, decimal_places=65535)
+        db_column='DOY', max_digits=20, decimal_places=10)
     # Field name made lowercase.
     f_year = models.DecimalField(
         db_column='FYear', max_digits=150, decimal_places=50, blank=True, null=True)
@@ -741,7 +741,7 @@ class Stacks(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'stacks'
         unique_together = (
             ('network_code', 'station_code', 'year', 'doy', 'name'),)
@@ -758,7 +758,7 @@ class Stationalias(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'stationalias'
         unique_together = (('network_code', 'station_code'),)
 
@@ -809,7 +809,7 @@ class Stationinfo(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'stationinfo'
         ordering = ["date_start"]
         constraints = [
@@ -857,7 +857,7 @@ class Stations(BaseModel):
     api_id = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'stations'
         ordering = ["api_id"]
         unique_together = (('network_code', 'station_code'),

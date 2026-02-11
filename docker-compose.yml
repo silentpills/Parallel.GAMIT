@@ -1,4 +1,22 @@
 services:
+  postgres:
+    container_name: gnss-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pgamit}
+      POSTGRES_USER: ${POSTGRES_USER:-pgamit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pgamit} -d ${POSTGRES_DB:-pgamit}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
   backend:
     container_name: gnss-backend
     build:
@@ -6,17 +24,18 @@ services:
       args:
         USER_ID_TO_SAVE_FILES: ${USER_ID_TO_SAVE_FILES}
         GROUP_ID_TO_SAVE_FILES: ${GROUP_ID_TO_SAVE_FILES}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      # PostgreSQL connection (overrides gnss_data.cfg)
-      - POSTGRES_HOST=${POSTGRES_HOST:-}
-      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
-      - POSTGRES_DB=${POSTGRES_DB:-}
-      - POSTGRES_USER=${POSTGRES_USER:-}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
-      # Django settings (overrides gnss_data.cfg)
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-}
+      # PostgreSQL connection
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-pgamit}
+      - POSTGRES_USER=${POSTGRES_USER:-pgamit}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      # Django settings
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY must be set in .env}
       - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
       - DJANGO_HTTPS=${DJANGO_HTTPS:-False}
       # File upload limits
@@ -43,6 +62,9 @@ services:
     depends_on:
       - backend
     restart: always
+
+volumes:
+  pgdata:
 
 networks:
   default:

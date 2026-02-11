@@ -77,7 +77,8 @@ Build and start the containers:
 docker compose up --build -d
 ```
 
-This starts two containers:
+This starts three containers:
+- `gnss-postgres`: PostgreSQL 16 database (data persisted in a Docker named volume)
 - `gnss-backend`: Django REST API
 - `gnss-frontend`: React/Vite frontend
 
@@ -95,7 +96,7 @@ The Django migrations create a default admin user:
 
 ```bash
 # If using Docker:
-docker exec -it gnss-backend python manage.py createsuperuser
+docker exec -it gnss-backend python /code/backend_django_project/manage.py createsuperuser
 ```
 
 You will be prompted for:
@@ -106,7 +107,7 @@ You will be prompted for:
 ### Changing the Default Admin Password
 
 ```bash
-docker exec -it gnss-backend python manage.py changepassword admin
+docker exec -it gnss-backend python /code/backend_django_project/manage.py changepassword admin
 ```
 
 ## Django Migrations
@@ -125,7 +126,7 @@ Migrations complete.
 If the database is unavailable at startup, the container will log a warning and continue running. You can manually run migrations later:
 
 ```bash
-docker exec -it gnss-backend python manage.py migrate
+docker exec -it gnss-backend python /code/backend_django_project/manage.py migrate
 ```
 
 ## API Documentation

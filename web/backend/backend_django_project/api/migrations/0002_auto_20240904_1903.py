@@ -37,6 +37,9 @@ def add_station_country_code_index(conn, cur):
     try:
         print("Executing: ", query)
         cur.execute(query)
+    except psycopg.errors.UndefinedTable:
+        print("Table stations does not exist (fresh install). Skipping...")
+        conn.rollback()
     except psycopg.errors.DuplicateTable as e:
         print(f"Index already exists. Continuing...")
         conn.rollback()
@@ -57,6 +60,9 @@ def add_alias_field_to_station(conn, cur):
     try:
         print("Executing: ", query)
         cur.execute(query)
+    except psycopg.errors.UndefinedTable:
+        print("Table stations does not exist (fresh install). Skipping...")
+        conn.rollback()
     except psycopg.errors.DuplicateColumn:
         print("Column alias already exists. Continuing...")
         conn.rollback()
@@ -77,6 +83,9 @@ def add_ant_daz_field_to_stationinfo(conn, cur):
     try:
         print("Executing: ", query)
         cur.execute(query)
+    except psycopg.errors.UndefinedTable:
+        print("Table stationinfo does not exist (fresh install). Skipping...")
+        conn.rollback()
     except psycopg.errors.DuplicateColumn:
         print("Column AntDAZ already exists. Continuing...")
         conn.rollback()

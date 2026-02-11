@@ -69,6 +69,9 @@ def add_id_column(apps, schema_editor):
             query = f"ALTER TABLE {table} ADD UNIQUE(api_id)"
             print("Executing: ", query)
             cur.execute(query)
+        except psycopg.errors.UndefinedTable:
+            print(f"Table {table} does not exist (fresh install). Skipping...")
+            conn.rollback()
         except psycopg.errors.DuplicateColumn:
             print(f"Table {table} already has a api_id column. Continuing...")
             conn.rollback()
@@ -100,7 +103,7 @@ class Migration(migrations.Migration):
             options={
                 'db_table': 'antennas',
                 'ordering': ['antenna_code'],
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -122,7 +125,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'apr_coords',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -131,14 +134,14 @@ class Migration(migrations.Migration):
                 ('network_code', models.CharField(db_column='NetworkCode', max_length=3)),
                 ('station_code', models.CharField(db_column='StationCode')),
                 ('station_alias', models.CharField(db_column='StationAlias', max_length=4)),
-                ('year', models.DecimalField(db_column='Year', decimal_places=65535, max_digits=65535)),
-                ('doy', models.DecimalField(db_column='DOY', decimal_places=65535, max_digits=65535)),
+                ('year', models.DecimalField(db_column='Year', decimal_places=10, max_digits=20)),
+                ('doy', models.DecimalField(db_column='DOY', decimal_places=10, max_digits=20)),
                 ('sync_date', models.DateTimeField(blank=True, null=True)),
                 ('api_id', models.AutoField(primary_key=True, serialize=False)),
             ],
             options={
                 'db_table': 'aws_sync',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -146,7 +149,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('network_code', models.CharField(db_column='NetworkCode', max_length=3)),
                 ('station_code', models.CharField(db_column='StationCode', max_length=4)),
-                ('try_order', models.DecimalField(decimal_places=65535, max_digits=65535)),
+                ('try_order', models.DecimalField(decimal_places=10, max_digits=20)),
                 ('protocol', models.CharField()),
                 ('fqdn', models.CharField()),
                 ('username', models.CharField(blank=True, null=True)),
@@ -157,15 +160,15 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'data_source',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
             name='Earthquakes',
             fields=[
                 ('date', models.DateTimeField()),
-                ('lat', models.DecimalField(decimal_places=65535, max_digits=65535)),
-                ('lon', models.DecimalField(decimal_places=65535, max_digits=65535)),
+                ('lat', models.DecimalField(decimal_places=10, max_digits=20)),
+                ('lon', models.DecimalField(decimal_places=10, max_digits=20)),
                 ('depth', models.DecimalField(blank=True, decimal_places=50, max_digits=150, null=True)),
                 ('mag', models.DecimalField(blank=True, decimal_places=50, max_digits=150, null=True)),
                 ('strike1', models.DecimalField(blank=True, decimal_places=50, max_digits=150, null=True)),
@@ -180,7 +183,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'earthquakes',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -201,7 +204,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'etm_params',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -225,7 +228,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'etms',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -245,7 +248,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'events',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -257,7 +260,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'executions',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -272,7 +275,7 @@ class Migration(migrations.Migration):
             options={
                 'db_table': 'gamit_htc',
                 'ordering': ['antenna_code', 'height_code'],
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -281,8 +284,8 @@ class Migration(migrations.Migration):
                 ('network_code', models.CharField(db_column='NetworkCode', max_length=3)),
                 ('station_code', models.CharField(db_column='StationCode', max_length=4)),
                 ('project', models.CharField(db_column='Project', max_length=20)),
-                ('year', models.DecimalField(db_column='Year', decimal_places=65535, max_digits=65535)),
-                ('doy', models.DecimalField(db_column='DOY', decimal_places=65535, max_digits=65535)),
+                ('year', models.DecimalField(db_column='Year', decimal_places=10, max_digits=20)),
+                ('doy', models.DecimalField(db_column='DOY', decimal_places=10, max_digits=20)),
                 ('fyear', models.DecimalField(blank=True, db_column='FYear', decimal_places=50, max_digits=150, null=True)),
                 ('x', models.DecimalField(blank=True, db_column='X', decimal_places=50, max_digits=150, null=True)),
                 ('y', models.DecimalField(blank=True, db_column='Y', decimal_places=50, max_digits=150, null=True)),
@@ -298,7 +301,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'gamit_soln',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -314,16 +317,16 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'gamit_soln_excl',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
             name='GamitStats',
             fields=[
                 ('project', models.CharField(db_column='Project', max_length=20)),
-                ('subnet', models.DecimalField(decimal_places=65535, max_digits=65535)),
-                ('year', models.DecimalField(db_column='Year', decimal_places=65535, max_digits=65535)),
-                ('doy', models.DecimalField(db_column='DOY', decimal_places=65535, max_digits=65535)),
+                ('subnet', models.DecimalField(decimal_places=10, max_digits=20)),
+                ('year', models.DecimalField(db_column='Year', decimal_places=10, max_digits=20)),
+                ('doy', models.DecimalField(db_column='DOY', decimal_places=10, max_digits=20)),
                 ('f_year', models.DecimalField(blank=True, db_column='FYear', decimal_places=50, max_digits=150, null=True)),
                 ('wl', models.DecimalField(blank=True, decimal_places=50, max_digits=150, null=True)),
                 ('nl', models.DecimalField(blank=True, decimal_places=50, max_digits=150, null=True)),
@@ -340,16 +343,16 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'gamit_stats',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
             name='GamitSubnets',
             fields=[
                 ('project', models.CharField(db_column='Project', max_length=20)),
-                ('subnet', models.DecimalField(decimal_places=65535, max_digits=65535)),
-                ('year', models.DecimalField(db_column='Year', decimal_places=65535, max_digits=65535)),
-                ('doy', models.DecimalField(db_column='DOY', decimal_places=65535, max_digits=65535)),
+                ('subnet', models.DecimalField(decimal_places=10, max_digits=20)),
+                ('year', models.DecimalField(db_column='Year', decimal_places=10, max_digits=20)),
+                ('doy', models.DecimalField(db_column='DOY', decimal_places=10, max_digits=20)),
                 ('centroid', django.contrib.postgres.fields.ArrayField(base_field=models.DecimalField(blank=True, decimal_places=50, max_digits=150, null=True), size=None)),
                 ('stations', django.contrib.postgres.fields.ArrayField(base_field=models.CharField(), size=None)),
                 ('alias', django.contrib.postgres.fields.ArrayField(base_field=models.CharField(), size=None)),
@@ -358,7 +361,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'gamit_subnets',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -368,16 +371,16 @@ class Migration(migrations.Migration):
                 ('station_code', models.CharField(db_column='StationCode', max_length=4)),
                 ('date', models.DateTimeField(db_column='Date')),
                 ('project', models.CharField(db_column='Project', max_length=20)),
-                ('year', models.DecimalField(db_column='Year', decimal_places=65535, max_digits=65535)),
-                ('doy', models.DecimalField(db_column='DOY', decimal_places=65535, max_digits=65535)),
-                ('ztd', models.DecimalField(db_column='ZTD', decimal_places=65535, max_digits=65535)),
+                ('year', models.DecimalField(db_column='Year', decimal_places=10, max_digits=20)),
+                ('doy', models.DecimalField(db_column='DOY', decimal_places=10, max_digits=20)),
+                ('ztd', models.DecimalField(db_column='ZTD', decimal_places=10, max_digits=20)),
                 ('model', models.DecimalField(blank=True, decimal_places=50, max_digits=150, null=True)),
                 ('sigma', models.DecimalField(blank=True, decimal_places=50, max_digits=150, null=True)),
                 ('api_id', models.AutoField(primary_key=True, serialize=False)),
             ],
             options={
                 'db_table': 'gamit_ztd',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -392,7 +395,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'keys',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -405,7 +408,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'locks',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -417,7 +420,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'networks',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -428,8 +431,8 @@ class Migration(migrations.Migration):
                 ('x', models.DecimalField(blank=True, db_column='X', decimal_places=4, max_digits=12, null=True)),
                 ('y', models.DecimalField(blank=True, db_column='Y', decimal_places=4, max_digits=12, null=True)),
                 ('z', models.DecimalField(blank=True, db_column='Z', decimal_places=4, max_digits=12, null=True)),
-                ('year', models.DecimalField(db_column='Year', decimal_places=65535, max_digits=65535)),
-                ('doy', models.DecimalField(db_column='DOY', decimal_places=65535, max_digits=65535)),
+                ('year', models.DecimalField(db_column='Year', decimal_places=10, max_digits=20)),
+                ('doy', models.DecimalField(db_column='DOY', decimal_places=10, max_digits=20)),
                 ('reference_frame', models.CharField(db_column='ReferenceFrame', max_length=20)),
                 ('sigmax', models.DecimalField(blank=True, decimal_places=50, max_digits=150, null=True)),
                 ('sigmay', models.DecimalField(blank=True, decimal_places=50, max_digits=150, null=True)),
@@ -442,7 +445,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'ppp_soln',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -450,13 +453,13 @@ class Migration(migrations.Migration):
             fields=[
                 ('network_code', models.CharField(db_column='NetworkCode', max_length=3)),
                 ('station_code', models.CharField(db_column='StationCode', max_length=4)),
-                ('year', models.DecimalField(db_column='Year', decimal_places=65535, max_digits=65535)),
-                ('doy', models.DecimalField(db_column='DOY', decimal_places=65535, max_digits=65535)),
+                ('year', models.DecimalField(db_column='Year', decimal_places=10, max_digits=20)),
+                ('doy', models.DecimalField(db_column='DOY', decimal_places=10, max_digits=20)),
                 ('api_id', models.AutoField(primary_key=True, serialize=False)),
             ],
             options={
                 'db_table': 'ppp_soln_excl',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -469,7 +472,7 @@ class Migration(migrations.Migration):
             options={
                 'db_table': 'receivers',
                 'ordering': ['receiver_code'],
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -499,7 +502,7 @@ class Migration(migrations.Migration):
             options={
                 'db_table': 'rinex',
                 'ordering': ['observation_s_time'],
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -516,7 +519,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'rinex_sources_info',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -527,7 +530,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'rinex_tank_struct',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -538,7 +541,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'sources_formats',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -553,7 +556,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'sources_servers',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -567,7 +570,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'sources_stations',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -576,8 +579,8 @@ class Migration(migrations.Migration):
                 ('network_code', models.CharField(db_column='NetworkCode', max_length=3)),
                 ('station_code', models.CharField(db_column='StationCode', max_length=4)),
                 ('project', models.CharField(db_column='Project', max_length=20)),
-                ('year', models.DecimalField(db_column='Year', decimal_places=65535, max_digits=65535)),
-                ('doy', models.DecimalField(db_column='DOY', decimal_places=65535, max_digits=65535)),
+                ('year', models.DecimalField(db_column='Year', decimal_places=10, max_digits=20)),
+                ('doy', models.DecimalField(db_column='DOY', decimal_places=10, max_digits=20)),
                 ('f_year', models.DecimalField(blank=True, db_column='FYear', decimal_places=50, max_digits=150, null=True)),
                 ('x', models.DecimalField(blank=True, db_column='X', decimal_places=50, max_digits=150, null=True)),
                 ('y', models.DecimalField(blank=True, db_column='Y', decimal_places=50, max_digits=150, null=True)),
@@ -594,7 +597,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'stacks',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -607,7 +610,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'db_table': 'stationalias',
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -634,7 +637,7 @@ class Migration(migrations.Migration):
             options={
                 'db_table': 'stationinfo',
                 'ordering': ['date_start'],
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -660,7 +663,7 @@ class Migration(migrations.Migration):
             options={
                 'db_table': 'stations',
                 'ordering': ['api_id'],
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
