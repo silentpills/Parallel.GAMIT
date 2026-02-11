@@ -29,8 +29,7 @@ dependencies = [
     "pandas",
     "tqdm>=4.66.5",
     "dispy",
-    # TODO: migrate psycopg2-binary to psycopg (v3) — psycopg2 is in maintenance-only mode
-    "psycopg2-binary>=2.9.9",
+    "psycopg[binary]>=3.1.8",
     "pycos",
     "country-converter",
     "charset-normalizer>=3.4.4",

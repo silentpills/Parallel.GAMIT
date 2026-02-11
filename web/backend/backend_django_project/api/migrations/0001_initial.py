@@ -9,10 +9,10 @@ import django.db.models.deletion
 import django.utils.timezone
 from django.conf import settings
 from django.db import migrations, models
-import psycopg2
+import psycopg
 
 def connect_to_db():
-    conn = psycopg2.connect(
+    conn = psycopg.connect(
         f'dbname={settings.DATABASES["default"]["NAME"]} user={settings.DATABASES["default"]["USER"]} password={settings.DATABASES["default"]["PASSWORD"]} host={settings.DATABASES["default"]["HOST"]} port={settings.DATABASES["default"]["PORT"]}')
 
     cur = conn.cursor()
@@ -69,7 +69,7 @@ def add_id_column(apps, schema_editor):
             query = f"ALTER TABLE {table} ADD UNIQUE(api_id)"
             print("Executing: ", query)
             cur.execute(query)
-        except psycopg2.errors.DuplicateColumn:
+        except psycopg.errors.DuplicateColumn:
             print(f"Table {table} already has a api_id column. Continuing...")
             conn.rollback()
         else:

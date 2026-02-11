@@ -2,10 +2,10 @@
 
 from django.db import migrations
 from django.conf import settings
-import psycopg2
+import psycopg
 
 def connect_to_db():
-    conn = psycopg2.connect(
+    conn = psycopg.connect(
         f'dbname={settings.DATABASES["default"]["NAME"]} user={settings.DATABASES["default"]["USER"]} password={settings.DATABASES["default"]["PASSWORD"]} host={settings.DATABASES["default"]["HOST"]} port={settings.DATABASES["default"]["PORT"]}')
 
     cur = conn.cursor()

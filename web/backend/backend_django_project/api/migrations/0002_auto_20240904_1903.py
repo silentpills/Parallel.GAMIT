@@ -5,7 +5,7 @@ from django.db import migrations
 import json
 import os.path
 from django.conf import settings
-import psycopg2
+import psycopg
 
 
 def create_countries(apps, schema_editor):
@@ -21,7 +21,7 @@ def create_countries(apps, schema_editor):
 
 
 def connect_to_db():
-    conn = psycopg2.connect(
+    conn = psycopg.connect(
         f'dbname={settings.DATABASES["default"]["NAME"]} user={settings.DATABASES["default"]["USER"]} password={settings.DATABASES["default"]["PASSWORD"]} host={settings.DATABASES["default"]["HOST"]} port={settings.DATABASES["default"]["PORT"]}')
 
     cur = conn.cursor()
@@ -37,7 +37,7 @@ def add_station_country_code_index(conn, cur):
     try:
         print("Executing: ", query)
         cur.execute(query)
-    except psycopg2.errors.DuplicateTable as e:
+    except psycopg.errors.DuplicateTable as e:
         print(f"Index already exists. Continuing...")
         conn.rollback()
     else:
@@ -57,7 +57,7 @@ def add_alias_field_to_station(conn, cur):
     try:
         print("Executing: ", query)
         cur.execute(query)
-    except psycopg2.errors.DuplicateColumn:
+    except psycopg.errors.DuplicateColumn:
         print("Column alias already exists. Continuing...")
         conn.rollback()
     else:
@@ -77,7 +77,7 @@ def add_ant_daz_field_to_stationinfo(conn, cur):
     try:
         print("Executing: ", query)
         cur.execute(query)
-    except psycopg2.errors.DuplicateColumn:
+    except psycopg.errors.DuplicateColumn:
         print("Column AntDAZ already exists. Continuing...")
         conn.rollback()
     else:
@@ -856,7 +856,7 @@ def create_gaps_triggers(apps, schema_editor):
     try:
         print("Executing: ", query)
         cur.execute(query)
-    except psycopg2.errors.DuplicateObject as e:
+    except psycopg.errors.DuplicateObject as e:
         print(f"Trigger already exists. Continuing...")
         conn.rollback()
     else:
@@ -872,7 +872,7 @@ def create_gaps_triggers(apps, schema_editor):
     try:
         print("Executing: ", query)
         cur.execute(query)
-    except psycopg2.errors.DuplicateObject as e:
+    except psycopg.errors.DuplicateObject as e:
         print(f"Trigger already exists. Continuing...")
         conn.rollback()
     else:
@@ -952,7 +952,7 @@ def create_stationinfo_trigger(apps, schema_editor):
     try:
         print("Executing: ", query)
         cur.execute(query)
-    except psycopg2.errors.DuplicateObject as e:
+    except psycopg.errors.DuplicateObject as e:
         print(f"Trigger already exists. Continuing...")
         conn.rollback()
     else:
@@ -1021,7 +1021,7 @@ def create_station_trigger(apps, schema_editor):
     try:
         print("Executing: ", query)
         cur.execute(query)
-    except psycopg2.errors.DuplicateObject as e:
+    except psycopg.errors.DuplicateObject as e:
         print(f"Trigger already exists. Continuing...")
         conn.rollback()
     else:
