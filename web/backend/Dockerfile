@@ -1,12 +1,15 @@
 # syntax=docker/dockerfile:1
-FROM python:3.11
+FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ARG USER_ID_TO_SAVE_FILES=1000
 ARG GROUP_ID_TO_SAVE_FILES=1000
 
 # Install system dependencies
+# curl + ca-certificates are needed for the uv installer (not in -slim by default)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
     supervisor \
     redis-server \
     libpq-dev \
