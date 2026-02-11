@@ -41,10 +41,28 @@ class DatabaseHealthCheckMiddleware:
         self._last_check_time = 0.0
         self._last_check_ok = False
 
+    def _db_error_response(self):
+        return JsonResponse(
+            {
+                "type": "database_error",
+                "errors": [
+                    {
+                        "code": "database_error",
+                        "detail": "Error when trying to connect to database",
+                    }
+                ]
+            },
+            status=500
+        )
+
     def __call__(self, request):
         now = time.monotonic()
         if self._last_check_ok and (now - self._last_check_time) < self._CACHE_TTL:
-            return self.get_response(request)
+            try:
+                return self.get_response(request)
+            except DatabaseOperationalError:
+                self._last_check_ok = False
+                return self._db_error_response()
 
         db_conn = connections['default']
         try:
@@ -52,18 +70,7 @@ class DatabaseHealthCheckMiddleware:
                 cursor.execute("SELECT 1")
         except DatabaseOperationalError:
             self._last_check_ok = False
-            return JsonResponse(
-                {
-                    "type": "database_error",
-                    "errors": [
-                        {
-                            "code": "database_error",
-                            "detail": "Error when trying to connect to database",
-                        }
-                    ]
-                },
-                status=500
-            )
+            return self._db_error_response()
         else:
             self._last_check_time = now
             self._last_check_ok = True

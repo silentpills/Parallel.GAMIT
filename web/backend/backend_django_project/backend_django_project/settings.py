@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
+from urllib.parse import quote as urlquote
 
 import os
 
@@ -23,7 +24,7 @@ from datetime import timedelta
 
 _redis_password = os.getenv('REDIS_PASSWORD', '')
 _redis_url = (
-    f'redis://:{_redis_password}@localhost:6379/0'
+    f'redis://:{urlquote(_redis_password, safe="")}@localhost:6379/0'
     if _redis_password
     else 'redis://localhost:6379/0'
 )
