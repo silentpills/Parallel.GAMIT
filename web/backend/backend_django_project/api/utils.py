@@ -35,6 +35,50 @@ from django.db.models import Max
 
 logger = logging.getLogger('django')
 
+# Strict pattern for values interpolated into raw SQL queries.
+# Allows only alphanumeric chars, underscores, hyphens, and dots (max 64 chars).
+_SQL_SAFE_VALUE_RE = re.compile(r'^[\w.\-]{1,64}$')
+
+# Maximum decompressed size for gzip uploads (500 MB).
+# Prevents gzip bombs from exhausting server memory.
+MAX_DECOMPRESSED_SIZE = 500 * 1024 * 1024
+
+
+def validate_sql_literal(value, param_name="parameter"):
+    """Validate that a value is safe to interpolate into a raw SQL query.
+
+    Raises CustomValidationErrorExceptionHandler if the value contains
+    characters that could be used for SQL injection.
+    """
+    if not isinstance(value, str) or not _SQL_SAFE_VALUE_RE.match(value):
+        raise exceptions.CustomValidationErrorExceptionHandler(
+            f"'{param_name}' contains invalid characters.")
+    return value
+
+
+def safe_gzip_decompress(compressed_data, label="file"):
+    """Decompress gzip data with a size limit to prevent gzip bombs."""
+    try:
+        with gzip.GzipFile(fileobj=BytesIO(compressed_data), mode='rb') as f:
+            chunks = []
+            total_size = 0
+            while True:
+                chunk = f.read(65536)
+                if not chunk:
+                    break
+                total_size += len(chunk)
+                if total_size > MAX_DECOMPRESSED_SIZE:
+                    raise exceptions.CustomValidationErrorExceptionHandler(
+                        f"Decompressed {label} exceeds maximum allowed size "
+                        f"({MAX_DECOMPRESSED_SIZE // (1024 * 1024)} MB).")
+                chunks.append(chunk)
+            return b''.join(chunks)
+    except exceptions.CustomValidationErrorExceptionHandler:
+        raise
+    except Exception as e:
+        raise exceptions.CustomValidationErrorExceptionHandler(
+            f"Failed to decompress {label}: {str(e)}")
+
 
 def get_actual_image(image_obj, request):
     """Returns the actual image encoded in base64, optionally as a thumbnail"""
@@ -182,7 +226,6 @@ class TimeSeriesConfigUtils:
                         "'" + param_name + "'" + " parameter has a wrong format.")
                 else:
                     params[param_name] = date
-                    print(f"{type(date)=}")
 
         if isinstance(params["date_start"], datetime.datetime) and isinstance(params["date_end"], datetime.datetime):
             if params["date_start"] > params["date_end"]:
@@ -271,11 +314,15 @@ class TimeSeriesConfigUtils:
                 if not check_params:
                     params = self._check_one_param(request, "stack", params)
 
-                polyhedrons = self.cnn.query_float('SELECT "X", "Y", "Z", "Year", "DOY" FROM stacks '
-                                                   'WHERE "name" = \'%s\' AND "NetworkCode" = \'%s\' AND '
-                                                   '"StationCode" = \'%s\' '
-                                                   'ORDER BY "Year", "DOY", "NetworkCode", "StationCode"'
-                                                   % (params["stack"], network_code, station_code))
+                safe_stack = validate_sql_literal(params["stack"], "stack")
+                safe_net = validate_sql_literal(network_code, "NetworkCode")
+                safe_stn = validate_sql_literal(station_code, "StationCode")
+                polyhedrons = self.cnn.query_float(
+                    'SELECT "X", "Y", "Z", "Year", "DOY" FROM stacks '
+                    "WHERE \"name\" = '%s' AND \"NetworkCode\" = '%s' AND "
+                    "\"StationCode\" = '%s' "
+                    'ORDER BY "Year", "DOY", "NetworkCode", "StationCode"'
+                    % (safe_stack, safe_net, safe_stn))
 
                 soln = pyETM.GamitSoln(
                     self.cnn, polyhedrons, network_code, station_code, params["stack"])
@@ -875,13 +922,7 @@ class UploadMultipleFilesUtils:
                 joined_file_content = b''.join(
                     [part[0].read() for part in parts])
 
-                # Decompress the file using gzip
-                try:
-                    with gzip.GzipFile(fileobj=BytesIO(joined_file_content), mode='rb') as f:
-                        decompressed_data = f.read()
-                except Exception as e:
-                    raise exceptions.CustomValidationErrorExceptionHandler(
-                        f"Failed to decompress file: {str(e)}")
+                decompressed_data = safe_gzip_decompress(joined_file_content, label=file_name)
 
                 main_object = parts[0][1]
                 description = parts[0][2]
@@ -950,13 +991,7 @@ class UploadMultipleFilesUtils:
                 joined_image_content = b''.join(
                     [part[0].read() for part in parts])
 
-                # Decompress the image using gzip
-                try:
-                    with gzip.GzipFile(fileobj=BytesIO(joined_image_content), mode='rb') as f:
-                        decompressed_data = f.read()
-                except Exception as e:
-                    raise exceptions.CustomValidationErrorExceptionHandler(
-                        f"Failed to decompress image: {str(e)}")
+                decompressed_data = safe_gzip_decompress(joined_image_content, label=image_name)
 
                 main_object = parts[0][1]
                 description = parts[0][2]

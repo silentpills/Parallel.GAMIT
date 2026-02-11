@@ -30,7 +30,7 @@ class CustomValidationErrorExceptionHandler(APIException):
 
 
 class CustomServerErrorExceptionHandler(APIException):
-    status_code = 400
+    status_code = 500
     default_code = 'ServerError occurred.'
     default_detail = 'ServerError occurred.'
 

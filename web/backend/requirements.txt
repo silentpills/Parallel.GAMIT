@@ -1,10 +1,6 @@
-
-#----Modified packages (path relative to gps/backend/ folder)----
 wheel==0.45.1
-# modified some code due to bugs in official release
-modified_packages/drf-spectacular
+drf-spectacular==0.28.0
 
-#----Official packages----
 django-cleanup==8.1.0
 argon2-cffi==23.1.0
 argon2-cffi-bindings==21.2.0
@@ -34,11 +30,9 @@ pytz==2024.1
 PyYAML==6.0.1
 referencing==0.35.1
 rpds-py==0.18.1
-six==1.16.0
 sqlparse==0.5.0
-typing_extensions
+typing_extensions>=4.7.0
 uritemplate==4.1.1
-schedule==1.2.2
 gunicorn>=20.1,<21.0
 celery==5.4.0
 redis==5.0.8

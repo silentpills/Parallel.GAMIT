@@ -27,6 +27,13 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_EXPIRES = 3600
 
+CELERY_BEAT_SCHEDULE = {
+    'update-gaps-status': {
+        'task': 'api.tasks.update_gaps_status_periodic',
+        'schedule': 10.0,  # seconds — matches the previous polling interval
+    },
+}
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
