@@ -1,15 +1,9 @@
 from django.apps import AppConfig
-import threading
-import time
-import schedule
-import sys
-import os
 
 
 class ApiConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'api'
-    continuous_thread = None
 
     def ready(self):
 

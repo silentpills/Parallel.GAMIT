@@ -39,12 +39,12 @@ from io import BytesIO
 
 
 def response_is_paginated(response_data):
-    return type(response_data) == dict
+    return isinstance(response_data, dict)
 
 
 class AddCountMixin:
 
-    def list(request, *args, **kwargs):
+    def list(self, request, *args, **kwargs):
         """If the response status is 200, returns these additional fields:
         'count': the number of objects retrieved after pagination (if required) and after filtering,
         'total_count': the number of objects before pagination (if required) and after filtering
@@ -151,25 +151,24 @@ class RoleDetail(generics.RetrieveUpdateAPIView):
     def update(self, request, *args, **kwargs):
         """
             Deactivate role's users if the role is deactivated.
+            Prevent modification of the 'update-gaps-status' role.
         """
-        is_active_before_update = self.get_object().is_active
+        role = self.get_object()
+        if role.name == 'update-gaps-status':
+            raise exceptions.CustomValidationErrorExceptionHandler(
+                "The 'update-gaps-status' role cannot be modified.")
+
+        is_active_before_update = role.is_active
 
         response = super().update(request, *args, **kwargs)
 
         is_active_after_update = self.get_object().is_active
 
-        if (is_active_before_update == True and is_active_after_update == False):
+        if is_active_before_update and not is_active_after_update:
             models.User.objects.filter(
-                role=self.get_object().id).update(is_active=False)
+                role=role.id).update(is_active=False)
 
         return response
-
-    def update(self, request, *args, **kwargs):
-        role = self.get_object()
-        if role.name == 'update-gaps-status':
-            raise exceptions.CustomValidationErrorExceptionHandler(
-                "The 'update-gaps-status' role cannot be modified.")
-        return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         role = self.get_object()
@@ -202,7 +201,7 @@ class EndpointsClusterList(CustomListCreateAPIView):
     filter_backends = [DjangoFilterBackend]
     filterset_class = filters.EndpointsClusterFilter
 
-    def list(request, *args, **kwargs):
+    def list(self, request, *args, **kwargs):
         """ If response status is 200, group clusters by resource"""
 
         response = super().list(request, *args, **kwargs)
@@ -273,7 +272,7 @@ class StationList(CustomListCreateAPIView):
     filter_backends = [DjangoFilterBackend]
     filterset_class = filters.StationFilter
 
-    def list(request, *args, **kwargs):
+    def list(self, request, *args, **kwargs):
         """If the response status is 200, add some fields of the related stationmeta object"""
 
         response = super().list(request, *args, **kwargs)
@@ -382,7 +381,7 @@ class StationCodesList(CustomListAPIView):
     def get_queryset(self):
         return models.Stations.objects.all().filter(network_code__api_id=self.kwargs["network_api_id"]).values("station_code")
 
-    def list(request, *args, **kwargs):
+    def list(self, request, *args, **kwargs):
         """If the response status is 200, returns a list of station codes instead of an list of objects"""
 
         response = super().list(request, *args, **kwargs)
@@ -458,7 +457,6 @@ class TimeSeries(CustomListAPIView):
                         "'" + param_name + "'" + " parameter has a wrong format.")
                 else:
                     params[param_name] = date
-                    print(f"{type(date)=}")
 
         if isinstance(params["date_start"], datetime.datetime) and isinstance(params["date_end"], datetime.datetime):
             if params["date_start"] > params["date_end"]:
@@ -513,11 +511,15 @@ class TimeSeries(CustomListAPIView):
         cnn = dbConnection.Cnn(settings.CONFIG_FILE_ABSOLUTE_PATH)
         try:
             if params["solution"] == "GAMIT":
-                polyhedrons = cnn.query_float('SELECT "X", "Y", "Z", "Year", "DOY" FROM stacks '
-                                              'WHERE "name" = \'%s\' AND "NetworkCode" = \'%s\' AND '
-                                              '"StationCode" = \'%s\' '
-                                              'ORDER BY "Year", "DOY", "NetworkCode", "StationCode"'
-                                              % (params["stack"], network_code, station_code))
+                safe_stack = utils.validate_sql_literal(params["stack"], "stack")
+                safe_net = utils.validate_sql_literal(network_code, "NetworkCode")
+                safe_stn = utils.validate_sql_literal(station_code, "StationCode")
+                polyhedrons = cnn.query_float(
+                    'SELECT "X", "Y", "Z", "Year", "DOY" FROM stacks '
+                    "WHERE \"name\" = '%s' AND \"NetworkCode\" = '%s' AND "
+                    "\"StationCode\" = '%s' "
+                    'ORDER BY "Year", "DOY", "NetworkCode", "StationCode"'
+                    % (safe_stack, safe_net, safe_stn))
 
                 soln = pyETM.GamitSoln(
                     cnn, polyhedrons, network_code, station_code, params["stack"])
