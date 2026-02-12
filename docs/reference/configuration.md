@@ -117,7 +117,9 @@ atx = /path/to/resources/atx/igs20_2335_plus.atx
 
 ## Environment Variables
 
-Environment variables override configuration file settings when set.
+Environment variables (typically set via the `.env` file) override `gnss_data.cfg` settings when both are present. This means you can put database credentials in `.env` once and have both the CLI tools and web interface use them, without duplicating values in `gnss_data.cfg`.
+
+**Precedence (highest wins):** Environment variables (`.env`) > `gnss_data.cfg`
 
 ### Database Settings
 
@@ -161,10 +163,10 @@ Environment variables override configuration file settings when set.
 
 | Component | Configuration Source |
 |-----------|---------------------|
-| **CLI Tools** | `gnss_data.cfg` in working directory |
-| **Web Interface** | `.env` file (environment variables) |
+| **CLI Tools** | `gnss_data.cfg`, overridden by environment variables from `.env` |
+| **Web Interface** | `.env` file (environment variables only) |
 
-The web interface uses only environment variables and does not read `gnss_data.cfg`.
+The web interface does not read `gnss_data.cfg`. Both components connect to the same PostgreSQL database — put shared database credentials in `.env` so they stay in sync.
 
 ---
 

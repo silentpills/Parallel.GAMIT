@@ -1,6 +1,8 @@
 # Database Setup
 
-GeoDE relies heavily on a PostgreSQL database. Ideally, use two systems: one for the PostgreSQL database engine and another for running GeoDE. While running both on the same computer is possible, it's not recommended for high-efficiency processing.
+GeoDE relies heavily on a PostgreSQL database. The CLI tools and web interface both operate on the same database — the web UI manages station metadata and monitoring while the CLI tools handle GNSS processing. They should always be configured to point at the same PostgreSQL instance.
+
+Ideally, use two systems: one for the PostgreSQL database engine and another for running GeoDE. While running both on the same computer is possible, it's not recommended for high-efficiency processing.
 
 ## Install PostgreSQL
 
@@ -82,7 +84,7 @@ POSTGRES_HOST=host.docker.internal
 
 ### Remote Server Setup
 
-If using a remote server, it is highly recommended to use a VPN like [Tailscale](https://tailscale.com/) to secure the database connection instead of exposing port 5432 to the public internet.
+If using a remote server, secure the connection instead of exposing port 5432 to the public internet. Options include a VPN like [Tailscale](https://tailscale.com/), an SSH tunnel (`ssh -L 5432:localhost:5432 user@db-server`), or firewall rules restricting access to known IPs.
 
 #### Tailscale Setup (Recommended)
 
