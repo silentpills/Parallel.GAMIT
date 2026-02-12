@@ -75,8 +75,9 @@ def safe_gzip_decompress(compressed_data, label="file"):
     except exceptions.CustomValidationErrorExceptionHandler:
         raise
     except Exception as e:
+        logger.exception("Gzip decompression failed for %s", label)
         raise exceptions.CustomValidationErrorExceptionHandler(
-            f"Failed to decompress {label}: {str(e)}")
+            f"Failed to decompress {label}.")
 
 
 def get_actual_image(image_obj, request):
