@@ -7,6 +7,7 @@ except PackageNotFoundError:
     __version__ = "0.0.0"
 
 __all__ = [
+    "config",
     "cluster",
     "network",
     "plots",

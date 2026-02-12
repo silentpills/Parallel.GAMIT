@@ -9,35 +9,18 @@ It also handles the error, info and warning messages
 
 import configparser
 import inspect
-import os
 import platform
 import re
 from decimal import Decimal
-from pathlib import Path
 
 import numpy as np
 import psycopg
-from dotenv import load_dotenv
 from psycopg.adapt import Dumper, Loader
 from psycopg.rows import dict_row, tuple_row
 
 # app
+from .config import get_db_config
 from .Utils import create_empty_cfg, file_append, file_read_all
-
-# Load .env file if it exists (searches current directory and parents)
-# This allows CLI tools to use the same .env file as the web interface
-_env_file = Path.cwd() / ".env"
-if _env_file.exists():
-    load_dotenv(_env_file)
-else:
-    # Try to find .env in parent directories (useful when running from subdirs)
-    load_dotenv()
-
-DB_HOST = "localhost"
-DB_USER = "postgres"
-DB_PASS = ""
-DB_NAME = "gnss_data"
-
 
 DEBUG = False
 
@@ -322,48 +305,44 @@ class DatabaseError(psycopg.DatabaseError):
 
 
 class Cnn(object):
-    def __init__(self, configfile, use_float=False, write_cfg_file=False):
-        options = {
-            "hostname": DB_HOST,
-            "username": DB_USER,
-            "password": DB_PASS,
-            "database": DB_NAME,
-            "port": "5432",
-        }
-
+    def __init__(self, configfile=None, use_float=False, write_cfg_file=False):
         self.active_transaction = False
+
+        # -----------------------------------------------------------------
+        # Resolve database credentials.
+        #
+        # Priority (highest wins):
+        #   1. Environment variables  (POSTGRES_HOST, POSTGRES_PORT, …)
+        #   2. gnss_data.cfg [postgres] section  (legacy, optional)
+        #   3. Hard-coded defaults
+        #
+        # The [postgres] section in gnss_data.cfg is no longer required.
+        # New deployments should put database credentials in a .env file
+        # (see .env.example).
+        # -----------------------------------------------------------------
+        cfg_db_options = None
+
+        if configfile:
+            config = configparser.ConfigParser()
+            try:
+                config.read_string(file_read_all(configfile))
+                if config.has_section("postgres"):
+                    cfg_db_options = dict(config.items("postgres"))
+            except FileNotFoundError:
+                if write_cfg_file:
+                    create_empty_cfg()
+                    print(
+                        " >> No gnss_data.cfg file found, an empty one has "
+                        "been created.  Fill in the processing settings and "
+                        "configure database credentials in a .env file "
+                        "(see .env.example)."
+                    )
+                    exit(1)
+                else:
+                    raise
+
+        options = get_db_config(cfg_db_options)
         self.options = options
-
-        # parse session config file
-        config = configparser.ConfigParser()
-
-        try:
-            config.read_string(file_read_all(configfile))
-        except FileNotFoundError:
-            if write_cfg_file:
-                create_empty_cfg()
-                print(
-                    " >> No gnss_data.cfg file found, an empty one has been created. Replace all the necessary "
-                    "config and try again."
-                )
-                exit(1)
-            else:
-                raise
-        # get the database config from gnss_data.cfg
-        options.update(dict(config.items("postgres")))
-
-        # Environment variables override gnss_data.cfg settings
-        # This allows CLI tools to use the same .env file as the web interface
-        if os.getenv("POSTGRES_HOST"):
-            options["hostname"] = os.getenv("POSTGRES_HOST")
-        if os.getenv("POSTGRES_PORT"):
-            options["port"] = os.getenv("POSTGRES_PORT")
-        if os.getenv("POSTGRES_USER"):
-            options["username"] = os.getenv("POSTGRES_USER")
-        if os.getenv("POSTGRES_PASSWORD"):
-            options["password"] = os.getenv("POSTGRES_PASSWORD")
-        if os.getenv("POSTGRES_DB"):
-            options["database"] = os.getenv("POSTGRES_DB")
 
         # open connection to server
         err = None

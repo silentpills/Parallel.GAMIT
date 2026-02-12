@@ -1095,17 +1095,13 @@ def create_empty_cfg():
     """
     function to create an empty cfg file with all the parts that are needed
     """
-    cfg = """[postgres]
-# information to connect to the database (self explanatory)
-# replace the keywords in []
-hostname = [fqdm]
-username = [user]
-password = [pass]
-database = [gnss_data]
-
-# keys for brdc and sp3 tanks
-# $year, $doy, $month, $day, $gpsweek, $gpswkday
+    cfg = """# GeoDE / Parallel.GAMIT processing configuration
 #
+# DATABASE: Configure database credentials in a .env file (see .env.example).
+# This file is for GNSS processing settings only.
+#
+# Path variables supported: $year, $doy, $month, $day, $gpsweek, $gpswkday
+
 [archive]
 # absolute location of the rinex archive
 path = [absolute_path]

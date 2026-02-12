@@ -10,35 +10,34 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+import os
+from datetime import timedelta
 from pathlib import Path
 from urllib.parse import quote as urlquote
 
-import os
-
-from datetime import timedelta
-
+from geode.config import get_db_config, get_gnss_data_cfg_path
 
 # =============================================================================
 # Celery Configuration
 # =============================================================================
 
-_redis_password = os.getenv('REDIS_PASSWORD', '')
+_redis_password = os.getenv("REDIS_PASSWORD", "")
 _redis_url = (
-    f'redis://:{urlquote(_redis_password, safe="")}@localhost:6379/0'
+    f"redis://:{urlquote(_redis_password, safe='')}@localhost:6379/0"
     if _redis_password
-    else 'redis://localhost:6379/0'
+    else "redis://localhost:6379/0"
 )
 
 CELERY_BROKER_URL = _redis_url
 CELERY_RESULT_BACKEND = _redis_url
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_EXPIRES = 3600
 
 CELERY_BEAT_SCHEDULE = {
-    'update-gaps-status': {
-        'task': 'api.tasks.update_gaps_status_periodic',
-        'schedule': 10.0,  # seconds — matches the previous polling interval
+    "update-gaps-status": {
+        "task": "api.tasks.update_gaps_status_periodic",
+        "schedule": 10.0,  # seconds — matches the previous polling interval
     },
 }
 
@@ -54,21 +53,22 @@ CACHES = {
 # Upload Limits
 # =============================================================================
 
-DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('DATA_UPLOAD_MAX_MEMORY_SIZE', str(200 * 1024 * 1024)))  # 200 MB
-DATA_UPLOAD_MAX_NUMBER_FIELDS = int(os.getenv('DATA_UPLOAD_MAX_NUMBER_FIELDS', '10000'))
-DATA_UPLOAD_MAX_NUMBER_FILES = int(os.getenv('DATA_UPLOAD_MAX_NUMBER_FILES', '1000'))
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(
+    os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE", str(200 * 1024 * 1024))
+)  # 200 MB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = int(os.getenv("DATA_UPLOAD_MAX_NUMBER_FIELDS", "10000"))
+DATA_UPLOAD_MAX_NUMBER_FILES = int(os.getenv("DATA_UPLOAD_MAX_NUMBER_FILES", "1000"))
 
-MAX_SIZE_IMAGE_MB = os.getenv('MAX_SIZE_IMAGE_MB', '75')
-MAX_SIZE_FILE_MB = os.getenv('MAX_SIZE_FILE_MB', '75')
-RINEX_STATUS_DATE_SPAN_SECONDS = os.getenv('RINEX_STATUS_DATE_SPAN_SECONDS', '1000')
+MAX_SIZE_IMAGE_MB = os.getenv("MAX_SIZE_IMAGE_MB", "75")
+MAX_SIZE_FILE_MB = os.getenv("MAX_SIZE_FILE_MB", "75")
+RINEX_STATUS_DATE_SPAN_SECONDS = os.getenv("RINEX_STATUS_DATE_SPAN_SECONDS", "1000")
 
-USER_ID_TO_SAVE_FILES = os.getenv('USER_ID_TO_SAVE_FILES', '1000')
-GROUP_ID_TO_SAVE_FILES = os.getenv('GROUP_ID_TO_SAVE_FILES', '1000')
+USER_ID_TO_SAVE_FILES = os.getenv("USER_ID_TO_SAVE_FILES", "1000")
+GROUP_ID_TO_SAVE_FILES = os.getenv("GROUP_ID_TO_SAVE_FILES", "1000")
 
-# Path to the GNSS config file used by the geode package for DB connection info.
-# The geode.dbConnection.Cnn reads this file but POSTGRES_* env vars override its contents,
-# so even an empty/missing config file won't break DB connectivity in Docker deployments.
-CONFIG_FILE_ABSOLUTE_PATH = os.getenv('GNSS_CONFIG_FILE', '/etc/gnss_data.cfg')
+# Path to gnss_data.cfg (used by API views that call into geode library code).
+# Reads from GNSS_CONFIG_FILE env var; defaults to gnss_data.cfg in cwd.
+CONFIG_FILE_ABSOLUTE_PATH = get_gnss_data_cfg_path()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -77,23 +77,23 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ['DJANGO_SECRET_KEY']  # Required - no default for security
+SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]  # Required - no default for security
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
+DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
 
-if os.getenv('DJANGO_HTTPS', 'False') == 'True':
+if os.getenv("DJANGO_HTTPS", "False") == "True":
     SECURE_SSL_REDIRECT = True
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
 
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-MEDIA_URL = '/media/'
+MEDIA_URL = "/media/"
 
 ASSETS_FOLDER = os.path.join(BASE_DIR, "assets")
 
@@ -102,26 +102,26 @@ ASSETS_FOLDER = os.path.join(BASE_DIR, "assets")
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.Argon2PasswordHasher"]
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'api.apps.ApiConfig',
-    'rest_framework',
-    'corsheaders',
-    'django_filters',
-    'drf_spectacular',
-    'auditlog',
-    'drf_standardized_errors',
-    'django_cleanup.apps.CleanupConfig',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "api.apps.ApiConfig",
+    "rest_framework",
+    "corsheaders",
+    "django_filters",
+    "drf_spectacular",
+    "auditlog",
+    "drf_standardized_errors",
+    "django_cleanup.apps.CleanupConfig",
 ]
 
 
-_cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', '')
+_cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
 if _cors_origins:
-    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(',')]
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(",")]
     CORS_ALLOW_ALL_ORIGINS = False
 else:
     CORS_ALLOW_ALL_ORIGINS = DEBUG  # only allow all in debug mode
@@ -129,32 +129,30 @@ else:
 AUTH_USER_MODEL = "api.User"
 
 REST_FRAMEWORK = {
-
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
-
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
-        'api.permissions.RolePermission',
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+        "api.permissions.RolePermission",
     ],
-
-    'EXCEPTION_HANDLER': "drf_standardized_errors.handler.exception_handler",
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
-    'DEFAULT_PAGINATION_CLASS': 'api.pagination.CustomPagination',
-    'DEFAULT_SCHEMA_CLASS': 'drf_standardized_errors.openapi.AutoSchema',
+    "EXCEPTION_HANDLER": "drf_standardized_errors.handler.exception_handler",
+    "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
+    "DEFAULT_PAGINATION_CLASS": "api.pagination.CustomPagination",
+    "DEFAULT_SCHEMA_CLASS": "drf_standardized_errors.openapi.AutoSchema",
     # To avoid returning DecimalFields with trailing zeros
-    'COERCE_DECIMAL_TO_STRING': False,
+    "COERCE_DECIMAL_TO_STRING": False,
 }
 DRF_STANDARDIZED_ERRORS = {
-    "EXCEPTION_HANDLER_CLASS": "api.exceptions.CustomExceptionHandler"}
+    "EXCEPTION_HANDLER_CLASS": "api.exceptions.CustomExceptionHandler"
+}
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Parallel Gamit API',
-    'DESCRIPTION': '',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'SERVERS': [{'url': 'http://127.0.0.1:8000'}],
+    "TITLE": "Parallel Gamit API",
+    "DESCRIPTION": "",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SERVERS": [{"url": "http://127.0.0.1:8000"}],
     "ENUM_NAME_OVERRIDES": {
         "ValidationErrorEnum": "drf_standardized_errors.openapi_serializers.ValidationErrorEnum.choices",
         "ClientErrorEnum": "drf_standardized_errors.openapi_serializers.ClientErrorEnum.choices",
@@ -168,43 +166,45 @@ SPECTACULAR_SETTINGS = {
         "ErrorCode429Enum": "drf_standardized_errors.openapi_serializers.ErrorCode429Enum.choices",
         "ErrorCode500Enum": "drf_standardized_errors.openapi_serializers.ErrorCode500Enum.choices",
     },
-    "POSTPROCESSING_HOOKS": ["drf_standardized_errors.openapi_hooks.postprocess_schema_enums"],
+    "POSTPROCESSING_HOOKS": [
+        "drf_standardized_errors.openapi_hooks.postprocess_schema_enums"
+    ],
 }
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=4),
     "REFRESH_TOKEN_LIFETIME": timedelta(hours=6),
-    "TOKEN_OBTAIN_SERIALIZER": "api.serializers.MyTokenObtainPairSerializer"
+    "TOKEN_OBTAIN_SERIALIZER": "api.serializers.MyTokenObtainPairSerializer",
 }
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'api.middleware.DatabaseHealthCheckMiddleware',
-    'api.middleware.CustomAuditlogMiddleware',
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "api.middleware.DatabaseHealthCheckMiddleware",
+    "api.middleware.CustomAuditlogMiddleware",
 ]
 
-ROOT_URLCONF = 'config.urls'
+ROOT_URLCONF = "config.urls"
 
 PROJECT_PATH = str(BASE_DIR)
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
@@ -213,15 +213,13 @@ TEMPLATES = [
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    'formatters': {
-        'standard': {
-            'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
-        },
+    "formatters": {
+        "standard": {"format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"},
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            'formatter': 'standard',
+            "formatter": "standard",
         },
         "django_file": {
             "level": "INFO",
@@ -229,23 +227,23 @@ LOGGING = {
             "filename": os.path.join(PROJECT_PATH, "logs", "django_logs.txt"),
             "maxBytes": 1000000,
             "backupCount": 25,
-            'formatter': 'standard',
+            "formatter": "standard",
         },
-        'gunicorn_access': {
-            'level': 'INFO',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(PROJECT_PATH, "logs", 'gunicorn_access_logs.txt'),
-            'maxBytes': 1000000,
-            'backupCount': 25,
-            'formatter': 'standard',
+        "gunicorn_access": {
+            "level": "INFO",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": os.path.join(PROJECT_PATH, "logs", "gunicorn_access_logs.txt"),
+            "maxBytes": 1000000,
+            "backupCount": 25,
+            "formatter": "standard",
         },
-        'gunicorn_error': {
-            'level': 'ERROR',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(PROJECT_PATH, "logs", 'gunicorn_error_logs.txt'),
-            'maxBytes': 1000000,
-            'backupCount': 25,
-            'formatter': 'standard',
+        "gunicorn_error": {
+            "level": "ERROR",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": os.path.join(PROJECT_PATH, "logs", "gunicorn_error_logs.txt"),
+            "maxBytes": 1000000,
+            "backupCount": 25,
+            "formatter": "standard",
         },
     },
     "loggers": {
@@ -254,44 +252,39 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
-        'gunicorn.access': {
-            'handlers': ['gunicorn_access', 'console'],
-            'level': 'INFO',
-            'propagate': False,
+        "gunicorn.access": {
+            "handlers": ["gunicorn_access", "console"],
+            "level": "INFO",
+            "propagate": False,
         },
-        'gunicorn.error': {
-            'handlers': ['gunicorn_error', 'console'],
-            'level': 'ERROR',
-            'propagate': False,
+        "gunicorn.error": {
+            "handlers": ["gunicorn_error", "console"],
+            "level": "ERROR",
+            "propagate": False,
         },
     },
 }
 
-WSGI_APPLICATION = 'config.wsgi.application'
+WSGI_APPLICATION = "config.wsgi.application"
 
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-
-# Database configuration from environment variables
-_db_name = os.getenv('POSTGRES_DB', 'pgamit')
-_db_user = os.getenv('POSTGRES_USER', 'pgamit')
-_db_password = os.getenv('POSTGRES_PASSWORD', '')
-_db_host = os.getenv('POSTGRES_HOST', 'localhost')
-_db_port = os.getenv('POSTGRES_PORT', '5432')
+#
+# Credentials come from geode.config (reads .env / environment variables).
+# This is the same code path the CLI tools use, so both sides always agree.
+_db = get_db_config()
 
 DATABASES = {
-    'default': {
+    "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": _db_name,
-        "USER": _db_user,
-        "PASSWORD": _db_password,
-        "HOST": _db_host,
-        "PORT": _db_port,
+        "NAME": _db["database"],
+        "USER": _db["username"],
+        "PASSWORD": _db["password"],
+        "HOST": _db["hostname"],
+        "PORT": _db["port"],
         "ATOMIC_REQUESTS": True,
-        'TEST': {
-            'NAME': 'test_' + _db_name
-        }
+        "TEST": {"NAME": "test_" + _db["database"]},
     }
 }
 
@@ -300,16 +293,16 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -317,9 +310,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 
@@ -329,9 +322,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "static/"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

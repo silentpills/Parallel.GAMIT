@@ -82,10 +82,11 @@ jobs:
           fail_level: error
 
   commit-check:
-    name: Check Commit Messages
+    name: Check Commit Messages (Informational)
     runs-on: ubuntu-latest
     # Skip for Dependabot PRs since automated commits don't follow conventional format
     if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v6
         with:

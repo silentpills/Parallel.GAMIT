@@ -38,6 +38,8 @@ services:
       - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY must be set in .env}
       - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
       - DJANGO_HTTPS=${DJANGO_HTTPS:-False}
+      # Path to gnss_data.cfg (inside container)
+      - GNSS_CONFIG_FILE=${GNSS_CONFIG_FILE:-gnss_data.cfg}
       # File upload limits
       - MAX_SIZE_IMAGE_MB=${MAX_SIZE_IMAGE_MB:-75}
       - MAX_SIZE_FILE_MB=${MAX_SIZE_FILE_MB:-75}
