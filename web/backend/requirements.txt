@@ -8,7 +8,7 @@ argon2-cffi-bindings==21.2.0
 asgiref==3.8.1
 attrs==23.2.0
 cffi==1.16.0
-Django~=5.2.11
+Django~=6.0.2
 django-auditlog==3.0.0
 django-cors-headers==4.3.1
 django-filter==24.2
